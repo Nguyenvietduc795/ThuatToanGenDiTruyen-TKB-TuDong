@@ -1,5 +1,83 @@
+# ===== PYTHON =====
 __pycache__/
 *.pyc
 .claude/
 solution_files/*.txt
 solution_files/*.json
+
+# ===== ENV / SECRETS =====
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ===== DEPENDENCIES =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+jspm_packages/
+bower_components/
+
+# ===== PRODUCTION BUILDS =====
+.next/
+out/
+build/
+dist/
+build/Release
+
+# ===== CACHE =====
+.cache
+.parcel-cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+.npm
+.eslintcache
+.nyc_output
+coverage/
+*.lcov
+*.tsbuildinfo
+
+# ===== LOGS =====
+logs/
+*.log
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# ===== RUNTIME =====
+tmp/
+temp/
+.node_repl_history
+*.tgz
+.yarn-integrity
+.grunt
+.lock-wscript
+
+# ===== STORYBOOK =====
+.out/
+.storybook-out/
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ===== MISC =====
+.replit/
+.local/
