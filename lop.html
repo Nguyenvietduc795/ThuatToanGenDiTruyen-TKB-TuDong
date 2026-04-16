@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Lớp Học - DNC</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 1200px;">
+        <header>
+            <h1>HỆ THỐNG QUẢN LÝ LỚP</h1>
+       
+        </header>
+
+        <section class="form-section">
+            <div class="input-group">
+                <input type="text" id="maLop" value="Mã: Tự động" readonly title="Mã lớp tự sinh">
+                
+                <input type="text" id="khoa" placeholder="Khóa (VD: K20)">
+                <input type="text" id="tenLop" placeholder="Tên Lớp (VD: Kỹ thuật phần mềm 1)">
+                
+                <button onclick="handleClass()" class="btn-add" id="class-btn">Thêm Lớp</button>
+            </div>
+        </section>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mã Lớp</th>
+                        <th>Khóa</th>
+                        <th>Tên Lớp</th>
+                        <th style="width: 150px;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="class-table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Dữ liệu mẫu ban đầu
+        let classData = [
+            { MaLop: "L01", Khoa: "K20", TenLop: "Công nghệ thông tin 1" },
+            { MaLop: "L02", Khoa: "K21", TenLop: "Kỹ thuật phần mềm 2" }
+        ];
+
+        let editIndex = null;
+
+        // Hàm hiển thị bảng lớp học
+        function renderClassTable() {
+            const tableBody = document.getElementById('class-table-body');
+            tableBody.innerHTML = classData.map((lop, index) => `
+                <tr>
+                    <td><strong>${lop.MaLop}</strong></td>
+                    <td>${lop.Khoa}</td>
+                    <td>${lop.TenLop}</td>
+                    <td>
+                        <button onclick="editClass(${index})" class="btn-edit">Sửa</button>
+                        <button onclick="deleteClass(${index})" class="btn-delete">Xóa</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Hàm xử lý Thêm hoặc Cập nhật lớp
+        function handleClass() {
+            const khoa = document.getElementById('khoa').value;
+            const tenLop = document.getElementById('tenLop').value;
+
+            if (!khoa || !tenLop) return alert("Vui lòng nhập đầy đủ Khóa và Tên lớp!");
+
+            const newLop = {
+                Khoa: khoa,
+                TenLop: tenLop
+            };
+
+            if (editIndex !== null) {
+                // Chế độ Sửa: Giữ nguyên mã cũ
+                newLop.MaLop = classData[editIndex].MaLop;
+                classData[editIndex] = newLop;
+                editIndex = null;
+                document.getElementById('class-btn').innerText = "Thêm Lớp";
+                document.getElementById('class-btn').style.backgroundColor = "";
+            } else {
+                // Chế độ Thêm mới: Tự sinh mã L + số thứ tự (2 chữ số)
+                const lastNum = classData.length > 0 
+                    ? parseInt(classData[classData.length - 1].MaLop.replace('L', '')) 
+                    : 0;
+                newLop.MaLop = "L" + (lastNum + 1).toString().padStart(2, '0');
+                classData.push(newLop);
+            }
+
+            renderClassTable();
+            resetForm();
+        }
+
+        // Hàm đưa dữ liệu lớp lên form để sửa
+        function editClass(index) {
+            const lop = classData[index];
+            editIndex = index;
+
+            document.getElementById('maLop').value = lop.MaLop;
+            document.getElementById('khoa').value = lop.Khoa;
+            document.getElementById('tenLop').value = lop.TenLop;
+
+            const btn = document.getElementById('class-btn');
+            btn.innerText = "Lưu cập nhật";
+            btn.style.backgroundColor = "#3b82f6"; // Màu xanh dương khi sửa
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Hàm xóa lớp
+        function deleteClass(index) {
+            if(confirm("Bạn có chắc chắn muốn xóa lớp học này?")) {
+                classData.splice(index, 1);
+                renderClassTable();
+            }
+        }
+
+        // Reset các ô nhập liệu
+        function resetForm() {
+            document.getElementById('khoa').value = '';
+            document.getElementById('tenLop').value = '';
+            document.getElementById('maLop').value = "Mã: Tự động";
+        }
+
+        // Khởi chạy lần đầu
+        renderClassTable();
+    </script>
+</body>
+</html>
