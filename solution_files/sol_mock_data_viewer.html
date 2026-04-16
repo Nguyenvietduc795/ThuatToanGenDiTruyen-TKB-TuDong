@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thời Khóa Biểu — Khoa CNTT</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; }
+  .timetable { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  .timetable th { border:1px solid #d1d5db; background:#f3f4f6; padding:8px 4px;
+                  text-align:center; font-size:13px; font-weight:600; }
+  .timetable td { border:1px solid #e5e7eb; }
+  .tiet-lbl  { width:40px; text-align:center; font-size:11px; color:#6b7280;
+               background:#f9fafb; padding:2px; }
+  .empty-td  { background:#fafafa; height:30px; }
+  .free-td   { background:#f0fdf4 !important; text-align:center; vertical-align:middle;
+               color:#16a34a; font-size:11px; font-weight:600; height:30px; }
+  .sess-cell { vertical-align:top; padding:3px; }
+  .sess-card { border-radius:7px; padding:5px 7px; height:100%; }
+  .sess-name { font-weight:700; font-size:12px; line-height:1.3; margin-bottom:3px; }
+  .sess-info { color:#374151; font-size:10.5px; overflow:hidden;
+               text-overflow:ellipsis; white-space:nowrap; margin-top:1px; }
+  .badge     { display:inline-block; padding:1px 5px; border-radius:4px;
+               font-size:9px; font-weight:700; margin-bottom:3px; }
+  .bdg-lt { background:#dbeafe; color:#1d4ed8; }
+  .bdg-th { background:#dcfce7; color:#15803d; }
+  .sang-hd td  { background:#fffbeb; text-align:center; font-size:11px;
+                 font-weight:700; color:#92400e; padding:5px; }
+  .chieu-hd td { background:#eff6ff; text-align:center; font-size:11px;
+                 font-weight:700; color:#1e40af; padding:5px; }
+  .c-M01{background:#eff6ff;border-left:3px solid #3b82f6}
+  .c-M02{background:#f0fdf4;border-left:3px solid #22c55e}
+  .c-M03{background:#faf5ff;border-left:3px solid #a855f7}
+  .c-M04{background:#fff7ed;border-left:3px solid #f97316}
+  .c-M05{background:#fef2f2;border-left:3px solid #ef4444}
+  .c-M06{background:#fefce8;border-left:3px solid #eab308}
+  .c-M07{background:#f0fdfa;border-left:3px solid #14b8a6}
+  .c-M08{background:#fdf4ff;border-left:3px solid #d946ef}
+  .c-def{background:#f9fafb;border-left:3px solid #9ca3af}
+  .tab-on { background:#1d4ed8 !important; color:#fff !important; }
+  .day-btn-on { background:#0f766e !important; color:#fff !important; }
+</style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+<div class="max-w-screen-xl mx-auto p-4">
+
+  <!-- Header -->
+  <div class="bg-gradient-to-r from-blue-700 to-indigo-600 text-white rounded-2xl p-5 mb-5 shadow-lg flex items-center gap-4">
+    <div class="text-5xl">📅</div>
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">Thời Khóa Biểu</h1>
+      <p class="text-blue-200 text-sm mt-0.5">Khoa Công nghệ Thông tin — Học kỳ 1 / 2024–2025</p>
+    </div>
+  </div>
+
+  <!-- Tab buttons -->
+  <div class="flex gap-2 mb-5 flex-wrap">
+    <button id="btn-ql" onclick="switchTab('ql')"
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">
+      🏫 Quản lý
+    </button>
+    <button id="btn-gv" onclick="switchTab('gv')"
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">
+      👨‍🏫 Giảng viên
+    </button>
+    <button id="btn-sv" onclick="switchTab('sv')"
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">
+      🎓 Sinh viên
+    </button>
+    <button id="btn-ph" onclick="switchTab('ph')"
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">
+      🏛 Phòng học
+    </button>
+  </div>
+
+  <!-- ===== TAB: Quản lý ===== -->
+  <div id="tab-ql" class="tab-pane">
+    <div id="stats-row" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"></div>
+    <div id="legend-row" class="flex flex-wrap gap-2 mb-4 bg-white rounded-xl p-3 shadow text-xs items-center"></div>
+    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+      <p class="text-xs text-gray-400 mb-3">
+        Hiển thị mỗi buổi tại tiết bắt đầu. Tiết kết thúc ghi trong thẻ.
+        Nhiều thẻ trong cùng ô = các lớp học song song trong cùng buổi.
+      </p>
+      <div id="grid-ql"></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB: Giảng viên ===== -->
+  <div id="tab-gv" class="tab-pane hidden">
+    <div class="bg-white rounded-2xl shadow p-4 mb-4 flex flex-wrap items-center gap-3">
+      <span class="text-sm font-semibold text-gray-700">👨‍🏫 Chọn giảng viên:</span>
+      <select id="sel-gv" onchange="renderGV()"
+        class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-52">
+      </select>
+      <span id="gv-info" class="text-xs text-gray-400 italic"></span>
+    </div>
+    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+      <div id="grid-gv"></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB: Sinh viên ===== -->
+  <div id="tab-sv" class="tab-pane hidden">
+    <div class="bg-white rounded-2xl shadow p-4 mb-4 flex flex-wrap items-center gap-3">
+      <span class="text-sm font-semibold text-gray-700">🎓 Chọn lớp:</span>
+      <select id="sel-lop" onchange="renderSV()"
+        class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-52">
+      </select>
+    </div>
+    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+      <div id="grid-sv"></div>
+    </div>
+  </div>
+
+  <!-- ===== TAB: Phòng học ===== -->
+  <div id="tab-ph" class="tab-pane hidden">
+    <!-- Stats phòng -->
+    <div id="room-stats" class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4"></div>
+
+    <!-- Chọn ngày -->
+    <div class="bg-white rounded-2xl shadow p-4 mb-4">
+      <p class="text-sm font-semibold text-gray-700 mb-3">📆 Chọn ngày xem lịch phòng:</p>
+      <div id="day-btns" class="flex gap-2 flex-wrap"></div>
+    </div>
+
+    <!-- Ghi chú màu -->
+    <div class="flex gap-4 mb-4 text-xs items-center bg-white rounded-xl p-3 shadow">
+      <span class="text-gray-500 font-medium">Chú thích:</span>
+      <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-green-50 border border-green-200 text-green-700 font-semibold">
+        🟢 TRỐNG — phòng chưa có lịch
+      </span>
+      <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-semibold">
+        📘 Có lịch — đang được sử dụng
+      </span>
+    </div>
+
+    <!-- Grid phòng -->
+    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+      <div id="grid-ph"></div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+const DATA = {"lich": [{"mamon": "M02", "tenmon": "Cơ sở dữ liệu", "loai": "TH", "magv": "GV02", "tengv": "Trần Thị Bình", "hocvi": "ThS", "malop": "L01", "tenlop": "CNTT-K22A", "maphong": "LAB02", "tenphong": "Phong may tinh 02", "thu_idx": 4, "tiet_start": 1, "tiet_end": 5}, {"mamon": "M03", "tenmon": "Mạng máy tính", "loai": "LT", "magv": "GV03", "tengv": "Lê Văn Cường", "hocvi": "TS", "malop": "L03", "tenlop": "CNTT-K23A", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 3, "tiet_start": 1, "tiet_end": 5}, {"mamon": "M01", "tenmon": "Lập trình Python", "loai": "TH", "magv": "GV01", "tengv": "Nguyễn Văn An", "hocvi": "TS", "malop": "L02", "tenlop": "CNTT-K22B", "maphong": "LAB01", "tenphong": "Phong may tinh 01", "thu_idx": 3, "tiet_start": 7, "tiet_end": 11}, {"mamon": "M05", "tenmon": "Trí tuệ nhân tạo", "loai": "LT", "magv": "GV05", "tengv": "Hoàng Văn Em", "hocvi": "TS", "malop": "L03", "tenlop": "CNTT-K23A", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 5, "tiet_start": 1, "tiet_end": 5}, {"mamon": "M03", "tenmon": "Mạng máy tính", "loai": "TH", "magv": "GV03", "tengv": "Lê Văn Cường", "hocvi": "TS", "malop": "L02", "tenlop": "CNTT-K22B", "maphong": "LAB01", "tenphong": "Phong may tinh 01", "thu_idx": 5, "tiet_start": 7, "tiet_end": 11}, {"mamon": "M01", "tenmon": "Lập trình Python", "loai": "LT", "magv": "GV01", "tengv": "Nguyễn Văn An", "hocvi": "TS", "malop": "L02", "tenlop": "CNTT-K22B", "maphong": "P202", "tenphong": "Phong hoc 202", "thu_idx": 0, "tiet_start": 7, "tiet_end": 11}, {"mamon": "M04", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV04", "tengv": "Phạm Thị Dung", "hocvi": "GS.TS", "malop": "L02", "tenlop": "CNTT-K22B", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 1, "tiet_start": 1, "tiet_end": 3}, {"mamon": "M06", "tenmon": "Giải tích", "loai": "LT", "magv": "GV04", "tengv": "Phạm Thị Dung", "hocvi": "GS.TS", "malop": "L03", "tenlop": "CNTT-K23A", "maphong": "P202", "tenphong": "Phong hoc 202", "thu_idx": 4, "tiet_start": 4, "tiet_end": 6}, {"mamon": "M04", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV04", "tengv": "Phạm Thị Dung", "hocvi": "GS.TS", "malop": "L02", "tenlop": "CNTT-K22B", "maphong": "P202", "tenphong": "Phong hoc 202", "thu_idx": 0, "tiet_start": 4, "tiet_end": 6}, {"mamon": "M04", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV04", "tengv": "Phạm Thị Dung", "hocvi": "GS.TS", "malop": "L01", "tenlop": "CNTT-K22A", "maphong": "P202", "tenphong": "Phong hoc 202", "thu_idx": 3, "tiet_start": 7, "tiet_end": 9}, {"mamon": "M03", "tenmon": "Mạng máy tính", "loai": "LT", "magv": "GV03", "tengv": "Lê Văn Cường", "hocvi": "TS", "malop": "L02", "tenlop": "CNTT-K22B", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 4, "tiet_start": 1, "tiet_end": 5}, {"mamon": "M05", "tenmon": "Trí tuệ nhân tạo", "loai": "LT", "magv": "GV05", "tengv": "Hoàng Văn Em", "hocvi": "TS", "malop": "L02", "tenlop": "CNTT-K22B", "maphong": "P202", "tenphong": "Phong hoc 202", "thu_idx": 2, "tiet_start": 1, "tiet_end": 5}, {"mamon": "M02", "tenmon": "Cơ sở dữ liệu", "loai": "LT", "magv": "GV02", "tengv": "Trần Thị Bình", "hocvi": "ThS", "malop": "L03", "tenlop": "CNTT-K23A", "maphong": "P201", "tenphong": "Phong hoc 201", "thu_idx": 1, "tiet_start": 1, "tiet_end": 5}, {"mamon": "M06", "tenmon": "Giải tích", "loai": "LT", "magv": "GV04", "tengv": "Phạm Thị Dung", "hocvi": "GS.TS", "malop": "L03", "tenlop": "CNTT-K23A", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 0, "tiet_start": 7, "tiet_end": 9}, {"mamon": "M01", "tenmon": "Lập trình Python", "loai": "LT", "magv": "GV01", "tengv": "Nguyễn Văn An", "hocvi": "TS", "malop": "L01", "tenlop": "CNTT-K22A", "maphong": "P201", "tenphong": "Phong hoc 201", "thu_idx": 5, "tiet_start": 7, "tiet_end": 11}, {"mamon": "M04", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV04", "tengv": "Phạm Thị Dung", "hocvi": "GS.TS", "malop": "L01", "tenlop": "CNTT-K22A", "maphong": "P202", "tenphong": "Phong hoc 202", "thu_idx": 0, "tiet_start": 1, "tiet_end": 3}, {"mamon": "M01", "tenmon": "Lập trình Python", "loai": "TH", "magv": "GV01", "tengv": "Nguyễn Văn An", "hocvi": "TS", "malop": "L01", "tenlop": "CNTT-K22A", "maphong": "LAB01", "tenphong": "Phong may tinh 01", "thu_idx": 1, "tiet_start": 7, "tiet_end": 11}, {"mamon": "M02", "tenmon": "Cơ sở dữ liệu", "loai": "LT", "magv": "GV02", "tengv": "Trần Thị Bình", "hocvi": "ThS", "malop": "L01", "tenlop": "CNTT-K22A", "maphong": "P201", "tenphong": "Phong hoc 201", "thu_idx": 2, "tiet_start": 1, "tiet_end": 5}], "gv_list": [{"magv": "GV01", "tengv": "Nguyễn Văn An", "hocvi": "TS"}, {"magv": "GV02", "tengv": "Trần Thị Bình", "hocvi": "ThS"}, {"magv": "GV03", "tengv": "Lê Văn Cường", "hocvi": "TS"}, {"magv": "GV04", "tengv": "Phạm Thị Dung", "hocvi": "GS.TS"}, {"magv": "GV05", "tengv": "Hoàng Văn Em", "hocvi": "TS"}], "lop_list": [{"malop": "L01", "tenlop": "CNTT-K22A"}, {"malop": "L02", "tenlop": "CNTT-K22B"}, {"malop": "L03", "tenlop": "CNTT-K23A"}], "phong_list": [{"maphong": "P101", "tenphong": "Phong hoc 101", "loaiphong": "LT"}, {"maphong": "P102", "tenphong": "Phong hoc 102", "loaiphong": "LT"}, {"maphong": "P201", "tenphong": "Phong hoc 201", "loaiphong": "LT"}, {"maphong": "P202", "tenphong": "Phong hoc 202", "loaiphong": "LT"}, {"maphong": "LAB01", "tenphong": "Phong may tinh 01", "loaiphong": "TH"}, {"maphong": "LAB02", "tenphong": "Phong may tinh 02", "loaiphong": "TH"}]};
+const DAYS     = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+const DAY_SHORT = ['T2','T3','T4','T5','T6','T7'];
+const CLR = {M01:'c-M01',M02:'c-M02',M03:'c-M03',M04:'c-M04',
+             M05:'c-M05',M06:'c-M06',M07:'c-M07',M08:'c-M08'};
+
+function clr(m){ return CLR[m]||'c-def'; }
+
+/* ── Tab switching ── */
+function switchTab(tab){
+  document.querySelectorAll('.tab-pane').forEach(e=>e.classList.add('hidden'));
+  document.querySelectorAll('[id^="btn-"]').forEach(e=>{
+    e.classList.remove('tab-on');
+    e.classList.add('bg-white','text-gray-600');
+  });
+  document.getElementById('tab-'+tab).classList.remove('hidden');
+  const b = document.getElementById('btn-'+tab);
+  b.classList.add('tab-on');
+  b.classList.remove('bg-white','text-gray-600');
+  if(tab==='ph') renderRoomGrid(currentDay);
+}
+
+/* ── Session card HTML ── */
+function card(s, showGV, showLop, compact){
+  const badge  = `<span class="badge ${s.loai==='TH'?'bdg-th':'bdg-lt'}">${s.loai}</span>`;
+  const tRange = compact
+    ? `<div class="sess-info" style="font-size:9px;color:#9ca3af">Tiết ${s.tiet_start}–${s.tiet_end}</div>` : '';
+  const gvLine  = showGV  ? `<div class="sess-info">👤 ${s.tengv}</div>`  : '';
+  const lopLine = showLop ? `<div class="sess-info">🎓 ${s.tenlop}</div>` : '';
+  const mb = compact ? 'margin-bottom:3px;' : '';
+  return `<div class="sess-card ${clr(s.mamon)}" style="${mb}">
+    <div class="sess-name">${s.tenmon}</div>
+    ${badge}${tRange}${gvLine}${lopLine}
+    <div class="sess-info">🏛 ${s.maphong}</div>
+  </div>`;
+}
+
+/* ── Grid with rowspan (GV / SV — 1 session per slot per day) ── */
+function buildGrid(sessions, showGV, showLop){
+  const g = {};
+  sessions.forEach(s=>{
+    if(!g[s.thu_idx]) g[s.thu_idx]={};
+    g[s.thu_idx][s.tiet_start] = s;
+  });
+  const rowEnd = new Array(6).fill(0);
+  let h = '<table class="timetable"><thead><tr><th style="width:40px">Tiết</th>';
+  DAYS.forEach(d => h+=`<th>${d}</th>`);
+  h += '</tr></thead><tbody>';
+  for(let t=1; t<=12; t++){
+    if(t===1) h+='<tr class="sang-hd"><td colspan="7">☀️ BUỔI SÁNG &nbsp;(Tiết 1 – 6)</td></tr>';
+    if(t===7) h+='<tr class="chieu-hd"><td colspan="7">🌙 BUỔI CHIỀU &nbsp;(Tiết 7 – 12)</td></tr>';
+    h+='<tr>';
+    h+=`<td class="tiet-lbl">${t}</td>`;
+    for(let d=0; d<6; d++){
+      if(rowEnd[d]>t) continue;
+      const s = g[d] && g[d][t];
+      if(s){
+        const sp = s.tiet_end - s.tiet_start + 1;
+        rowEnd[d] = t + sp;
+        h+=`<td rowspan="${sp}" class="sess-cell">${card(s,showGV,showLop,false)}</td>`;
+      } else {
+        h+='<td class="empty-td"></td>';
+      }
+    }
+    h+='</tr>';
+  }
+  return h+'</tbody></table>';
+}
+
+/* ── Management grid (multiple sessions per start-tiết) ── */
+function buildGridAll(sessions){
+  const g = {};
+  sessions.forEach(s=>{
+    if(!g[s.thu_idx]) g[s.thu_idx]={};
+    if(!g[s.thu_idx][s.tiet_start]) g[s.thu_idx][s.tiet_start]=[];
+    g[s.thu_idx][s.tiet_start].push(s);
+  });
+  const tiets = [...new Set(sessions.map(s=>s.tiet_start))].sort((a,b)=>a-b);
+  let h = '<table class="timetable"><thead><tr><th style="width:55px">Tiết BĐ</th>';
+  DAYS.forEach(d => h+=`<th>${d}</th>`);
+  h += '</tr></thead><tbody>';
+  let prev = null;
+  tiets.forEach(t=>{
+    const buoi = t<=6 ? 'sang' : 'chieu';
+    if(buoi!==prev){
+      prev=buoi;
+      h += buoi==='sang'
+        ? '<tr class="sang-hd"><td colspan="7">☀️ BUỔI SÁNG</td></tr>'
+        : '<tr class="chieu-hd"><td colspan="7">🌙 BUỔI CHIỀU</td></tr>';
+    }
+    h+='<tr>';
+    h+=`<td class="tiet-lbl" style="font-size:10px">Tiết<br><b>${t}</b></td>`;
+    for(let d=0; d<6; d++){
+      const list = (g[d]&&g[d][t])||[];
+      if(!list.length){ h+='<td class="empty-td"></td>'; continue; }
+      h+='<td class="sess-cell" style="min-width:140px">';
+      list.forEach(s => h+=card(s,true,true,true));
+      h+='</td>';
+    }
+    h+='</tr>';
+  });
+  return h+'</tbody></table>';
+}
+
+/* ── Room availability grid for a specific day ── */
+function buildRoomGrid(dayIdx){
+  const rooms = DATA.phong_list;
+  const nCols = rooms.length;
+
+  // Build lookup: roomName → { tiet_start: session }
+  const rg = {};
+  rooms.forEach(r => { rg[r.maphong] = {}; });
+  DATA.lich.filter(s => s.thu_idx === dayIdx).forEach(s => {
+    rg[s.maphong][s.tiet_start] = s;
+  });
+
+  // Count free slots per room for today
+  const freeCount = {};
+  rooms.forEach(r => {
+    let occupied = new Set();
+    DATA.lich.filter(s => s.thu_idx===dayIdx && s.maphong===r.maphong).forEach(s=>{
+      for(let t=s.tiet_start; t<=s.tiet_end; t++) occupied.add(t);
+    });
+    freeCount[r.maphong] = 10 - occupied.size; // 10 usable tiets (excl. 6,12)
+  });
+
+  const rowEnd = {};
+  rooms.forEach(r => { rowEnd[r.maphong] = 0; });
+
+  let h = `<table class="timetable"><thead><tr>`;
+  h += `<th style="width:40px">Tiết</th>`;
+  rooms.forEach(r => {
+    const lt = r.loaiphong==='LT'
+      ? '<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 4px;border-radius:3px;font-weight:700">LT</span>'
+      : '<span style="font-size:9px;background:#dcfce7;color:#15803d;padding:1px 4px;border-radius:3px;font-weight:700">TH</span>';
+    const freeLabel = freeCount[r.maphong]>0
+      ? `<span style="font-size:9px;color:#16a34a">(còn ${freeCount[r.maphong]} tiết trống)</span>`
+      : `<span style="font-size:9px;color:#dc2626">(hết tiết)</span>`;
+    h += `<th>${r.maphong} ${lt}<br><span style="font-size:10px;font-weight:400;color:#6b7280">${r.tenphong}</span><br>${freeLabel}</th>`;
+  });
+  h += '</tr></thead><tbody>';
+
+  for(let t=1; t<=12; t++){
+    if(t===1) h+=`<tr class="sang-hd"><td colspan="${nCols+1}">☀️ BUỔI SÁNG &nbsp;(Tiết 1 – 6)</td></tr>`;
+    if(t===7) h+=`<tr class="chieu-hd"><td colspan="${nCols+1}">🌙 BUỔI CHIỀU &nbsp;(Tiết 7 – 12)</td></tr>`;
+
+    h+='<tr>';
+    h+=`<td class="tiet-lbl">${t}</td>`;
+
+    rooms.forEach(r => {
+      if(rowEnd[r.maphong] > t) return; // covered by rowspan above
+
+      const s = rg[r.maphong][t];
+      if(s){
+        const sp = s.tiet_end - s.tiet_start + 1;
+        rowEnd[r.maphong] = t + sp;
+        h+=`<td rowspan="${sp}" class="sess-cell">
+          <div class="sess-card ${clr(s.mamon)}">
+            <div class="sess-name">${s.tenmon}</div>
+            <span class="badge ${s.loai==='TH'?'bdg-th':'bdg-lt'}">${s.loai}</span>
+            <div class="sess-info">🎓 ${s.tenlop}</div>
+            <div class="sess-info">👤 ${s.tengv}</div>
+          </div>
+        </td>`;
+      } else {
+        h+='<td class="free-td">🟢<br>TRỐNG</td>';
+      }
+    });
+    h+='</tr>';
+  }
+  h+='</tbody></table>';
+  return h;
+}
+
+/* ── Room stats per day ── */
+function buildRoomStats(dayIdx){
+  const rooms = DATA.phong_list;
+  const totalTiets = 10; // 10 usable tiets per room per day
+  let totalFree = 0, totalOcc = 0;
+  rooms.forEach(r => {
+    let occ = new Set();
+    DATA.lich.filter(s=>s.thu_idx===dayIdx&&s.maphong===r.maphong)
+             .forEach(s=>{ for(let t=s.tiet_start;t<=s.tiet_end;t++) occ.add(t); });
+    totalOcc  += occ.size;
+    totalFree += (totalTiets - occ.size);
+  });
+  const totalSlots = rooms.length * totalTiets;
+  const pctFree = Math.round(totalFree / totalSlots * 100);
+  const pctOcc  = 100 - pctFree;
+  const items = [
+    {icon:'🏛', val:rooms.length,          lbl:'Tổng số phòng',   bg:'bg-blue-50',  bd:'border-blue-200',  tx:'text-blue-700'},
+    {icon:'🟢', val:`${totalFree} tiết`,    lbl:`Còn trống (${pctFree}%)`, bg:'bg-green-50', bd:'border-green-200', tx:'text-green-700'},
+    {icon:'🔴', val:`${totalOcc} tiết`,     lbl:`Đã dùng (${pctOcc}%)`,   bg:'bg-red-50',   bd:'border-red-200',   tx:'text-red-700'},
+  ];
+  return items.map(i=>`
+    <div class="rounded-2xl shadow border p-4 ${i.bg} ${i.bd}">
+      <div class="text-3xl">${i.icon}</div>
+      <div class="text-2xl font-bold ${i.tx} mt-1">${i.val}</div>
+      <div class="text-sm ${i.tx} font-medium mt-1">${i.lbl}</div>
+    </div>`).join('');
+}
+
+/* ── Stats cards (management tab) ── */
+function buildStats(){
+  const L = DATA.lich;
+  const items = [
+    {icon:'📅', val:L.length,                          lbl:'Tổng buổi học',   bg:'bg-blue-50',  bd:'border-blue-200',  tx:'text-blue-700'},
+    {icon:'👨‍🏫',val:new Set(L.map(s=>s.magv)).size,    lbl:'Giảng viên',      bg:'bg-green-50', bd:'border-green-200', tx:'text-green-700'},
+    {icon:'🎓', val:new Set(L.map(s=>s.malop)).size,   lbl:'Lớp học',         bg:'bg-purple-50',bd:'border-purple-200',tx:'text-purple-700'},
+    {icon:'🏛', val:new Set(L.map(s=>s.maphong)).size, lbl:'Phòng sử dụng',   bg:'bg-orange-50',bd:'border-orange-200',tx:'text-orange-700'},
+  ];
+  return items.map(i=>`
+    <div class="rounded-2xl shadow border p-4 ${i.bg} ${i.bd}">
+      <div class="text-3xl">${i.icon}</div>
+      <div class="text-3xl font-bold ${i.tx} mt-1">${i.val}</div>
+      <div class="text-sm ${i.tx} font-medium mt-1">${i.lbl}</div>
+    </div>`).join('');
+}
+
+/* ── Subject color legend ── */
+function buildLegend(){
+  const ms = {};
+  DATA.lich.forEach(s=>{ ms[s.mamon]=s.tenmon; });
+  return '<span class="text-gray-400 mr-1 self-center text-xs">Màu:</span>'
+    + Object.entries(ms).map(([m,n])=>
+        `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium ${clr(m)}">${m}: ${n}</span>`
+      ).join('');
+}
+
+/* ── Day selector buttons ── */
+let currentDay = 0;
+function buildDayBtns(){
+  return DAYS.map((d,i)=>`
+    <button id="daybtn-${i}" onclick="selectDay(${i})"
+      class="px-4 py-2 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">
+      ${d}
+    </button>`).join('');
+}
+
+function selectDay(dayIdx){
+  currentDay = dayIdx;
+  document.querySelectorAll('[id^="daybtn-"]').forEach(b=>{
+    b.classList.remove('day-btn-on');
+    b.classList.add('bg-white','text-gray-600');
+  });
+  const btn = document.getElementById('daybtn-'+dayIdx);
+  btn.classList.add('day-btn-on');
+  btn.classList.remove('bg-white','text-gray-600');
+  renderRoomGrid(dayIdx);
+}
+
+function renderRoomGrid(dayIdx){
+  document.getElementById('room-stats').innerHTML = buildRoomStats(dayIdx);
+  document.getElementById('grid-ph').innerHTML    = buildRoomGrid(dayIdx);
+}
+
+/* ── Init ── */
+function init(){
+  // Management tab
+  document.getElementById('stats-row').innerHTML  = buildStats();
+  document.getElementById('legend-row').innerHTML = buildLegend();
+  document.getElementById('grid-ql').innerHTML    = buildGridAll(DATA.lich);
+
+  // GV dropdown
+  const sgv = document.getElementById('sel-gv');
+  DATA.gv_list.forEach(g=>{
+    const o = document.createElement('option');
+    o.value=g.magv; o.textContent=`${g.tengv} (${g.hocvi})`; sgv.appendChild(o);
+  });
+
+  // Lớp dropdown
+  const slop = document.getElementById('sel-lop');
+  DATA.lop_list.forEach(l=>{
+    const o = document.createElement('option');
+    o.value=l.malop; o.textContent=l.tenlop; slop.appendChild(o);
+  });
+
+  // Room day buttons
+  document.getElementById('day-btns').innerHTML = buildDayBtns();
+  selectDay(0); // default: Thứ 2
+
+  renderGV(); renderSV(); switchTab('ql');
+}
+
+function renderGV(){
+  const id = document.getElementById('sel-gv').value;
+  const gv = DATA.gv_list.find(g=>g.magv===id)||{};
+  document.getElementById('gv-info').textContent = gv.hocvi||'';
+  const ses = DATA.lich.filter(s=>s.magv===id);
+  document.getElementById('grid-gv').innerHTML = ses.length
+    ? buildGrid(ses, false, true)
+    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch dạy trong tuần này.</p>';
+}
+
+function renderSV(){
+  const id = document.getElementById('sel-lop').value;
+  const ses = DATA.lich.filter(s=>s.malop===id);
+  document.getElementById('grid-sv').innerHTML = ses.length
+    ? buildGrid(ses, true, false)
+    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch học trong tuần này.</p>';
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
