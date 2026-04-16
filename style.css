@@ -1,0 +1,197 @@
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background-color: #f4f7f9;
+    padding: 20px;
+}
+
+.container {
+    width: 95%;
+    max-width: 1100px;
+    margin: auto;
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+}
+
+h1 { color: #1e3a8a; text-align: center; margin-bottom: 5px; }
+
+.status-bar { text-align: center; font-size: 13px; color: #666; margin-bottom: 20px; }
+.dot { height: 10px; width: 10px; background: #10b981; border-radius: 50%; display: inline-block; }
+
+/* Giúp bảng có thể cuộn ngang trên điện thoại */
+.table-responsive { overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; min-width: 800px; }
+
+th {
+    background-color: #1e3a8a;
+    color: white;
+    padding: 12px;
+    text-align: left;
+    font-size: 14px;
+}
+
+td {
+    padding: 12px;
+    border-bottom: 1px solid #edf2f7;
+    font-size: 14px;
+    color: #333;
+}
+
+tr:hover { background-color: #f8fafc; }
+
+.status-tag {
+    background: #dcfce7;
+    color: #166534;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: bold;
+}
+/* Màu cho trạng thái Đang giảng dạy */
+.status-teaching {
+    background: #dcfce7;
+    color: #166534;
+}
+
+/* Màu cho trạng thái Tạm ngưng */
+.status-paused {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.status-tag {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: bold;
+    display: inline-block;
+}
+
+/* Form Section */
+.form-section {
+    background: #f8fafc;
+    padding: 20px;
+    margin-bottom: 25px;
+    border-radius: 10px;
+    border: 1px dashed #cbd5e1;
+}
+
+.input-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.input-group input, .input-group select {
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    outline: none;
+}
+
+/* Buttons */
+.btn-add {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-delete {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.btn-add:hover { background: #059669; }
+.btn-delete:hover { background: #dc2626; }
+
+/* Màu sắc nhãn Loại phòng */
+.bg-blue {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.bg-gray {
+    background-color: #f1f5f9;
+    color: #475569;
+}
+
+/* Tinh chỉnh input số cho gọn */
+input[type=number] {
+    width: 80px;
+}
+
+.input-group select {
+    cursor: pointer;
+    background: white;
+}
+
+
+/* --- Tinh chỉnh riêng cho trang Lớp học --- */
+
+/* Căn giữa bảng lớp học vì nó ít cột hơn */
+#class-table-body td, 
+#class-table-body th {
+    text-align: left;
+    padding: 15px;
+}
+
+/* Định dạng cột Mã Lớp cho nổi bật */
+#class-table-body td strong {
+    color: #1e3a8a;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+/* Tăng khoảng cách cho form nhập liệu của lớp */
+.form-section .input-group {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Làm các ô nhập liệu rộng hơn */
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* Hiệu ứng cho nút xóa để đồng bộ */
+.btn-delete {
+    background-color: #ff4d4d;
+    border: none;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.btn-delete:hover {
+    background-color: #cc0000;
+    transform: scale(1.05);
+}
+
+.btn-edit {
+    background-color: #f59e0b; /* Màu vàng cam */
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-right: 5px;
+    font-size: 13px;
+    transition: 0.2s;
+}
+
+.btn-edit:hover {
+    background-color: #d97706;
+}
+
+/* Hiệu ứng khi đang ở chế độ sửa để người dùng chú ý nút Lưu */
+.btn-add:contains("Lưu cập nhật") {
+    background-color: #3b82f6; /* Đổi sang màu xanh dương khi sửa */
+}

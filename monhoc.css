@@ -1,0 +1,101 @@
+/* monhoc.css - Thiết kế đồng bộ với hệ thống quản lý DNC */
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f0f2f5;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.container {
+    width: 95%;
+    max-width: 1200px;
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #eef2f7;
+    padding-bottom: 15px;
+}
+
+h1 {
+    color: #1a365d; /* Màu xanh đậm chuyên nghiệp */
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.status-bar {
+    font-size: 0.9rem;
+    color: #64748b;
+    margin-top: 8px;
+}
+
+.dot {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+}
+
+/* Bảng dữ liệu */
+.table-responsive {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+th {
+    background-color: #3b82f6; /* Màu xanh dương hiện đại */
+    color: white;
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+td {
+    padding: 14px 15px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #334155;
+    font-size: 0.95rem;
+}
+
+tr:hover {
+    background-color: #f8fafc;
+    transition: 0.3s;
+}
+
+/* Định dạng các cột số (Số tín chỉ, Tiết...) */
+td:nth-child(3), td:nth-child(4), td:nth-child(5), td:nth-child(6) {
+    text-align: center;
+    font-weight: 500;
+}
+
+/* Nhãn Loại Phòng */
+.badge {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    background-color: #e2e8f0;
+    color: #475569;
+}
+
+/* Tự động đổi màu nhãn nếu là Phòng máy */
+td .badge:contains("Phòng máy") {
+    background-color: #dbeafe;
+    color: #1e40af;
+}

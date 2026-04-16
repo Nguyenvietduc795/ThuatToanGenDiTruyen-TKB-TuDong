@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Giảng Viên - DNC</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 1200px;">
+        <header>
+            <h1>HỆ THỐNG GIẢNG VIÊN</h1>
+          
+        </header>
+
+        <section class="form-section">
+            <div class="input-group">
+                <input type="text" id="maGV" value="Mã: Tự động" readonly title="Mã số tự động cấp">
+                <input type="text" id="tenGV" placeholder="Họ và Tên">
+                <input type="email" id="email" placeholder="Email">
+                <input type="text" id="sdt" placeholder="Số điện thoại">
+                <select id="hocVi">
+                    <option value="Thạc sĩ">Thạc sĩ</option>
+                    <option value="Tiến sĩ">Tiến sĩ</option>
+                    <option value="Cử nhân">Cử nhân</option>
+                </select>
+                <input type="text" id="chuyenMon" placeholder="Chuyên môn">
+                <select id="trangThai">
+                    <option value="Đang giảng dạy">Đang giảng dạy</option>
+                    <option value="Tạm ngưng">Tạm ngưng</option>
+                </select>
+                <button onclick="handleTeacher()" class="btn-add" id="main-btn">Thêm mới</button>
+            </div>
+        </section>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mã GV</th>
+                        <th>Họ và Tên</th>
+                        <th>Email</th>
+                        <th>SĐT</th>
+                        <th>Học Vị</th>
+                        <th>Chuyên Môn</th>
+                        <th>Trạng Thái</th>
+                        <th style="width: 150px;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="teacher-table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Dữ liệu mẫu ban đầu
+        let mockData = [
+            { MaGV: "GV001", TenGV: "Nguyễn Minh Khoa", Email: "nmkhoa@dnc.edu.vn", SDT: "0901 234 567", HocVi: "Thạc sĩ", ChuyenMon: "Công nghệ thông tin", TrangThai: "Đang giảng dạy" },
+            { MaGV: "GV002", TenGV: "Trương Hùng Chen", Email: "thchen@dnc.edu.vn", SDT: "0908 765 432", HocVi: "Tiến sĩ", ChuyenMon: "Hệ quản trị CSDL", TrangThai: "Tạm ngưng" }
+        ];
+
+        let editingIndex = null; // Biến tạm để biết đang sửa dòng nào
+
+        // Hàm hiển thị bảng
+        function renderTable() {
+            const tableBody = document.getElementById('teacher-table-body');
+            tableBody.innerHTML = mockData.map((gv, index) => `
+                <tr>
+                    <td><strong>${gv.MaGV}</strong></td>
+                    <td>${gv.TenGV}</td>
+                    <td>${gv.Email}</td>
+                    <td>${gv.SDT}</td>
+                    <td>${gv.HocVi}</td>
+                    <td>${gv.ChuyenMon}</td>
+                    <td><span class="status-tag ${gv.TrangThai === 'Đang giảng dạy' ? 'status-teaching' : 'status-paused'}">${gv.TrangThai}</span></td>
+                    <td>
+                        <button onclick="editTeacher(${index})" class="btn-edit">Sửa</button>
+                        <button onclick="deleteTeacher(${index})" class="btn-delete">Xóa</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Hàm xử lý khi bấm nút Thêm/Lưu
+        function handleTeacher() {
+            const ten = document.getElementById('tenGV').value;
+            const email = document.getElementById('email').value;
+
+            if(!ten || !email) return alert("Vui lòng nhập ít nhất Họ tên và Email!");
+
+            const gvInfo = {
+                TenGV: ten,
+                Email: email,
+                SDT: document.getElementById('sdt').value,
+                HocVi: document.getElementById('hocVi').value,
+                ChuyenMon: document.getElementById('chuyenMon').value,
+                TrangThai: document.getElementById('trangThai').value
+            };
+
+            if (editingIndex !== null) {
+                // ĐANG Ở CHẾ ĐỘ SỬA
+                gvInfo.MaGV = mockData[editingIndex].MaGV; // Giữ nguyên mã cũ
+                mockData[editingIndex] = gvInfo;
+                editingIndex = null;
+                document.getElementById('main-btn').innerText = "Thêm mới";
+                document.getElementById('main-btn').style.backgroundColor = ""; // Trả về màu gốc (xanh lá)
+            } else {
+                // ĐANG Ở CHẾ ĐỘ THÊM MỚI
+                const lastNum = mockData.length > 0 ? parseInt(mockData[mockData.length - 1].MaGV.replace('GV', '')) : 0;
+                gvInfo.MaGV = "GV" + (lastNum + 1).toString().padStart(3, '0');
+                mockData.push(gvInfo);
+            }
+
+            renderTable();
+            resetForm();
+        }
+
+        // Hàm đưa dữ liệu lên form để sửa
+        function editTeacher(index) {
+            const gv = mockData[index];
+            editingIndex = index;
+
+            document.getElementById('maGV').value = gv.MaGV;
+            document.getElementById('tenGV').value = gv.TenGV;
+            document.getElementById('email').value = gv.Email;
+            document.getElementById('sdt').value = gv.SDT;
+            document.getElementById('hocVi').value = gv.HocVi;
+            document.getElementById('chuyenMon').value = gv.ChuyenMon;
+            document.getElementById('trangThai').value = gv.TrangThai;
+
+            // Thay đổi giao diện nút bấm
+            const btn = document.getElementById('main-btn');
+            btn.innerText = "Lưu cập nhật";
+            btn.style.backgroundColor = "#3b82f6"; // Chuyển sang màu xanh dương khi sửa
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' }); // Cuộn nhẹ lên đầu trang
+        }
+
+        function resetForm() {
+            document.querySelectorAll('.input-group input:not(#maGV)').forEach(input => input.value = '');
+            document.getElementById('maGV').value = "Mã: Tự động";
+        }
+
+        function deleteTeacher(index) {
+            if(confirm("Bạn có chắc chắn muốn xóa giảng viên này?")) {
+                mockData.splice(index, 1);
+                renderTable();
+            }
+        }
+
+        renderTable();
+    </script>
+</body>
+</html>

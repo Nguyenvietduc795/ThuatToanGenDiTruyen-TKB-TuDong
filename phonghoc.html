@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Phòng Học - DNC</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 1200px;">
+        <header>
+            <h1>HỆ THỐNG QUẢN LÝ PHÒNG HỌC</h1>
+         
+        </header>
+
+        <section class="form-section">
+            <div class="input-group">
+                <input type="text" id="maPhong" value="Mã: Tự động" readonly title="Mã phòng tự sinh">
+                
+                <input type="text" id="tenPhong" placeholder="Tên Phòng (VD: B1.01)">
+                
+                <select id="loaiPhong">
+                    <option value="Phòng máy">Phòng máy</option>
+                    <option value="Lý thuyết">Lý thuyết</option>
+                    <option value="Hội trường">Hội trường</option>
+                </select>
+
+                <select id="trangThai">
+                    <option value="Sẵn sàng">Sẵn sàng</option>
+                    <option value="Đang sử dụng">Đang sử dụng</option>
+                    <option value="Đang bảo trì">Đang bảo trì</option>
+                </select>
+
+                <button onclick="handleRoom()" class="btn-add" id="room-btn">Thêm Phòng</button>
+            </div>
+        </section>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mã Phòng</th>
+                        <th>Tên Phòng</th>
+                        <th>Loại Phòng</th>
+                        <th>Trạng Thái</th>
+                        <th style="width: 150px;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="room-table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Dữ liệu mẫu ban đầu theo thuộc tính MaPhong, TenPhong, LoaiPhong, TrangThai
+        let roomData = [
+            { MaPhong: "P001", TenPhong: "PM01", LoaiPhong: "Phòng máy", TrangThai: "Sẵn sàng" },
+            { MaPhong: "P002", TenPhong: "LT02", LoaiPhong: "Lý thuyết", TrangThai: "Đang bảo trì" }
+        ];
+
+        let editIndex = null;
+
+        function renderRoomTable() {
+            const tableBody = document.getElementById('room-table-body');
+            tableBody.innerHTML = roomData.map((room, index) => `
+                <tr>
+                    <td><strong>${room.MaPhong}</strong></td>
+                    <td>${room.TenPhong}</td>
+                    <td>${room.LoaiPhong}</td>
+                    <td>
+                        <span class="status-tag ${getStatusClass(room.TrangThai)}">
+                            ${room.TrangThai}
+                        </span>
+                    </td>
+                    <td>
+                        <button onclick="editRoom(${index})" class="btn-edit">Sửa</button>
+                        <button onclick="deleteRoom(${index})" class="btn-delete">Xóa</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getStatusClass(status) {
+            switch(status) {
+                case 'Sẵn sàng': return 'status-teaching'; // Dùng lại class màu xanh
+                case 'Đang sử dụng': return 'status-teaching'; 
+                case 'Đang bảo trì': return 'status-paused'; // Dùng lại class màu đỏ
+                default: return '';
+            }
+        }
+
+        function handleRoom() {
+            const ten = document.getElementById('tenPhong').value;
+            if (!ten) return alert("Vui lòng nhập tên phòng!");
+
+            const roomInfo = {
+                TenPhong: ten,
+                LoaiPhong: document.getElementById('loaiPhong').value,
+                TrangThai: document.getElementById('trangThai').value
+            };
+
+            if (editIndex !== null) {
+                roomInfo.MaPhong = roomData[editIndex].MaPhong;
+                roomData[editIndex] = roomInfo;
+                editIndex = null;
+                document.getElementById('room-btn').innerText = "Thêm Phòng";
+                document.getElementById('room-btn').style.backgroundColor = "";
+            } else {
+                // Tự sinh mã P + 3 số thứ tự
+                const lastNum = roomData.length > 0 
+                    ? parseInt(roomData[roomData.length - 1].MaPhong.replace('P', '')) 
+                    : 0;
+                roomInfo.MaPhong = "P" + (lastNum + 1).toString().padStart(3, '0');
+                roomData.push(roomInfo);
+            }
+
+            renderRoomTable();
+            resetForm();
+        }
+
+        function editRoom(index) {
+            const room = roomData[index];
+            editIndex = index;
+
+            document.getElementById('maPhong').value = room.MaPhong;
+            document.getElementById('tenPhong').value = room.TenPhong;
+            document.getElementById('loaiPhong').value = room.LoaiPhong;
+            document.getElementById('trangThai').value = room.TrangThai;
+
+            const btn = document.getElementById('room-btn');
+            btn.innerText = "Lưu cập nhật";
+            btn.style.backgroundColor = "#3b82f6";
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function deleteRoom(index) {
+            if(confirm("Bạn có chắc chắn muốn xóa phòng này?")) {
+                roomData.splice(index, 1);
+                renderRoomTable();
+            }
+        }
+
+        function resetForm() {
+            document.getElementById('tenPhong').value = '';
+            document.getElementById('maPhong').value = "Mã: Tự động";
+        }
+
+        renderRoomTable();
+    </script>
+</body>
+</html>

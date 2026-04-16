@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Môn Học - DNC</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 1200px;">
+        <header>
+            <h1>DANH MỤC MÔN HỌC</h1>
+        
+        </header>
+
+        <section class="form-section">
+            <div class="input-group">
+                <input type="text" id="maMon" value="Mã: Tự động" readonly title="Mã môn tự sinh">
+                
+                <input type="text" id="tenMon" placeholder="Tên môn học">
+                
+                <input type="number" id="soTinChi" placeholder="Số tín chỉ" min="0">
+                <input type="number" id="tongSoTiet" placeholder="Tổng tiết" min="0">
+                <input type="number" id="soTietLT" placeholder="Lý thuyết" min="0">
+                <input type="number" id="soTietTH" placeholder="Thực hành" min="0">
+                
+                <select id="loaiPhong">
+                    <option value="Phòng máy">Phòng máy</option>
+                    <option value="Lý thuyết">Lý thuyết</option>
+                    <option value="Hội trường">Hội trường</option>
+                </select>
+
+                <button onclick="handleSubject()" class="btn-add" id="sub-btn">Thêm Môn</button>
+            </div>
+        </section>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mã Môn</th>
+                        <th>Tên Môn Học</th>
+                        <th>Số Tín Chỉ</th>
+                        <th>Tổng Tiết</th>
+                        <th>Lý Thuyết</th>
+                        <th>Thực Hành</th>
+                        <th>Loại Phòng</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="subject-table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let subjectData = [
+            { MaMon: "MH001", TenMon: "Lập trình Web", SoTinChi: 3, TongSoTiet: 45, SoTietLT: 30, SoTietTH: 15, LoaiPhong: "Phòng máy" },
+            { MaMon: "MH002", TenMon: "Hệ quản trị CSDL", SoTinChi: 3, TongSoTiet: 45, SoTietLT: 30, SoTietTH: 15, LoaiPhong: "Phòng máy" }
+        ];
+
+        let editIndex = null;
+
+        function renderSubjectTable() {
+            const tableBody = document.getElementById('subject-table-body');
+            tableBody.innerHTML = subjectData.map((mh, index) => `
+                <tr>
+                    <td><strong>${mh.MaMon}</strong></td>
+                    <td>${mh.TenMon}</td>
+                    <td>${mh.SoTinChi}</td>
+                    <td>${mh.TongSoTiet}</td>
+                    <td>${mh.SoTietLT}</td>
+                    <td>${mh.SoTietTH}</td>
+                    <td>${mh.LoaiPhong}</td>
+                    <td>
+                        <button onclick="editSubject(${index})" class="btn-edit">Sửa</button>
+                        <button onclick="deleteSubject(${index})" class="btn-delete">Xóa</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function handleSubject() {
+            const ten = document.getElementById('tenMon').value;
+            // Chuyển đổi giá trị sang số để kiểm tra âm
+            const tinChi = parseInt(document.getElementById('soTinChi').value) || 0;
+            const tong = parseInt(document.getElementById('tongSoTiet').value) || 0;
+            const lt = parseInt(document.getElementById('soTietLT').value) || 0;
+            const th = parseInt(document.getElementById('soTietTH').value) || 0;
+
+            // KIỂM TRA LỖI: Không để trống tên và không nhập số âm
+            if (!ten) return alert("Vui lòng nhập tên môn học!");
+            if (tinChi < 0 || tong < 0 || lt < 0 || th < 0) {
+                return alert("Các giá trị số (Tín chỉ, Tiết học) không được là số âm!");
+            }
+
+            const newMH = {
+                TenMon: ten,
+                SoTinChi: tinChi,
+                TongSoTiet: tong,
+                SoTietLT: lt,
+                SoTietTH: th,
+                LoaiPhong: document.getElementById('loaiPhong').value
+            };
+
+            if (editIndex !== null) {
+                newMH.MaMon = subjectData[editIndex].MaMon;
+                subjectData[editIndex] = newMH;
+                editIndex = null;
+                document.getElementById('sub-btn').innerText = "Thêm Môn";
+                document.getElementById('sub-btn').style.backgroundColor = "";
+            } else {
+                // TỰ SINH MÃ: MH + Số thứ tự 3 chữ số
+                const lastNum = subjectData.length > 0 
+                    ? parseInt(subjectData[subjectData.length - 1].MaMon.replace('MH', '')) 
+                    : 0;
+                newMH.MaMon = "MH" + (lastNum + 1).toString().padStart(3, '0');
+                subjectData.push(newMH);
+            }
+
+            renderSubjectTable();
+            resetForm();
+        }
+
+        function editSubject(index) {
+            const mh = subjectData[index];
+            editIndex = index;
+
+            document.getElementById('maMon').value = mh.MaMon;
+            document.getElementById('tenMon').value = mh.TenMon;
+            document.getElementById('soTinChi').value = mh.SoTinChi;
+            document.getElementById('tongSoTiet').value = mh.TongSoTiet;
+            document.getElementById('soTietLT').value = mh.SoTietLT;
+            document.getElementById('soTietTH').value = mh.SoTietTH;
+            document.getElementById('loaiPhong').value = mh.LoaiPhong;
+
+            const btn = document.getElementById('sub-btn');
+            btn.innerText = "Lưu cập nhật";
+            btn.style.backgroundColor = "#3b82f6";
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function deleteSubject(index) {
+            if(confirm("Xóa môn học này?")) {
+                subjectData.splice(index, 1);
+                renderSubjectTable();
+            }
+        }
+
+        function resetForm() {
+            document.querySelectorAll('.input-group input:not(#maMon)').forEach(i => i.value = '');
+            document.getElementById('maMon').value = "Mã: Tự động";
+        }
+
+        renderSubjectTable();
+    </script>
+</body>
+</html>
