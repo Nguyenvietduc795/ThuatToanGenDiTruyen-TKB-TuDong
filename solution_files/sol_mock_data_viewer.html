@@ -8,14 +8,16 @@
 <style>
   body { font-family: 'Segoe UI', sans-serif; }
   .timetable { border-collapse: collapse; width: 100%; table-layout: fixed; }
-  .timetable th { border:1px solid #d1d5db; background:#f3f4f6; padding:8px 4px;
-                  text-align:center; font-size:13px; font-weight:600; }
+  .timetable th { border:1px solid #d1d5db; background:#f3f4f6; padding:6px 4px;
+                  text-align:center; font-size:12px; font-weight:600; line-height:1.4; }
   .timetable td { border:1px solid #e5e7eb; }
-  .tiet-lbl  { width:40px; text-align:center; font-size:11px; color:#6b7280;
+  .tiet-lbl  { width:38px; text-align:center; font-size:11px; color:#6b7280;
                background:#f9fafb; padding:2px; }
-  .empty-td  { background:#fafafa; height:30px; }
+  .empty-td  { background:#fafafa; height:28px; }
   .free-td   { background:#f0fdf4 !important; text-align:center; vertical-align:middle;
-               color:#16a34a; font-size:11px; font-weight:600; height:30px; }
+               color:#16a34a; font-size:11px; font-weight:600; height:28px; }
+  .done-td   { background:#f3f4f6 !important; text-align:center; vertical-align:middle;
+               font-size:10px; color:#9ca3af; height:28px; }
   .sess-cell { vertical-align:top; padding:3px; }
   .sess-card { border-radius:7px; padding:5px 7px; height:100%; }
   .sess-name { font-weight:700; font-size:12px; line-height:1.3; margin-bottom:3px; }
@@ -40,6 +42,13 @@
   .c-def{background:#f9fafb;border-left:3px solid #9ca3af}
   .tab-on { background:#1d4ed8 !important; color:#fff !important; }
   .day-btn-on { background:#0f766e !important; color:#fff !important; }
+  .th-date { display:block; font-size:10px; font-weight:400; color:#6b7280; margin-top:1px; }
+  .th-sun  { background:#fff1f2 !important; color:#dc2626 !important; }
+  .th-sun .th-date { color:#f87171 !important; }
+  .wk-badge { display:inline-block; font-size:9px; font-weight:600;
+              padding:1px 4px; border-radius:3px; margin-top:2px;
+              background:#e0f2fe; color:#0369a1; }
+  .wk-done  { background:#fee2e2; color:#b91c1c; }
 </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -55,7 +64,7 @@
   </div>
 
   <!-- Tab buttons -->
-  <div class="flex gap-2 mb-5 flex-wrap">
+  <div class="flex gap-2 mb-4 flex-wrap">
     <button id="btn-ql" onclick="switchTab('ql')"
       class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">
       🏫 Quản lý
@@ -74,14 +83,31 @@
     </button>
   </div>
 
+  <!-- ===== Week navigator (global) ===== -->
+  <div class="bg-white rounded-2xl shadow p-3 mb-5 flex flex-wrap items-center gap-3">
+    <button onclick="changeWeek(-1)" id="btn-prev"
+      class="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 font-bold text-sm hover:bg-gray-200 disabled:opacity-40"
+      disabled>← Tuần trước</button>
+    <div class="flex-1 min-w-[220px] text-center">
+      <div id="wk-label" class="text-blue-700 font-bold text-base"></div>
+      <div id="wk-range" class="text-xs text-gray-500 mt-0.5"></div>
+    </div>
+    <button onclick="changeWeek(1)" id="btn-next"
+      class="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 font-bold text-sm hover:bg-gray-200 disabled:opacity-40">
+      Tuần sau →</button>
+    <div class="text-xs text-gray-400 border-l pl-3">
+      Học kỳ gồm <b id="max-wk" class="text-gray-700"></b> tuần
+    </div>
+  </div>
+
   <!-- ===== TAB: Quản lý ===== -->
   <div id="tab-ql" class="tab-pane">
     <div id="stats-row" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"></div>
     <div id="legend-row" class="flex flex-wrap gap-2 mb-4 bg-white rounded-xl p-3 shadow text-xs items-center"></div>
     <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
       <p class="text-xs text-gray-400 mb-3">
-        Hiển thị mỗi buổi tại tiết bắt đầu. Tiết kết thúc ghi trong thẻ.
-        Nhiều thẻ trong cùng ô = các lớp học song song trong cùng buổi.
+        Hiển thị theo tiết bắt đầu. Môn đã kết thúc tuần này hiện mờ xám.
+        <span class="inline-flex items-center gap-1 ml-2"><span class="wk-badge">Tuần 3/6</span> = tiến độ môn học.</span>
       </p>
       <div id="grid-ql"></div>
     </div>
@@ -108,6 +134,7 @@
       <select id="sel-lop" onchange="renderSV()"
         class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-52">
       </select>
+      <div id="sv-summary" class="flex flex-wrap gap-2 text-xs ml-2"></div>
     </div>
     <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
       <div id="grid-sv"></div>
@@ -116,27 +143,20 @@
 
   <!-- ===== TAB: Phòng học ===== -->
   <div id="tab-ph" class="tab-pane hidden">
-    <!-- Stats phòng -->
     <div id="room-stats" class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4"></div>
-
-    <!-- Chọn ngày -->
     <div class="bg-white rounded-2xl shadow p-4 mb-4">
       <p class="text-sm font-semibold text-gray-700 mb-3">📆 Chọn ngày xem lịch phòng:</p>
       <div id="day-btns" class="flex gap-2 flex-wrap"></div>
     </div>
-
-    <!-- Ghi chú màu -->
     <div class="flex gap-4 mb-4 text-xs items-center bg-white rounded-xl p-3 shadow">
       <span class="text-gray-500 font-medium">Chú thích:</span>
       <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-green-50 border border-green-200 text-green-700 font-semibold">
-        🟢 TRỐNG — phòng chưa có lịch
+        🟢 TRỐNG — chưa có lịch
       </span>
       <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-semibold">
-        📘 Có lịch — đang được sử dụng
+        📘 Đang sử dụng
       </span>
     </div>
-
-    <!-- Grid phòng -->
     <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
       <div id="grid-ph"></div>
     </div>
@@ -145,130 +165,245 @@
 </div><!-- /container -->
 
 <script>
-const DATA = {"lich": [{"mamon": "M06", "tenmon": "Giải tích", "loai": "LT", "magv": "GV04", "tengv": "Phạm Thị Dung", "hocvi": "GS.TS", "malop": "L03", "tenlop": "CNTT-K23A", "maphong": "P102", "tenphong": "Phong hoc 102", "thu_idx": 1, "tiet_start": 4, "tiet_end": 6}, {"mamon": "M02", "tenmon": "Cơ sở dữ liệu", "loai": "LT", "magv": "GV02", "tengv": "Trần Thị Bình", "hocvi": "ThS", "malop": "L01", "tenlop": "CNTT-K22A", "maphong": "P201", "tenphong": "Phong hoc 201", "thu_idx": 1, "tiet_start": 1, "tiet_end": 5}, {"mamon": "M04", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV04", "tengv": "Phạm Thị Dung", "hocvi": "GS.TS", "malop": "L02", "tenlop": "CNTT-K22B", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 5, "tiet_start": 10, "tiet_end": 12}, {"mamon": "M03", "tenmon": "Mạng máy tính", "loai": "LT", "magv": "GV03", "tengv": "Lê Văn Cường", "hocvi": "TS", "malop": "L03", "tenlop": "CNTT-K23A", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 1, "tiet_start": 7, "tiet_end": 11}, {"mamon": "M01", "tenmon": "Lập trình Python", "loai": "TH", "magv": "GV01", "tengv": "Nguyễn Văn An", "hocvi": "TS", "malop": "L01", "tenlop": "CNTT-K22A", "maphong": "LAB02", "tenphong": "Phong may tinh 02", "thu_idx": 5, "tiet_start": 1, "tiet_end": 5}, {"mamon": "M01", "tenmon": "Lập trình Python", "loai": "TH", "magv": "GV01", "tengv": "Nguyễn Văn An", "hocvi": "TS", "malop": "L02", "tenlop": "CNTT-K22B", "maphong": "LAB01", "tenphong": "Phong may tinh 01", "thu_idx": 4, "tiet_start": 1, "tiet_end": 5}, {"mamon": "M01", "tenmon": "Lập trình Python", "loai": "LT", "magv": "GV01", "tengv": "Nguyễn Văn An", "hocvi": "TS", "malop": "L01", "tenlop": "CNTT-K22A", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 3, "tiet_start": 7, "tiet_end": 11}, {"mamon": "M03", "tenmon": "Mạng máy tính", "loai": "TH", "magv": "GV03", "tengv": "Lê Văn Cường", "hocvi": "TS", "malop": "L02", "tenlop": "CNTT-K22B", "maphong": "LAB01", "tenphong": "Phong may tinh 01", "thu_idx": 0, "tiet_start": 7, "tiet_end": 11}, {"mamon": "M01", "tenmon": "Lập trình Python", "loai": "LT", "magv": "GV01", "tengv": "Nguyễn Văn An", "hocvi": "TS", "malop": "L02", "tenlop": "CNTT-K22B", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 1, "tiet_start": 1, "tiet_end": 5}, {"mamon": "M04", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV04", "tengv": "Phạm Thị Dung", "hocvi": "GS.TS", "malop": "L01", "tenlop": "CNTT-K22A", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 2, "tiet_start": 4, "tiet_end": 6}, {"mamon": "M02", "tenmon": "Cơ sở dữ liệu", "loai": "LT", "magv": "GV02", "tengv": "Trần Thị Bình", "hocvi": "ThS", "malop": "L03", "tenlop": "CNTT-K23A", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 2, "tiet_start": 7, "tiet_end": 11}, {"mamon": "M05", "tenmon": "Trí tuệ nhân tạo", "loai": "LT", "magv": "GV05", "tengv": "Hoàng Văn Em", "hocvi": "TS", "malop": "L03", "tenlop": "CNTT-K23A", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 4, "tiet_start": 7, "tiet_end": 11}, {"mamon": "M06", "tenmon": "Giải tích", "loai": "LT", "magv": "GV04", "tengv": "Phạm Thị Dung", "hocvi": "GS.TS", "malop": "L03", "tenlop": "CNTT-K23A", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 0, "tiet_start": 7, "tiet_end": 9}, {"mamon": "M04", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV04", "tengv": "Phạm Thị Dung", "hocvi": "GS.TS", "malop": "L01", "tenlop": "CNTT-K22A", "maphong": "P102", "tenphong": "Phong hoc 102", "thu_idx": 4, "tiet_start": 10, "tiet_end": 12}, {"mamon": "M02", "tenmon": "Cơ sở dữ liệu", "loai": "TH", "magv": "GV02", "tengv": "Trần Thị Bình", "hocvi": "ThS", "malop": "L01", "tenlop": "CNTT-K22A", "maphong": "LAB02", "tenphong": "Phong may tinh 02", "thu_idx": 0, "tiet_start": 7, "tiet_end": 11}, {"mamon": "M03", "tenmon": "Mạng máy tính", "loai": "LT", "magv": "GV03", "tengv": "Lê Văn Cường", "hocvi": "TS", "malop": "L02", "tenlop": "CNTT-K22B", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 3, "tiet_start": 1, "tiet_end": 5}, {"mamon": "M05", "tenmon": "Trí tuệ nhân tạo", "loai": "LT", "magv": "GV05", "tengv": "Hoàng Văn Em", "hocvi": "TS", "malop": "L02", "tenlop": "CNTT-K22B", "maphong": "P201", "tenphong": "Phong hoc 201", "thu_idx": 2, "tiet_start": 1, "tiet_end": 5}, {"mamon": "M04", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV04", "tengv": "Phạm Thị Dung", "hocvi": "GS.TS", "malop": "L02", "tenlop": "CNTT-K22B", "maphong": "P101", "tenphong": "Phong hoc 101", "thu_idx": 0, "tiet_start": 4, "tiet_end": 6}], "gv_list": [{"magv": "GV01", "tengv": "Nguyễn Văn An", "hocvi": "TS"}, {"magv": "GV02", "tengv": "Trần Thị Bình", "hocvi": "ThS"}, {"magv": "GV03", "tengv": "Lê Văn Cường", "hocvi": "TS"}, {"magv": "GV04", "tengv": "Phạm Thị Dung", "hocvi": "GS.TS"}, {"magv": "GV05", "tengv": "Hoàng Văn Em", "hocvi": "TS"}], "lop_list": [{"malop": "L01", "tenlop": "CNTT-K22A"}, {"malop": "L02", "tenlop": "CNTT-K22B"}, {"malop": "L03", "tenlop": "CNTT-K23A"}], "phong_list": [{"maphong": "P101", "tenphong": "Phong hoc 101", "loaiphong": "LT"}, {"maphong": "P102", "tenphong": "Phong hoc 102", "loaiphong": "LT"}, {"maphong": "P201", "tenphong": "Phong hoc 201", "loaiphong": "LT"}, {"maphong": "P202", "tenphong": "Phong hoc 202", "loaiphong": "LT"}, {"maphong": "LAB01", "tenphong": "Phong may tinh 01", "loaiphong": "TH"}, {"maphong": "LAB02", "tenphong": "Phong may tinh 02", "loaiphong": "TH"}]};
-const DAYS     = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
-const DAY_SHORT = ['T2','T3','T4','T5','T6','T7'];
+/* ── Data ─────────────────────────────────────────────────────────── */
+// so_tuan = số tuần môn đó còn học (tính từ tuần 1)
+const DATA = {"ngay_bat_dau":"2024-09-02","lich":[
+  {"mamon":"M06","tenmon":"Giải tích","loai":"LT","magv":"GV04","tengv":"Phạm Thị Dung","hocvi":"GS.TS","malop":"L03","tenlop":"CNTT-K23A","maphong":"P102","tenphong":"Phong hoc 102","thu_idx":1,"tiet_start":4,"tiet_end":6,"so_tuan":5},
+  {"mamon":"M02","tenmon":"Cơ sở dữ liệu","loai":"LT","magv":"GV02","tengv":"Trần Thị Bình","hocvi":"ThS","malop":"L01","tenlop":"CNTT-K22A","maphong":"P201","tenphong":"Phong hoc 201","thu_idx":1,"tiet_start":1,"tiet_end":5,"so_tuan":9},
+  {"mamon":"M04","tenmon":"Toán rời rạc","loai":"LT","magv":"GV04","tengv":"Phạm Thị Dung","hocvi":"GS.TS","malop":"L02","tenlop":"CNTT-K22B","maphong":"P101","tenphong":"Phong hoc 101","thu_idx":5,"tiet_start":10,"tiet_end":12,"so_tuan":10},
+  {"mamon":"M03","tenmon":"Mạng máy tính","loai":"LT","magv":"GV03","tengv":"Lê Văn Cường","hocvi":"TS","malop":"L03","tenlop":"CNTT-K23A","maphong":"P101","tenphong":"Phong hoc 101","thu_idx":1,"tiet_start":7,"tiet_end":11,"so_tuan":6},
+  {"mamon":"M01","tenmon":"Lập trình Python","loai":"TH","magv":"GV01","tengv":"Nguyễn Văn An","hocvi":"TS","malop":"L01","tenlop":"CNTT-K22A","maphong":"LAB02","tenphong":"Phong may tinh 02","thu_idx":5,"tiet_start":1,"tiet_end":5,"so_tuan":6},
+  {"mamon":"M01","tenmon":"Lập trình Python","loai":"TH","magv":"GV01","tengv":"Nguyễn Văn An","hocvi":"TS","malop":"L02","tenlop":"CNTT-K22B","maphong":"LAB01","tenphong":"Phong may tinh 01","thu_idx":4,"tiet_start":1,"tiet_end":5,"so_tuan":6},
+  {"mamon":"M01","tenmon":"Lập trình Python","loai":"LT","magv":"GV01","tengv":"Nguyễn Văn An","hocvi":"TS","malop":"L01","tenlop":"CNTT-K22A","maphong":"P101","tenphong":"Phong hoc 101","thu_idx":3,"tiet_start":7,"tiet_end":11,"so_tuan":6},
+  {"mamon":"M03","tenmon":"Mạng máy tính","loai":"TH","magv":"GV03","tengv":"Lê Văn Cường","hocvi":"TS","malop":"L02","tenlop":"CNTT-K22B","maphong":"LAB01","tenphong":"Phong may tinh 01","thu_idx":0,"tiet_start":7,"tiet_end":11,"so_tuan":6},
+  {"mamon":"M01","tenmon":"Lập trình Python","loai":"LT","magv":"GV01","tengv":"Nguyễn Văn An","hocvi":"TS","malop":"L02","tenlop":"CNTT-K22B","maphong":"P101","tenphong":"Phong hoc 101","thu_idx":1,"tiet_start":1,"tiet_end":5,"so_tuan":6},
+  {"mamon":"M04","tenmon":"Toán rời rạc","loai":"LT","magv":"GV04","tengv":"Phạm Thị Dung","hocvi":"GS.TS","malop":"L01","tenlop":"CNTT-K22A","maphong":"P101","tenphong":"Phong hoc 101","thu_idx":2,"tiet_start":4,"tiet_end":6,"so_tuan":10},
+  {"mamon":"M02","tenmon":"Cơ sở dữ liệu","loai":"LT","magv":"GV02","tengv":"Trần Thị Bình","hocvi":"ThS","malop":"L03","tenlop":"CNTT-K23A","maphong":"P101","tenphong":"Phong hoc 101","thu_idx":2,"tiet_start":7,"tiet_end":11,"so_tuan":9},
+  {"mamon":"M05","tenmon":"Trí tuệ nhân tạo","loai":"LT","magv":"GV05","tengv":"Hoàng Văn Em","hocvi":"TS","malop":"L03","tenlop":"CNTT-K23A","maphong":"P101","tenphong":"Phong hoc 101","thu_idx":4,"tiet_start":7,"tiet_end":11,"so_tuan":9},
+  {"mamon":"M06","tenmon":"Giải tích","loai":"LT","magv":"GV04","tengv":"Phạm Thị Dung","hocvi":"GS.TS","malop":"L03","tenlop":"CNTT-K23A","maphong":"P101","tenphong":"Phong hoc 101","thu_idx":0,"tiet_start":7,"tiet_end":9,"so_tuan":5},
+  {"mamon":"M04","tenmon":"Toán rời rạc","loai":"LT","magv":"GV04","tengv":"Phạm Thị Dung","hocvi":"GS.TS","malop":"L01","tenlop":"CNTT-K22A","maphong":"P102","tenphong":"Phong hoc 102","thu_idx":4,"tiet_start":10,"tiet_end":12,"so_tuan":10},
+  {"mamon":"M02","tenmon":"Cơ sở dữ liệu","loai":"TH","magv":"GV02","tengv":"Trần Thị Bình","hocvi":"ThS","malop":"L01","tenlop":"CNTT-K22A","maphong":"LAB02","tenphong":"Phong may tinh 02","thu_idx":0,"tiet_start":7,"tiet_end":11,"so_tuan":6},
+  {"mamon":"M03","tenmon":"Mạng máy tính","loai":"LT","magv":"GV03","tengv":"Lê Văn Cường","hocvi":"TS","malop":"L02","tenlop":"CNTT-K22B","maphong":"P101","tenphong":"Phong hoc 101","thu_idx":3,"tiet_start":1,"tiet_end":5,"so_tuan":6},
+  {"mamon":"M05","tenmon":"Trí tuệ nhân tạo","loai":"LT","magv":"GV05","tengv":"Hoàng Văn Em","hocvi":"TS","malop":"L02","tenlop":"CNTT-K22B","maphong":"P201","tenphong":"Phong hoc 201","thu_idx":2,"tiet_start":1,"tiet_end":5,"so_tuan":9},
+  {"mamon":"M04","tenmon":"Toán rời rạc","loai":"LT","magv":"GV04","tengv":"Phạm Thị Dung","hocvi":"GS.TS","malop":"L02","tenlop":"CNTT-K22B","maphong":"P101","tenphong":"Phong hoc 101","thu_idx":0,"tiet_start":4,"tiet_end":6,"so_tuan":10}
+],"gv_list":[
+  {"magv":"GV01","tengv":"Nguyễn Văn An","hocvi":"TS"},
+  {"magv":"GV02","tengv":"Trần Thị Bình","hocvi":"ThS"},
+  {"magv":"GV03","tengv":"Lê Văn Cường","hocvi":"TS"},
+  {"magv":"GV04","tengv":"Phạm Thị Dung","hocvi":"GS.TS"},
+  {"magv":"GV05","tengv":"Hoàng Văn Em","hocvi":"TS"}
+],"lop_list":[
+  {"malop":"L01","tenlop":"CNTT-K22A"},
+  {"malop":"L02","tenlop":"CNTT-K22B"},
+  {"malop":"L03","tenlop":"CNTT-K23A"}
+],"phong_list":[
+  {"maphong":"P101","tenphong":"Phong hoc 101","loaiphong":"LT"},
+  {"maphong":"P102","tenphong":"Phong hoc 102","loaiphong":"LT"},
+  {"maphong":"P201","tenphong":"Phong hoc 201","loaiphong":"LT"},
+  {"maphong":"P202","tenphong":"Phong hoc 202","loaiphong":"LT"},
+  {"maphong":"LAB01","tenphong":"Phong may tinh 01","loaiphong":"TH"},
+  {"maphong":"LAB02","tenphong":"Phong may tinh 02","loaiphong":"TH"}
+]};
+
+/* ── Constants ────────────────────────────────────────────────────── */
+// thu_idx: 0=T2, 1=T3, 2=T4, 3=T5, 4=T6, 5=T7, 6=CN
+const DAYS      = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','Chủ nhật'];
+const DAY_SHORT = ['T2','T3','T4','T5','T6','T7','CN'];
+const NDAYS     = 7;
 const CLR = {M01:'c-M01',M02:'c-M02',M03:'c-M03',M04:'c-M04',
              M05:'c-M05',M06:'c-M06',M07:'c-M07',M08:'c-M08'};
 
-function clr(m){ return CLR[m]||'c-def'; }
+/* ── State ────────────────────────────────────────────────────────── */
+let currentWeek = 1;
+let maxWeek     = 1;
+let currentDay  = 0;
+let activeTab   = 'ql';
 
-/* ── Tab switching ── */
-function switchTab(tab){
-  document.querySelectorAll('.tab-pane').forEach(e=>e.classList.add('hidden'));
-  document.querySelectorAll('[id^="btn-"]').forEach(e=>{
-    e.classList.remove('tab-on');
-    e.classList.add('bg-white','text-gray-600');
-  });
-  document.getElementById('tab-'+tab).classList.remove('hidden');
-  const b = document.getElementById('btn-'+tab);
-  b.classList.add('tab-on');
-  b.classList.remove('bg-white','text-gray-600');
-  if(tab==='ph') renderRoomGrid(currentDay);
+/* ── Date helpers ─────────────────────────────────────────────────── */
+const SEMESTER_START = (function(){
+  // Parse as local date to avoid timezone shift
+  const [y,m,d] = DATA.ngay_bat_dau.split('-').map(Number);
+  return new Date(y, m-1, d);
+})();
+
+function getWeekMonday(week) {
+  const d = new Date(SEMESTER_START);
+  d.setDate(d.getDate() + (week - 1) * 7);
+  return d;
+}
+function getDayDate(week, dayIdx) {
+  const d = new Date(SEMESTER_START);
+  d.setDate(d.getDate() + (week - 1) * 7 + dayIdx);
+  return d;
+}
+function fmtDMY(date) {
+  return `${pad(date.getDate())}/${pad(date.getMonth()+1)}/${date.getFullYear()}`;
+}
+function fmtDM(date) {
+  return `${pad(date.getDate())}/${pad(date.getMonth()+1)}`;
+}
+function pad(n){ return String(n).padStart(2,'0'); }
+
+/* ── Helpers ──────────────────────────────────────────────────────── */
+function clr(m){ return CLR[m] || 'c-def'; }
+
+/* ── Week navigator ───────────────────────────────────────────────── */
+function updateWeekNav() {
+  const mon = getWeekMonday(currentWeek);
+  const sun = getDayDate(currentWeek, 6);
+  document.getElementById('wk-label').textContent =
+    `📅 Tuần ${currentWeek} / ${maxWeek}`;
+  document.getElementById('wk-range').textContent =
+    `${fmtDMY(mon)}  –  ${fmtDMY(sun)}`;
+  document.getElementById('max-wk').textContent = maxWeek;
+  document.getElementById('btn-prev').disabled = currentWeek <= 1;
+  document.getElementById('btn-next').disabled = currentWeek >= maxWeek;
 }
 
-/* ── Session card HTML ── */
-function card(s, showGV, showLop, compact){
-  const badge  = `<span class="badge ${s.loai==='TH'?'bdg-th':'bdg-lt'}">${s.loai}</span>`;
-  const tRange = compact
+function changeWeek(delta) {
+  const nw = currentWeek + delta;
+  if (nw < 1 || nw > maxWeek) return;
+  currentWeek = nw;
+  updateWeekNav();
+  rerenderAll();
+}
+
+function rerenderAll() {
+  document.getElementById('grid-ql').innerHTML = buildGridAll(DATA.lich);
+  renderGV();
+  renderSV();
+  // room tab: re-render with fresh day buttons (dates change per week)
+  document.getElementById('day-btns').innerHTML = buildDayBtns();
+  selectDay(currentDay, false);
+}
+
+/* ── Session card HTML ────────────────────────────────────────────── */
+function card(s, showGV, showLop, compact) {
+  const badge   = `<span class="badge ${s.loai==='TH'?'bdg-th':'bdg-lt'}">${s.loai}</span>`;
+  const tRange  = compact
     ? `<div class="sess-info" style="font-size:9px;color:#9ca3af">Tiết ${s.tiet_start}–${s.tiet_end}</div>` : '';
-  const gvLine  = showGV  ? `<div class="sess-info">👤 ${s.tengv}</div>`  : '';
+  const gvLine  = showGV  ? `<div class="sess-info">👤 ${s.tengv}</div>` : '';
   const lopLine = showLop ? `<div class="sess-info">🎓 ${s.tenlop}</div>` : '';
+  const isActive = currentWeek <= s.so_tuan;
+  const wkCls   = isActive ? 'wk-badge' : 'wk-badge wk-done';
+  const wkTip   = isActive
+    ? `Tuần ${currentWeek}/${s.so_tuan}`
+    : `Kết thúc (${s.so_tuan} tuần)`;
   const mb = compact ? 'margin-bottom:3px;' : '';
   return `<div class="sess-card ${clr(s.mamon)}" style="${mb}">
     <div class="sess-name">${s.tenmon}</div>
-    ${badge}${tRange}${gvLine}${lopLine}
+    ${badge}<span class="${wkCls}">${wkTip}</span>
+    ${tRange}${gvLine}${lopLine}
     <div class="sess-info">🏛 ${s.maphong}</div>
   </div>`;
 }
 
-/* ── Grid with rowspan (GV / SV — 1 session per slot per day) ── */
-function buildGrid(sessions, showGV, showLop){
+/* ── Day column header HTML ───────────────────────────────────────── */
+function dayTH(idx) {
+  const date = getDayDate(currentWeek, idx);
+  const isSun = idx === 6;
+  return `<th class="${isSun?'th-sun':''}">${DAYS[idx]}<span class="th-date">${fmtDM(date)}</span></th>`;
+}
+
+/* ── Grid with rowspan (GV / SV) ──────────────────────────────────── */
+function buildGrid(sessions, showGV, showLop) {
   const g = {};
-  sessions.forEach(s=>{
-    if(!g[s.thu_idx]) g[s.thu_idx]={};
+  sessions.forEach(s => {
+    if (!g[s.thu_idx]) g[s.thu_idx] = {};
     g[s.thu_idx][s.tiet_start] = s;
   });
-  const rowEnd = new Array(6).fill(0);
-  let h = '<table class="timetable"><thead><tr><th style="width:40px">Tiết</th>';
-  DAYS.forEach(d => h+=`<th>${d}</th>`);
+  const rowEnd = new Array(NDAYS).fill(0);
+  let h = `<table class="timetable"><thead><tr><th style="width:38px">Tiết</th>`;
+  for (let i = 0; i < NDAYS; i++) h += dayTH(i);
   h += '</tr></thead><tbody>';
-  for(let t=1; t<=12; t++){
-    if(t===1) h+='<tr class="sang-hd"><td colspan="7">☀️ BUỔI SÁNG &nbsp;(Tiết 1 – 6)</td></tr>';
-    if(t===7) h+='<tr class="chieu-hd"><td colspan="7">🌙 BUỔI CHIỀU &nbsp;(Tiết 7 – 12)</td></tr>';
-    h+='<tr>';
-    h+=`<td class="tiet-lbl">${t}</td>`;
-    for(let d=0; d<6; d++){
-      if(rowEnd[d]>t) continue;
+  for (let t = 1; t <= 12; t++) {
+    if (t===1) h += `<tr class="sang-hd"><td colspan="${NDAYS+1}">☀️ BUỔI SÁNG &nbsp;(Tiết 1 – 6)</td></tr>`;
+    if (t===7) h += `<tr class="chieu-hd"><td colspan="${NDAYS+1}">🌙 BUỔI CHIỀU &nbsp;(Tiết 7 – 12)</td></tr>`;
+    h += '<tr>';
+    h += `<td class="tiet-lbl">${t}</td>`;
+    for (let d = 0; d < NDAYS; d++) {
+      if (rowEnd[d] > t) continue;
       const s = g[d] && g[d][t];
-      if(s){
+      const active = s && currentWeek <= s.so_tuan;
+      if (active) {
         const sp = s.tiet_end - s.tiet_start + 1;
         rowEnd[d] = t + sp;
-        h+=`<td rowspan="${sp}" class="sess-cell">${card(s,showGV,showLop,false)}</td>`;
+        h += `<td rowspan="${sp}" class="sess-cell">${card(s, showGV, showLop, false)}</td>`;
+      } else if (s && currentWeek > s.so_tuan) {
+        // Session exists but has ended — consume span, show muted
+        const sp = s.tiet_end - s.tiet_start + 1;
+        rowEnd[d] = t + sp;
+        h += `<td rowspan="${sp}" class="done-td">✓ Đã kết thúc</td>`;
       } else {
-        h+='<td class="empty-td"></td>';
+        h += '<td class="empty-td"></td>';
       }
     }
-    h+='</tr>';
+    h += '</tr>';
   }
-  return h+'</tbody></table>';
+  return h + '</tbody></table>';
 }
 
-/* ── Management grid (multiple sessions per start-tiết) ── */
-function buildGridAll(sessions){
+/* ── Management grid (multiple sessions per start-tiết) ──────────── */
+function buildGridAll(sessions) {
   const g = {};
-  sessions.forEach(s=>{
-    if(!g[s.thu_idx]) g[s.thu_idx]={};
-    if(!g[s.thu_idx][s.tiet_start]) g[s.thu_idx][s.tiet_start]=[];
+  sessions.forEach(s => {
+    if (!g[s.thu_idx]) g[s.thu_idx] = {};
+    if (!g[s.thu_idx][s.tiet_start]) g[s.thu_idx][s.tiet_start] = [];
     g[s.thu_idx][s.tiet_start].push(s);
   });
-  const tiets = [...new Set(sessions.map(s=>s.tiet_start))].sort((a,b)=>a-b);
-  let h = '<table class="timetable"><thead><tr><th style="width:55px">Tiết BĐ</th>';
-  DAYS.forEach(d => h+=`<th>${d}</th>`);
+  const tiets = [...new Set(sessions.map(s => s.tiet_start))].sort((a,b) => a-b);
+  let h = `<table class="timetable"><thead><tr><th style="width:55px">Tiết BĐ</th>`;
+  for (let i = 0; i < NDAYS; i++) h += dayTH(i);
   h += '</tr></thead><tbody>';
   let prev = null;
-  tiets.forEach(t=>{
-    const buoi = t<=6 ? 'sang' : 'chieu';
-    if(buoi!==prev){
-      prev=buoi;
+  tiets.forEach(t => {
+    const buoi = t <= 6 ? 'sang' : 'chieu';
+    if (buoi !== prev) {
+      prev = buoi;
       h += buoi==='sang'
-        ? '<tr class="sang-hd"><td colspan="7">☀️ BUỔI SÁNG</td></tr>'
-        : '<tr class="chieu-hd"><td colspan="7">🌙 BUỔI CHIỀU</td></tr>';
+        ? `<tr class="sang-hd"><td colspan="${NDAYS+1}">☀️ BUỔI SÁNG</td></tr>`
+        : `<tr class="chieu-hd"><td colspan="${NDAYS+1}">🌙 BUỔI CHIỀU</td></tr>`;
     }
-    h+='<tr>';
-    h+=`<td class="tiet-lbl" style="font-size:10px">Tiết<br><b>${t}</b></td>`;
-    for(let d=0; d<6; d++){
-      const list = (g[d]&&g[d][t])||[];
-      if(!list.length){ h+='<td class="empty-td"></td>'; continue; }
-      h+='<td class="sess-cell" style="min-width:140px">';
-      list.forEach(s => h+=card(s,true,true,true));
-      h+='</td>';
+    h += '<tr>';
+    h += `<td class="tiet-lbl" style="font-size:10px">Tiết<br><b>${t}</b></td>`;
+    for (let d = 0; d < NDAYS; d++) {
+      const list = (g[d] && g[d][t]) || [];
+      if (!list.length) { h += '<td class="empty-td"></td>'; continue; }
+      const active = list.filter(s => currentWeek <= s.so_tuan);
+      const done   = list.filter(s => currentWeek > s.so_tuan);
+      if (!active.length) {
+        h += `<td class="done-td">✓ Kết thúc</td>`;
+        continue;
+      }
+      h += '<td class="sess-cell" style="min-width:130px">';
+      active.forEach(s => h += card(s, true, true, true));
+      done.forEach(s => h += `<div style="opacity:0.35">${card(s,true,true,true)}</div>`);
+      h += '</td>';
     }
-    h+='</tr>';
+    h += '</tr>';
   });
-  return h+'</tbody></table>';
+  return h + '</tbody></table>';
 }
 
-/* ── Room availability grid for a specific day ── */
-function buildRoomGrid(dayIdx){
-  const rooms = DATA.phong_list;
-  const nCols = rooms.length;
+/* ── Room availability grid for a specific day ────────────────────── */
+function buildRoomGrid(dayIdx) {
+  const rooms   = DATA.phong_list;
+  const nCols   = rooms.length;
+  const dayDate = getDayDate(currentWeek, dayIdx);
 
-  // Build lookup: roomName → { tiet_start: session }
   const rg = {};
   rooms.forEach(r => { rg[r.maphong] = {}; });
-  DATA.lich.filter(s => s.thu_idx === dayIdx).forEach(s => {
-    rg[s.maphong][s.tiet_start] = s;
-  });
+  DATA.lich
+    .filter(s => s.thu_idx === dayIdx && currentWeek <= s.so_tuan)
+    .forEach(s => { rg[s.maphong][s.tiet_start] = s; });
 
-  // Count free slots per room for today
   const freeCount = {};
   rooms.forEach(r => {
-    let occupied = new Set();
-    DATA.lich.filter(s => s.thu_idx===dayIdx && s.maphong===r.maphong).forEach(s=>{
-      for(let t=s.tiet_start; t<=s.tiet_end; t++) occupied.add(t);
-    });
-    freeCount[r.maphong] = 10 - occupied.size; // 10 usable tiets (excl. 6,12)
+    let occ = new Set();
+    DATA.lich
+      .filter(s => s.thu_idx===dayIdx && s.maphong===r.maphong && currentWeek<=s.so_tuan)
+      .forEach(s => { for(let t=s.tiet_start;t<=s.tiet_end;t++) occ.add(t); });
+    freeCount[r.maphong] = 10 - occ.size;
   });
 
   const rowEnd = {};
@@ -280,66 +415,62 @@ function buildRoomGrid(dayIdx){
     const lt = r.loaiphong==='LT'
       ? '<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 4px;border-radius:3px;font-weight:700">LT</span>'
       : '<span style="font-size:9px;background:#dcfce7;color:#15803d;padding:1px 4px;border-radius:3px;font-weight:700">TH</span>';
-    const freeLabel = freeCount[r.maphong]>0
-      ? `<span style="font-size:9px;color:#16a34a">(còn ${freeCount[r.maphong]} tiết trống)</span>`
+    const fl = freeCount[r.maphong] > 0
+      ? `<span style="font-size:9px;color:#16a34a">(còn ${freeCount[r.maphong]} tiết)</span>`
       : `<span style="font-size:9px;color:#dc2626">(hết tiết)</span>`;
-    h += `<th>${r.maphong} ${lt}<br><span style="font-size:10px;font-weight:400;color:#6b7280">${r.tenphong}</span><br>${freeLabel}</th>`;
+    h += `<th>${r.maphong} ${lt}<br><span style="font-size:10px;font-weight:400;color:#6b7280">${r.tenphong}</span><br>${fl}</th>`;
   });
   h += '</tr></thead><tbody>';
 
-  for(let t=1; t<=12; t++){
-    if(t===1) h+=`<tr class="sang-hd"><td colspan="${nCols+1}">☀️ BUỔI SÁNG &nbsp;(Tiết 1 – 6)</td></tr>`;
-    if(t===7) h+=`<tr class="chieu-hd"><td colspan="${nCols+1}">🌙 BUỔI CHIỀU &nbsp;(Tiết 7 – 12)</td></tr>`;
-
-    h+='<tr>';
-    h+=`<td class="tiet-lbl">${t}</td>`;
-
+  for (let t = 1; t <= 12; t++) {
+    if (t===1) h += `<tr class="sang-hd"><td colspan="${nCols+1}">☀️ BUỔI SÁNG &nbsp;(Tiết 1 – 6)</td></tr>`;
+    if (t===7) h += `<tr class="chieu-hd"><td colspan="${nCols+1}">🌙 BUỔI CHIỀU &nbsp;(Tiết 7 – 12)</td></tr>`;
+    h += '<tr>';
+    h += `<td class="tiet-lbl">${t}</td>`;
     rooms.forEach(r => {
-      if(rowEnd[r.maphong] > t) return; // covered by rowspan above
-
+      if (rowEnd[r.maphong] > t) return;
       const s = rg[r.maphong][t];
-      if(s){
+      if (s) {
         const sp = s.tiet_end - s.tiet_start + 1;
         rowEnd[r.maphong] = t + sp;
-        h+=`<td rowspan="${sp}" class="sess-cell">
+        h += `<td rowspan="${sp}" class="sess-cell">
           <div class="sess-card ${clr(s.mamon)}">
             <div class="sess-name">${s.tenmon}</div>
             <span class="badge ${s.loai==='TH'?'bdg-th':'bdg-lt'}">${s.loai}</span>
+            <span class="wk-badge">Tuần ${currentWeek}/${s.so_tuan}</span>
             <div class="sess-info">🎓 ${s.tenlop}</div>
             <div class="sess-info">👤 ${s.tengv}</div>
           </div>
         </td>`;
       } else {
-        h+='<td class="free-td">🟢<br>TRỐNG</td>';
+        h += '<td class="free-td">🟢<br>TRỐNG</td>';
       }
     });
-    h+='</tr>';
+    h += '</tr>';
   }
-  h+='</tbody></table>';
-  return h;
+  return h + '</tbody></table>';
 }
 
-/* ── Room stats per day ── */
-function buildRoomStats(dayIdx){
+/* ── Room stats ───────────────────────────────────────────────────── */
+function buildRoomStats(dayIdx) {
   const rooms = DATA.phong_list;
-  const totalTiets = 10; // 10 usable tiets per room per day
+  const totalTiets = 10;
   let totalFree = 0, totalOcc = 0;
   rooms.forEach(r => {
     let occ = new Set();
-    DATA.lich.filter(s=>s.thu_idx===dayIdx&&s.maphong===r.maphong)
-             .forEach(s=>{ for(let t=s.tiet_start;t<=s.tiet_end;t++) occ.add(t); });
+    DATA.lich.filter(s => s.thu_idx===dayIdx && s.maphong===r.maphong && currentWeek<=s.so_tuan)
+             .forEach(s => { for(let t=s.tiet_start;t<=s.tiet_end;t++) occ.add(t); });
     totalOcc  += occ.size;
     totalFree += (totalTiets - occ.size);
   });
   const totalSlots = rooms.length * totalTiets;
   const pctFree = Math.round(totalFree / totalSlots * 100);
   const pctOcc  = 100 - pctFree;
-  const items = [
-    {icon:'🏛', val:rooms.length,          lbl:'Tổng số phòng',   bg:'bg-blue-50',  bd:'border-blue-200',  tx:'text-blue-700'},
-    {icon:'🟢', val:`${totalFree} tiết`,    lbl:`Còn trống (${pctFree}%)`, bg:'bg-green-50', bd:'border-green-200', tx:'text-green-700'},
-    {icon:'🔴', val:`${totalOcc} tiết`,     lbl:`Đã dùng (${pctOcc}%)`,   bg:'bg-red-50',   bd:'border-red-200',   tx:'text-red-700'},
-  ];
-  return items.map(i=>`
+  return [
+    {icon:'🏛', val:rooms.length,           lbl:'Tổng số phòng',          bg:'bg-blue-50',  bd:'border-blue-200',  tx:'text-blue-700'},
+    {icon:'🟢', val:`${totalFree} tiết`,     lbl:`Còn trống (${pctFree}%)`, bg:'bg-green-50', bd:'border-green-200', tx:'text-green-700'},
+    {icon:'🔴', val:`${totalOcc} tiết`,      lbl:`Đã dùng (${pctOcc}%)`,   bg:'bg-red-50',   bd:'border-red-200',   tx:'text-red-700'},
+  ].map(i => `
     <div class="rounded-2xl shadow border p-4 ${i.bg} ${i.bd}">
       <div class="text-3xl">${i.icon}</div>
       <div class="text-2xl font-bold ${i.tx} mt-1">${i.val}</div>
@@ -347,16 +478,15 @@ function buildRoomStats(dayIdx){
     </div>`).join('');
 }
 
-/* ── Stats cards (management tab) ── */
-function buildStats(){
+/* ── Stats cards ──────────────────────────────────────────────────── */
+function buildStats() {
   const L = DATA.lich;
-  const items = [
-    {icon:'📅', val:L.length,                          lbl:'Tổng buổi học',   bg:'bg-blue-50',  bd:'border-blue-200',  tx:'text-blue-700'},
-    {icon:'👨‍🏫',val:new Set(L.map(s=>s.magv)).size,    lbl:'Giảng viên',      bg:'bg-green-50', bd:'border-green-200', tx:'text-green-700'},
-    {icon:'🎓', val:new Set(L.map(s=>s.malop)).size,   lbl:'Lớp học',         bg:'bg-purple-50',bd:'border-purple-200',tx:'text-purple-700'},
-    {icon:'🏛', val:new Set(L.map(s=>s.maphong)).size, lbl:'Phòng sử dụng',   bg:'bg-orange-50',bd:'border-orange-200',tx:'text-orange-700'},
-  ];
-  return items.map(i=>`
+  return [
+    {icon:'📅', val:L.length,                          lbl:'Tổng buổi học',  bg:'bg-blue-50',  bd:'border-blue-200',  tx:'text-blue-700'},
+    {icon:'👨‍🏫',val:new Set(L.map(s=>s.magv)).size,    lbl:'Giảng viên',     bg:'bg-green-50', bd:'border-green-200', tx:'text-green-700'},
+    {icon:'🎓', val:new Set(L.map(s=>s.malop)).size,   lbl:'Lớp học',        bg:'bg-purple-50',bd:'border-purple-200',tx:'text-purple-700'},
+    {icon:'🏛', val:new Set(L.map(s=>s.maphong)).size, lbl:'Phòng sử dụng',  bg:'bg-orange-50',bd:'border-orange-200',tx:'text-orange-700'},
+  ].map(i => `
     <div class="rounded-2xl shadow border p-4 ${i.bg} ${i.bd}">
       <div class="text-3xl">${i.icon}</div>
       <div class="text-3xl font-bold ${i.tx} mt-1">${i.val}</div>
@@ -364,87 +494,126 @@ function buildStats(){
     </div>`).join('');
 }
 
-/* ── Subject color legend ── */
-function buildLegend(){
+/* ── Subject legend ───────────────────────────────────────────────── */
+function buildLegend() {
   const ms = {};
-  DATA.lich.forEach(s=>{ ms[s.mamon]=s.tenmon; });
+  DATA.lich.forEach(s => { ms[s.mamon] = s.tenmon; });
   return '<span class="text-gray-400 mr-1 self-center text-xs">Màu:</span>'
-    + Object.entries(ms).map(([m,n])=>
+    + Object.entries(ms).map(([m,n]) =>
         `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium ${clr(m)}">${m}: ${n}</span>`
       ).join('');
 }
 
-/* ── Day selector buttons ── */
-let currentDay = 0;
-function buildDayBtns(){
-  return DAYS.map((d,i)=>`
-    <button id="daybtn-${i}" onclick="selectDay(${i})"
-      class="px-4 py-2 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">
-      ${d}
-    </button>`).join('');
+/* ── Day selector buttons (room tab) ─────────────────────────────── */
+function buildDayBtns() {
+  return DAYS.map((d, i) => {
+    const date  = getDayDate(currentWeek, i);
+    const isSun = i === 6;
+    const clsCn = isSun ? 'style="border:1px solid #fca5a5"' : '';
+    return `<button id="daybtn-${i}" onclick="selectDay(${i}, true)"
+      class="px-4 py-2 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all" ${clsCn}>
+      <span${isSun?' style="color:#dc2626"':''}>${DAY_SHORT[i]}</span><br>
+      <span style="font-size:10px;font-weight:400;color:${isSun?'#f87171':'#6b7280'}">${fmtDM(date)}</span>
+    </button>`;
+  }).join('');
 }
 
-function selectDay(dayIdx){
+function selectDay(dayIdx, rerender) {
   currentDay = dayIdx;
-  document.querySelectorAll('[id^="daybtn-"]').forEach(b=>{
+  document.querySelectorAll('[id^="daybtn-"]').forEach(b => {
     b.classList.remove('day-btn-on');
     b.classList.add('bg-white','text-gray-600');
   });
-  const btn = document.getElementById('daybtn-'+dayIdx);
-  btn.classList.add('day-btn-on');
-  btn.classList.remove('bg-white','text-gray-600');
-  renderRoomGrid(dayIdx);
+  const btn = document.getElementById('daybtn-' + dayIdx);
+  if (btn) { btn.classList.add('day-btn-on'); btn.classList.remove('bg-white','text-gray-600'); }
+  if (rerender) renderRoomGrid(dayIdx);
 }
 
-function renderRoomGrid(dayIdx){
+function renderRoomGrid(dayIdx) {
   document.getElementById('room-stats').innerHTML = buildRoomStats(dayIdx);
   document.getElementById('grid-ph').innerHTML    = buildRoomGrid(dayIdx);
 }
 
-/* ── Init ── */
-function init(){
-  // Management tab
+/* ── Tab switching ────────────────────────────────────────────────── */
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.tab-pane').forEach(e => e.classList.add('hidden'));
+  document.querySelectorAll('[id^="btn-"]').forEach(e => {
+    e.classList.remove('tab-on');
+    e.classList.add('bg-white','text-gray-600');
+  });
+  document.getElementById('tab-'+tab).classList.remove('hidden');
+  const b = document.getElementById('btn-'+tab);
+  b.classList.add('tab-on');
+  b.classList.remove('bg-white','text-gray-600');
+  if (tab === 'ph') { selectDay(currentDay, true); }
+}
+
+/* ── GV render ────────────────────────────────────────────────────── */
+function renderGV() {
+  const id = document.getElementById('sel-gv').value;
+  const gv = DATA.gv_list.find(g => g.magv===id) || {};
+  document.getElementById('gv-info').textContent = gv.hocvi || '';
+  const ses = DATA.lich.filter(s => s.magv===id);
+  document.getElementById('grid-gv').innerHTML = ses.length
+    ? buildGrid(ses, false, true)
+    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch dạy trong học kỳ này.</p>';
+}
+
+/* ── SV render ────────────────────────────────────────────────────── */
+function renderSV() {
+  const id  = document.getElementById('sel-lop').value;
+  const ses = DATA.lich.filter(s => s.malop===id);
+  // Summary: per subject, show so_tuan
+  const monMap = {};
+  ses.forEach(s => {
+    const key = s.mamon + s.loai;
+    if (!monMap[key]) monMap[key] = s;
+  });
+  const summaryHTML = Object.values(monMap).map(s => {
+    const done = currentWeek > s.so_tuan;
+    const cls  = done ? 'bg-gray-100 text-gray-400 line-through' : `${clr(s.mamon)} border`;
+    return `<span class="px-2 py-0.5 rounded-lg ${cls}">
+      ${s.tenmon} (${s.loai}) — ${done ? `✓ ${s.so_tuan} tuần` : `${currentWeek}/${s.so_tuan} tuần`}
+    </span>`;
+  }).join('');
+  document.getElementById('sv-summary').innerHTML = summaryHTML;
+  document.getElementById('grid-sv').innerHTML = ses.length
+    ? buildGrid(ses, true, false)
+    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch học trong học kỳ này.</p>';
+}
+
+/* ── Init ─────────────────────────────────────────────────────────── */
+function init() {
+  maxWeek = Math.max(...DATA.lich.map(s => s.so_tuan));
+
+  updateWeekNav();
+
   document.getElementById('stats-row').innerHTML  = buildStats();
   document.getElementById('legend-row').innerHTML = buildLegend();
   document.getElementById('grid-ql').innerHTML    = buildGridAll(DATA.lich);
 
   // GV dropdown
   const sgv = document.getElementById('sel-gv');
-  DATA.gv_list.forEach(g=>{
+  DATA.gv_list.forEach(g => {
     const o = document.createElement('option');
-    o.value=g.magv; o.textContent=`${g.tengv} (${g.hocvi})`; sgv.appendChild(o);
+    o.value = g.magv; o.textContent = `${g.tengv} (${g.hocvi})`; sgv.appendChild(o);
   });
 
   // Lớp dropdown
   const slop = document.getElementById('sel-lop');
-  DATA.lop_list.forEach(l=>{
+  DATA.lop_list.forEach(l => {
     const o = document.createElement('option');
-    o.value=l.malop; o.textContent=l.tenlop; slop.appendChild(o);
+    o.value = l.malop; o.textContent = l.tenlop; slop.appendChild(o);
   });
 
-  // Room day buttons
+  renderGV(); renderSV();
+
+  // Room tab
   document.getElementById('day-btns').innerHTML = buildDayBtns();
-  selectDay(0); // default: Thứ 2
+  selectDay(0, true);
 
-  renderGV(); renderSV(); switchTab('ql');
-}
-
-function renderGV(){
-  const id = document.getElementById('sel-gv').value;
-  const gv = DATA.gv_list.find(g=>g.magv===id)||{};
-  document.getElementById('gv-info').textContent = gv.hocvi||'';
-  const ses = DATA.lich.filter(s=>s.magv===id);
-  document.getElementById('grid-gv').innerHTML = ses.length
-    ? buildGrid(ses, false, true)
-    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch dạy trong tuần này.</p>';
-}
-
-function renderSV(){
-  const id = document.getElementById('sel-lop').value;
-  const ses = DATA.lich.filter(s=>s.malop===id);
-  document.getElementById('grid-sv').innerHTML = ses.length
-    ? buildGrid(ses, true, false)
-    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch học trong tuần này.</p>';
+  switchTab('ql');
 }
 
 window.onload = init;
