@@ -41,15 +41,10 @@
     </div>
 
     <script>
-        // Dữ liệu mẫu ban đầu
-        let classData = [
-            { MaLop: "L01", Khoa: "K20", TenLop: "Công nghệ thông tin 1" },
-            { MaLop: "L02", Khoa: "K21", TenLop: "Kỹ thuật phần mềm 2" }
-        ];
-
+        const API_BASE = 'http://localhost:3000/api';
+        let classData = [];
         let editIndex = null;
 
-        // Hàm hiển thị bảng lớp học
         function renderClassTable() {
             const tableBody = document.getElementById('class-table-body');
             tableBody.innerHTML = classData.map((lop, index) => `
@@ -65,7 +60,21 @@
             `).join('');
         }
 
-        // Hàm xử lý Thêm hoặc Cập nhật lớp
+        async function loadClasses() {
+            try {
+                const res = await fetch(`${API_BASE}/lop`);
+                const data = await res.json();
+                classData = data.map(row => ({
+                    MaLop: row.malop,
+                    Khoa: row.khoa,
+                    TenLop: row.tenlop
+                }));
+                renderClassTable();
+            } catch (error) {
+                console.error('Lỗi khi tải dữ liệu lớp:', error);
+            }
+        }
+
         function handleClass() {
             const khoa = document.getElementById('khoa').value;
             const tenLop = document.getElementById('tenLop').value;
@@ -78,14 +87,12 @@
             };
 
             if (editIndex !== null) {
-                // Chế độ Sửa: Giữ nguyên mã cũ
                 newLop.MaLop = classData[editIndex].MaLop;
                 classData[editIndex] = newLop;
                 editIndex = null;
                 document.getElementById('class-btn').innerText = "Thêm Lớp";
                 document.getElementById('class-btn').style.backgroundColor = "";
             } else {
-                // Chế độ Thêm mới: Tự sinh mã L + số thứ tự (2 chữ số)
                 const lastNum = classData.length > 0 
                     ? parseInt(classData[classData.length - 1].MaLop.replace('L', '')) 
                     : 0;
@@ -97,7 +104,6 @@
             resetForm();
         }
 
-        // Hàm đưa dữ liệu lớp lên form để sửa
         function editClass(index) {
             const lop = classData[index];
             editIndex = index;
@@ -108,12 +114,10 @@
 
             const btn = document.getElementById('class-btn');
             btn.innerText = "Lưu cập nhật";
-            btn.style.backgroundColor = "#3b82f6"; // Màu xanh dương khi sửa
-            
+            btn.style.backgroundColor = "#3b82f6";
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // Hàm xóa lớp
         function deleteClass(index) {
             if(confirm("Bạn có chắc chắn muốn xóa lớp học này?")) {
                 classData.splice(index, 1);
@@ -121,15 +125,13 @@
             }
         }
 
-        // Reset các ô nhập liệu
         function resetForm() {
             document.getElementById('khoa').value = '';
             document.getElementById('tenLop').value = '';
             document.getElementById('maLop').value = "Mã: Tự động";
         }
 
-        // Khởi chạy lần đầu
-        renderClassTable();
+        window.addEventListener('DOMContentLoaded', loadClasses);
     </script>
 </body>
 </html>

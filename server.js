@@ -1,50 +1,57 @@
 const express = require('express');
 const cors = require('cors');
-// Bước tiếp theo sau khi cài Node.js sẽ là dùng cái này để nối Supabase
-// const { createClient } = require('@supabase/supabase-js'); 
+const path = require('path');
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config({ path: '.env.local' });
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname)));
 
-// Dữ liệu mẫu (Mock Data) khớp 100% với Database và Giao diện của bạn
-const giangVienData = [
-    { 
-        MaGV: "GV001", 
-        TenGV: "Nguyễn Minh Khoa", 
-        Email: "nmkhoa@dnc.edu.vn", 
-        SDT: "0901 234 567", 
-        HocVi: "Thạc sĩ", 
-        ChuyenMon: "Công nghệ thông tin", 
-        TrangThai: "Đang giảng dạy" 
-    },
-    { 
-        MaGV: "GV002", 
-        TenGV: "Trương Hùng Chen", 
-        Email: "thchen@dnc.edu.vn", 
-        SDT: "0908 765 432", 
-        HocVi: "Tiến sĩ", 
-        ChuyenMon: "Hệ quản trị CSDL", 
-        TrangThai: "Tạm ngưng" 
-    }
-];
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
-// API trả về danh sách giảng viên
-app.get('/api/giangvien', (req, res) => {
-    res.json(giangVienData);
+app.get('/api/giangvien', async (req, res) => {
+  const { data, error } = await supabase
+    .from('giang_vien')
+    .select('*');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
-const PORT = 3000;
+app.get('/api/lop', async (req, res) => {
+  const { data, error } = await supabase
+    .from('lop')
+    .select('malop, tenlop, khoa');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.get('/api/monhoc', async (req, res) => {
+  const { data, error } = await supabase
+    .from('mon_hoc')
+    .select('mamon, tenmon, sotinchi, tongsotiet, sotietlythuyet, sotietthuchanh, loaiphong');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.get('/api/phonghoc', async (req, res) => {
+  const { data, error } = await supabase
+    .from('phong_hoc')
+    .select('maphong, tenphong, loaiphong, trangthai');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`[Backend] Server đang chạy tại: http://localhost:${PORT}`);
-    console.log(`[API] Truy cập để xem dữ liệu: http://localhost:${PORT}/api/giangvien`);
+  console.log(`[Backend] Server đang chạy tại: http://localhost:${PORT}`);
+  console.log(`[API] Giảng viên: http://localhost:${PORT}/api/giangvien`);
+  console.log(`[API] Lớp: http://localhost:${PORT}/api/lop`);
+  console.log(`[API] Môn học: http://localhost:${PORT}/api/monhoc`);
+  console.log(`[API] Phòng học: http://localhost:${PORT}/api/phonghoc`);
 });
 
-// Thêm đoạn này vào dưới route /api/giangvien trong server.js
-const monHocData = [
-    { MaMon: "IT001", TenMon: "Lập trình Web", SoTinChi: 3, LoaiPhong: "Phòng máy" }
-];
-
-app.get('/api/monhoc', (req, res) => {
-    res.json(monHocData);
-});

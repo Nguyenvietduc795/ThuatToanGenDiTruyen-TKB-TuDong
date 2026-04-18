@@ -54,18 +54,24 @@
     </div>
 
     <script>
-        // Dữ liệu mẫu ban đầu
-        let mockData = [
-            { MaGV: "GV001", TenGV: "Nguyễn Minh Khoa", Email: "nmkhoa@dnc.edu.vn", SDT: "0901 234 567", HocVi: "Thạc sĩ", ChuyenMon: "Công nghệ thông tin", TrangThai: "Đang giảng dạy" },
-            { MaGV: "GV002", TenGV: "Trương Hùng Chen", Email: "thchen@dnc.edu.vn", SDT: "0908 765 432", HocVi: "Tiến sĩ", ChuyenMon: "Hệ quản trị CSDL", TrangThai: "Tạm ngưng" }
-        ];
-
+        const API_BASE = 'http://localhost:3000/api';
+        let teacherData = [];
         let editingIndex = null; // Biến tạm để biết đang sửa dòng nào
 
-        // Hàm hiển thị bảng
         function renderTable() {
             const tableBody = document.getElementById('teacher-table-body');
-            tableBody.innerHTML = mockData.map((gv, index) => `
+            if (teacherData.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align:center; padding: 24px; color: #555;">
+                            Không có dữ liệu giảng viên. Hãy kiểm tra lại server hoặc database.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tableBody.innerHTML = teacherData.map((gv, index) => `
                 <tr>
                     <td><strong>${gv.MaGV}</strong></td>
                     <td>${gv.TenGV}</td>
@@ -82,7 +88,37 @@
             `).join('');
         }
 
-        // Hàm xử lý khi bấm nút Thêm/Lưu
+        async function loadTeachers() {
+            try {
+                const res = await fetch(`${API_BASE}/giangvien`);
+                if (!res.ok) {
+                    throw new Error(`API lỗi ${res.status}`);
+                }
+                const data = await res.json();
+                console.log('giangvien data:', data);
+                teacherData = data.map(row => ({
+                    MaGV: row.magv,
+                    TenGV: row.tengv,
+                    Email: row.email,
+                    SDT: row.sdt,
+                    HocVi: row.hocvi,
+                    ChuyenMon: row.chuyenmon,
+                    TrangThai: row.trangthai
+                }));
+                renderTable();
+            } catch (error) {
+                console.error('Lỗi khi tải dữ liệu giảng viên:', error);
+                const tableBody = document.getElementById('teacher-table-body');
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align:center; padding: 24px; color: #d00;">
+                            Lỗi tải dữ liệu giảng viên: ${error.message}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
         function handleTeacher() {
             const ten = document.getElementById('tenGV').value;
             const email = document.getElementById('email').value;
@@ -99,26 +135,23 @@
             };
 
             if (editingIndex !== null) {
-                // ĐANG Ở CHẾ ĐỘ SỬA
-                gvInfo.MaGV = mockData[editingIndex].MaGV; // Giữ nguyên mã cũ
-                mockData[editingIndex] = gvInfo;
+                gvInfo.MaGV = teacherData[editingIndex].MaGV;
+                teacherData[editingIndex] = gvInfo;
                 editingIndex = null;
                 document.getElementById('main-btn').innerText = "Thêm mới";
-                document.getElementById('main-btn').style.backgroundColor = ""; // Trả về màu gốc (xanh lá)
+                document.getElementById('main-btn').style.backgroundColor = "";
             } else {
-                // ĐANG Ở CHẾ ĐỘ THÊM MỚI
-                const lastNum = mockData.length > 0 ? parseInt(mockData[mockData.length - 1].MaGV.replace('GV', '')) : 0;
+                const lastNum = teacherData.length > 0 ? parseInt(teacherData[teacherData.length - 1].MaGV.replace('GV', '')) : 0;
                 gvInfo.MaGV = "GV" + (lastNum + 1).toString().padStart(3, '0');
-                mockData.push(gvInfo);
+                teacherData.push(gvInfo);
             }
 
             renderTable();
             resetForm();
         }
 
-        // Hàm đưa dữ liệu lên form để sửa
         function editTeacher(index) {
-            const gv = mockData[index];
+            const gv = teacherData[index];
             editingIndex = index;
 
             document.getElementById('maGV').value = gv.MaGV;
@@ -129,12 +162,10 @@
             document.getElementById('chuyenMon').value = gv.ChuyenMon;
             document.getElementById('trangThai').value = gv.TrangThai;
 
-            // Thay đổi giao diện nút bấm
             const btn = document.getElementById('main-btn');
             btn.innerText = "Lưu cập nhật";
-            btn.style.backgroundColor = "#3b82f6"; // Chuyển sang màu xanh dương khi sửa
-            
-            window.scrollTo({ top: 0, behavior: 'smooth' }); // Cuộn nhẹ lên đầu trang
+            btn.style.backgroundColor = "#3b82f6";
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         function resetForm() {
@@ -144,12 +175,12 @@
 
         function deleteTeacher(index) {
             if(confirm("Bạn có chắc chắn muốn xóa giảng viên này?")) {
-                mockData.splice(index, 1);
+                teacherData.splice(index, 1);
                 renderTable();
             }
         }
 
-        renderTable();
+        window.addEventListener('DOMContentLoaded', loadTeachers);
     </script>
 </body>
 </html>
