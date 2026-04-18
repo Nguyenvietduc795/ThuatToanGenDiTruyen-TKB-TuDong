@@ -48,19 +48,9 @@
     </div>
 
     <script>
-        const API = 'http://localhost:3000/api/monhoc';
-        let data = [];
-        let editingMa = null;
-
-        async function loadData() {
-            try {
-                const res = await fetch(API);
-                data = await res.json();
-                renderTable();
-            } catch {
-                alert('Không kết nối được server. Hãy chạy: node server.js');
-            }
-        }
+        const API_BASE = 'http://localhost:3000/api';
+        let subjectData = [];
+        let editIndex = null;
 
         function renderTable() {
             document.getElementById('subject-table-body').innerHTML = data.map(mh => `
@@ -80,16 +70,36 @@
             `).join('');
         }
 
-        async function handleSubject() {
-            const ten     = document.getElementById('tenMon').value;
-            const tinChi  = parseInt(document.getElementById('soTinChi').value)   || 0;
-            const tong    = parseInt(document.getElementById('tongSoTiet').value) || 0;
-            const lt      = parseInt(document.getElementById('soTietLT').value)   || 0;
-            const th      = parseInt(document.getElementById('soTietTH').value)   || 0;
+        async function loadSubjects() {
+            try {
+                const res = await fetch(`${API_BASE}/monhoc`);
+                const data = await res.json();
+                subjectData = data.map(row => ({
+                    MaMon: row.mamon,
+                    TenMon: row.tenmon,
+                    SoTinChi: row.sotinchi,
+                    TongSoTiet: row.tongsotiet,
+                    SoTietLT: row.sotietlythuyet,
+                    SoTietTH: row.sotietthuchanh,
+                    LoaiPhong: row.loaiphong
+                }));
+                renderSubjectTable();
+            } catch (error) {
+                console.error('Lỗi khi tải dữ liệu môn học:', error);
+            }
+        }
 
-            if (!ten) return alert('Vui lòng nhập tên môn học!');
-            if (tinChi < 0 || tong < 0 || lt < 0 || th < 0)
-                return alert('Các giá trị số không được là số âm!');
+        function handleSubject() {
+            const ten = document.getElementById('tenMon').value;
+            const tinChi = parseInt(document.getElementById('soTinChi').value) || 0;
+            const tong = parseInt(document.getElementById('tongSoTiet').value) || 0;
+            const lt = parseInt(document.getElementById('soTietLT').value) || 0;
+            const th = parseInt(document.getElementById('soTietTH').value) || 0;
+
+            if (!ten) return alert("Vui lòng nhập tên môn học!");
+            if (tinChi < 0 || tong < 0 || lt < 0 || th < 0) {
+                return alert("Các giá trị số (Tín chỉ, Tiết học) không được là số âm!");
+            }
 
             const body = {
                 TenMon    : ten,
@@ -110,11 +120,11 @@
                 document.getElementById('sub-btn').innerText = 'Thêm Môn';
                 document.getElementById('sub-btn').style.backgroundColor = '';
             } else {
-                await fetch(API, {
-                    method : 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body   : JSON.stringify(body),
-                });
+                const lastNum = subjectData.length > 0 
+                    ? parseInt(subjectData[subjectData.length - 1].MaMon.replace('MH', '')) 
+                    : 0;
+                newMH.MaMon = "MH" + (lastNum + 1).toString().padStart(3, '0');
+                subjectData.push(newMH);
             }
             resetForm();
             loadData();
@@ -148,7 +158,7 @@
             document.getElementById('maMon').value = 'Mã: Tự động';
         }
 
-        loadData();
+        window.addEventListener('DOMContentLoaded', loadSubjects);
     </script>
 </body>
 </html>

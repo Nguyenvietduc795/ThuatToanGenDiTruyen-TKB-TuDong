@@ -37,22 +37,13 @@
     </div>
 
     <script>
-        const API = 'http://localhost:3000/api/lop';
-        let data = [];
-        let editingMa = null;
+        const API_BASE = 'http://localhost:3000/api';
+        let classData = [];
+        let editIndex = null;
 
-        async function loadData() {
-            try {
-                const res = await fetch(API);
-                data = await res.json();
-                renderTable();
-            } catch {
-                alert('Không kết nối được server. Hãy chạy: node server.js');
-            }
-        }
-
-        function renderTable() {
-            document.getElementById('class-table-body').innerHTML = data.map(lop => `
+        function renderClassTable() {
+            const tableBody = document.getElementById('class-table-body');
+            tableBody.innerHTML = classData.map((lop, index) => `
                 <tr>
                     <td><strong>${lop.MaLop}</strong></td>
                     <td>${lop.TenLop}</td>
@@ -65,50 +56,69 @@
             `).join('');
         }
 
-        async function handleClass() {
+        async function loadClasses() {
+            try {
+                const res = await fetch(`${API_BASE}/lop`);
+                const data = await res.json();
+                classData = data.map(row => ({
+                    MaLop: row.malop,
+                    Khoa: row.khoa,
+                    TenLop: row.tenlop
+                }));
+                renderClassTable();
+            } catch (error) {
+                console.error('Lỗi khi tải dữ liệu lớp:', error);
+            }
+        }
+
+        function handleClass() {
+            const khoa = document.getElementById('khoa').value;
             const tenLop = document.getElementById('tenLop').value;
-            const maKhoa = document.getElementById('maKhoa').value;
-            if (!tenLop || !maKhoa) return alert('Vui lòng nhập đầy đủ Tên lớp và Mã khoa!');
 
-            const body = { TenLop: tenLop, MaKhoa: maKhoa };
+            if (!khoa || !tenLop) return alert("Vui lòng nhập đầy đủ Khóa và Tên lớp!");
 
-            if (editingMa) {
-                await fetch(`${API}/${editingMa}`, {
-                    method : 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body   : JSON.stringify(body),
-                });
-                editingMa = null;
-                document.getElementById('class-btn').innerText = 'Thêm Lớp';
-                document.getElementById('class-btn').style.backgroundColor = '';
+            const newLop = {
+                Khoa: khoa,
+                TenLop: tenLop
+            };
+
+            if (editIndex !== null) {
+                newLop.MaLop = classData[editIndex].MaLop;
+                classData[editIndex] = newLop;
+                editIndex = null;
+                document.getElementById('class-btn').innerText = "Thêm Lớp";
+                document.getElementById('class-btn').style.backgroundColor = "";
             } else {
-                await fetch(API, {
-                    method : 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body   : JSON.stringify(body),
-                });
+                const lastNum = classData.length > 0 
+                    ? parseInt(classData[classData.length - 1].MaLop.replace('L', '')) 
+                    : 0;
+                newLop.MaLop = "L" + (lastNum + 1).toString().padStart(2, '0');
+                classData.push(newLop);
             }
             resetForm();
             loadData();
         }
 
-        function editClass(ma) {
-            const lop = data.find(l => l.MaLop === ma);
-            editingMa = ma;
-            document.getElementById('maLop').value  = lop.MaLop;
+        function editClass(index) {
+            const lop = classData[index];
+            editIndex = index;
+
+            document.getElementById('maLop').value = lop.MaLop;
+            document.getElementById('khoa').value = lop.Khoa;
             document.getElementById('tenLop').value = lop.TenLop;
             document.getElementById('maKhoa').value = lop.MaKhoa;
 
             const btn = document.getElementById('class-btn');
-            btn.innerText = 'Lưu cập nhật';
-            btn.style.backgroundColor = '#3b82f6';
+            btn.innerText = "Lưu cập nhật";
+            btn.style.backgroundColor = "#3b82f6";
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        async function deleteClass(ma) {
-            if (!confirm('Bạn có chắc chắn muốn xóa lớp học này?')) return;
-            await fetch(`${API}/${ma}`, { method: 'DELETE' });
-            loadData();
+        function deleteClass(index) {
+            if(confirm("Bạn có chắc chắn muốn xóa lớp học này?")) {
+                classData.splice(index, 1);
+                renderClassTable();
+            }
         }
 
         function resetForm() {
@@ -117,7 +127,7 @@
             document.getElementById('maLop').value  = 'Mã: Tự động';
         }
 
-        loadData();
+        window.addEventListener('DOMContentLoaded', loadClasses);
     </script>
 </body>
 </html>

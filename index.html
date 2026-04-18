@@ -53,22 +53,24 @@
     </div>
 
     <script>
-        const API = 'http://localhost:3000/api/giangvien';
-        let data = [];
-        let editingMa = null;
-
-        async function loadData() {
-            try {
-                const res = await fetch(API);
-                data = await res.json();
-                renderTable();
-            } catch {
-                alert('Không kết nối được server. Hãy chạy: node server.js');
-            }
-        }
+        const API_BASE = 'http://localhost:3000/api';
+        let teacherData = [];
+        let editingIndex = null; // Biến tạm để biết đang sửa dòng nào
 
         function renderTable() {
-            document.getElementById('teacher-table-body').innerHTML = data.map(gv => `
+            const tableBody = document.getElementById('teacher-table-body');
+            if (teacherData.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align:center; padding: 24px; color: #555;">
+                            Không có dữ liệu giảng viên. Hãy kiểm tra lại server hoặc database.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tableBody.innerHTML = teacherData.map((gv, index) => `
                 <tr>
                     <td><strong>${gv.MaGV}</strong></td>
                     <td>${gv.TenGV}</td>
@@ -85,8 +87,39 @@
             `).join('');
         }
 
-        async function handleTeacher() {
-            const ten   = document.getElementById('tenGV').value;
+        async function loadTeachers() {
+            try {
+                const res = await fetch(`${API_BASE}/giangvien`);
+                if (!res.ok) {
+                    throw new Error(`API lỗi ${res.status}`);
+                }
+                const data = await res.json();
+                console.log('giangvien data:', data);
+                teacherData = data.map(row => ({
+                    MaGV: row.magv,
+                    TenGV: row.tengv,
+                    Email: row.email,
+                    SDT: row.sdt,
+                    HocVi: row.hocvi,
+                    ChuyenMon: row.chuyenmon,
+                    TrangThai: row.trangthai
+                }));
+                renderTable();
+            } catch (error) {
+                console.error('Lỗi khi tải dữ liệu giảng viên:', error);
+                const tableBody = document.getElementById('teacher-table-body');
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align:center; padding: 24px; color: #d00;">
+                            Lỗi tải dữ liệu giảng viên: ${error.message}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function handleTeacher() {
+            const ten = document.getElementById('tenGV').value;
             const email = document.getElementById('email').value;
             if (!ten || !email) return alert('Vui lòng nhập ít nhất Họ tên và Email!');
 
@@ -99,40 +132,36 @@
                 TrangThai: document.getElementById('trangThai').value,
             };
 
-            if (editingMa) {
-                await fetch(`${API}/${editingMa}`, {
-                    method : 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body   : JSON.stringify(body),
-                });
-                editingMa = null;
-                document.getElementById('main-btn').innerText = 'Thêm mới';
-                document.getElementById('main-btn').style.backgroundColor = '';
+            if (editingIndex !== null) {
+                gvInfo.MaGV = teacherData[editingIndex].MaGV;
+                teacherData[editingIndex] = gvInfo;
+                editingIndex = null;
+                document.getElementById('main-btn').innerText = "Thêm mới";
+                document.getElementById('main-btn').style.backgroundColor = "";
             } else {
-                await fetch(API, {
-                    method : 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body   : JSON.stringify(body),
-                });
+                const lastNum = teacherData.length > 0 ? parseInt(teacherData[teacherData.length - 1].MaGV.replace('GV', '')) : 0;
+                gvInfo.MaGV = "GV" + (lastNum + 1).toString().padStart(3, '0');
+                teacherData.push(gvInfo);
             }
             resetForm();
             loadData();
         }
 
-        function editTeacher(ma) {
-            const gv = data.find(g => g.MaGV === ma);
-            editingMa = ma;
-            document.getElementById('maGV').value      = gv.MaGV;
-            document.getElementById('tenGV').value     = gv.TenGV;
-            document.getElementById('email').value     = gv.Email;
-            document.getElementById('sdt').value       = gv.SDT;
-            document.getElementById('hocVi').value     = gv.HocVi;
+        function editTeacher(index) {
+            const gv = teacherData[index];
+            editingIndex = index;
+
+            document.getElementById('maGV').value = gv.MaGV;
+            document.getElementById('tenGV').value = gv.TenGV;
+            document.getElementById('email').value = gv.Email;
+            document.getElementById('sdt').value = gv.SDT;
+            document.getElementById('hocVi').value = gv.HocVi;
             document.getElementById('chuyenMon').value = gv.ChuyenMon;
             document.getElementById('trangThai').value = gv.TrangThai;
 
             const btn = document.getElementById('main-btn');
-            btn.innerText = 'Lưu cập nhật';
-            btn.style.backgroundColor = '#3b82f6';
+            btn.innerText = "Lưu cập nhật";
+            btn.style.backgroundColor = "#3b82f6";
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -142,12 +171,14 @@
             loadData();
         }
 
-        function resetForm() {
-            document.querySelectorAll('.input-group input:not(#maGV)').forEach(i => i.value = '');
-            document.getElementById('maGV').value = 'Mã: Tự động';
+        function deleteTeacher(index) {
+            if(confirm("Bạn có chắc chắn muốn xóa giảng viên này?")) {
+                teacherData.splice(index, 1);
+                renderTable();
+            }
         }
 
-        loadData();
+        window.addEventListener('DOMContentLoaded', loadTeachers);
     </script>
 </body>
 </html>
