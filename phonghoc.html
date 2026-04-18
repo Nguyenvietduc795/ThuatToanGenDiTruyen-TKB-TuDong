@@ -53,12 +53,8 @@
     </div>
 
     <script>
-        // Dữ liệu mẫu ban đầu theo thuộc tính MaPhong, TenPhong, LoaiPhong, TrangThai
-        let roomData = [
-            { MaPhong: "P001", TenPhong: "PM01", LoaiPhong: "Phòng máy", TrangThai: "Sẵn sàng" },
-            { MaPhong: "P002", TenPhong: "LT02", LoaiPhong: "Lý thuyết", TrangThai: "Đang bảo trì" }
-        ];
-
+        const API_BASE = 'http://localhost:3000/api';
+        let roomData = [];
         let editIndex = null;
 
         function renderRoomTable() {
@@ -83,10 +79,26 @@
 
         function getStatusClass(status) {
             switch(status) {
-                case 'Sẵn sàng': return 'status-teaching'; // Dùng lại class màu xanh
+                case 'Sẵn sàng': return 'status-teaching';
                 case 'Đang sử dụng': return 'status-teaching'; 
-                case 'Đang bảo trì': return 'status-paused'; // Dùng lại class màu đỏ
+                case 'Đang bảo trì': return 'status-paused';
                 default: return '';
+            }
+        }
+
+        async function loadRooms() {
+            try {
+                const res = await fetch(`${API_BASE}/phonghoc`);
+                const data = await res.json();
+                roomData = data.map(row => ({
+                    MaPhong: row.maphong,
+                    TenPhong: row.tenphong,
+                    LoaiPhong: row.loaiphong,
+                    TrangThai: row.trangthai
+                }));
+                renderRoomTable();
+            } catch (error) {
+                console.error('Lỗi khi tải dữ liệu phòng học:', error);
             }
         }
 
@@ -107,7 +119,6 @@
                 document.getElementById('room-btn').innerText = "Thêm Phòng";
                 document.getElementById('room-btn').style.backgroundColor = "";
             } else {
-                // Tự sinh mã P + 3 số thứ tự
                 const lastNum = roomData.length > 0 
                     ? parseInt(roomData[roomData.length - 1].MaPhong.replace('P', '')) 
                     : 0;
@@ -146,7 +157,7 @@
             document.getElementById('maPhong').value = "Mã: Tự động";
         }
 
-        renderRoomTable();
+        window.addEventListener('DOMContentLoaded', loadRooms);
     </script>
 </body>
 </html>

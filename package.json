@@ -1,0 +1,28 @@
+{
+  "name": "thuattoangenditruyen-tkb-tudong",
+  "version": "1.0.0",
+  "description": "Timetable generator for university schedule implemented in Python using *genetic algorithms*.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nguyenvietduc795/ThuatToanGenDiTruyen-TKB-TuDong.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Nguyenvietduc795/ThuatToanGenDiTruyen-TKB-TuDong/issues"
+  },
+  "homepage": "https://github.com/Nguyenvietduc795/ThuatToanGenDiTruyen-TKB-TuDong#readme",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.103.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
+  }
+}

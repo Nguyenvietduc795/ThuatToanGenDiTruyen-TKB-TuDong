@@ -55,11 +55,8 @@
     </div>
 
     <script>
-        let subjectData = [
-            { MaMon: "MH001", TenMon: "Lập trình Web", SoTinChi: 3, TongSoTiet: 45, SoTietLT: 30, SoTietTH: 15, LoaiPhong: "Phòng máy" },
-            { MaMon: "MH002", TenMon: "Hệ quản trị CSDL", SoTinChi: 3, TongSoTiet: 45, SoTietLT: 30, SoTietTH: 15, LoaiPhong: "Phòng máy" }
-        ];
-
+        const API_BASE = 'http://localhost:3000/api';
+        let subjectData = [];
         let editIndex = null;
 
         function renderSubjectTable() {
@@ -81,15 +78,32 @@
             `).join('');
         }
 
+        async function loadSubjects() {
+            try {
+                const res = await fetch(`${API_BASE}/monhoc`);
+                const data = await res.json();
+                subjectData = data.map(row => ({
+                    MaMon: row.mamon,
+                    TenMon: row.tenmon,
+                    SoTinChi: row.sotinchi,
+                    TongSoTiet: row.tongsotiet,
+                    SoTietLT: row.sotietlythuyet,
+                    SoTietTH: row.sotietthuchanh,
+                    LoaiPhong: row.loaiphong
+                }));
+                renderSubjectTable();
+            } catch (error) {
+                console.error('Lỗi khi tải dữ liệu môn học:', error);
+            }
+        }
+
         function handleSubject() {
             const ten = document.getElementById('tenMon').value;
-            // Chuyển đổi giá trị sang số để kiểm tra âm
             const tinChi = parseInt(document.getElementById('soTinChi').value) || 0;
             const tong = parseInt(document.getElementById('tongSoTiet').value) || 0;
             const lt = parseInt(document.getElementById('soTietLT').value) || 0;
             const th = parseInt(document.getElementById('soTietTH').value) || 0;
 
-            // KIỂM TRA LỖI: Không để trống tên và không nhập số âm
             if (!ten) return alert("Vui lòng nhập tên môn học!");
             if (tinChi < 0 || tong < 0 || lt < 0 || th < 0) {
                 return alert("Các giá trị số (Tín chỉ, Tiết học) không được là số âm!");
@@ -111,7 +125,6 @@
                 document.getElementById('sub-btn').innerText = "Thêm Môn";
                 document.getElementById('sub-btn').style.backgroundColor = "";
             } else {
-                // TỰ SINH MÃ: MH + Số thứ tự 3 chữ số
                 const lastNum = subjectData.length > 0 
                     ? parseInt(subjectData[subjectData.length - 1].MaMon.replace('MH', '')) 
                     : 0;
@@ -153,7 +166,7 @@
             document.getElementById('maMon').value = "Mã: Tự động";
         }
 
-        renderSubjectTable();
+        window.addEventListener('DOMContentLoaded', loadSubjects);
     </script>
 </body>
 </html>
