@@ -59,6 +59,7 @@ from costs import (
 )
 from helpers import (
     initial_population,
+    initial_population_random,
     mutate_ideal_spot,
     _get_valid_start_slots,
     _check_session_boundary,
@@ -176,13 +177,11 @@ def _make_empty_individual(data, n_rooms):
 
 def create_individual(data, n_rooms):
     """
-    Tạo 1 cá thể mới bằng greedy initialization.
-    Shuffle danh sách free trước để mỗi lần cho vị trí khác nhau
-    → tạo đa dạng trong quần thể ban đầu.
+    Tạo 1 cá thể mới bằng random initialization (GA thuần).
+    Với mỗi buổi học, thu thập tất cả vị trí hợp lệ rồi chọn ngẫu nhiên.
     """
     ind = _make_empty_individual(data, n_rooms)
-    random.shuffle(ind.free)   # đây là nguồn đa dạng chính
-    initial_population(
+    initial_population_random(
         data, ind.matrix, ind.free, ind.filled,
         ind.groups_empty_space, ind.teachers_empty_space, ind.subjects_order,
     )
@@ -192,7 +191,7 @@ def create_individual(data, n_rooms):
 def init_population(data, n_rooms, pop_size=POP_SIZE):
     """
     Khởi tạo quần thể ban đầu gồm pop_size cá thể.
-    Mỗi cá thể được tạo độc lập bằng greedy với thứ tự ngẫu nhiên.
+    Mỗi cá thể được tạo độc lập bằng random initialization.
     """
     print(f'Khởi tạo quần thể ({pop_size} cá thể)...')
     population = []

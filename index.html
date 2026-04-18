@@ -10,7 +10,6 @@
     <div class="container" style="max-width: 1200px;">
         <header>
             <h1>HỆ THỐNG GIẢNG VIÊN</h1>
-          
         </header>
 
         <section class="form-section">
@@ -22,6 +21,7 @@
                 <select id="hocVi">
                     <option value="Thạc sĩ">Thạc sĩ</option>
                     <option value="Tiến sĩ">Tiến sĩ</option>
+                    <option value="Giáo sư - Tiến sĩ">Giáo sư - Tiến sĩ</option>
                     <option value="Cử nhân">Cử nhân</option>
                 </select>
                 <input type="text" id="chuyenMon" placeholder="Chuyên môn">
@@ -47,25 +47,28 @@
                         <th style="width: 150px;">Thao tác</th>
                     </tr>
                 </thead>
-                <tbody id="teacher-table-body">
-                    </tbody>
+                <tbody id="teacher-table-body"></tbody>
             </table>
         </div>
     </div>
 
     <script>
-        // Dữ liệu mẫu ban đầu
-        let mockData = [
-            { MaGV: "GV001", TenGV: "Nguyễn Minh Khoa", Email: "nmkhoa@dnc.edu.vn", SDT: "0901 234 567", HocVi: "Thạc sĩ", ChuyenMon: "Công nghệ thông tin", TrangThai: "Đang giảng dạy" },
-            { MaGV: "GV002", TenGV: "Trương Hùng Chen", Email: "thchen@dnc.edu.vn", SDT: "0908 765 432", HocVi: "Tiến sĩ", ChuyenMon: "Hệ quản trị CSDL", TrangThai: "Tạm ngưng" }
-        ];
+        const API = 'http://localhost:3000/api/giangvien';
+        let data = [];
+        let editingMa = null;
 
-        let editingIndex = null; // Biến tạm để biết đang sửa dòng nào
+        async function loadData() {
+            try {
+                const res = await fetch(API);
+                data = await res.json();
+                renderTable();
+            } catch {
+                alert('Không kết nối được server. Hãy chạy: node server.js');
+            }
+        }
 
-        // Hàm hiển thị bảng
         function renderTable() {
-            const tableBody = document.getElementById('teacher-table-body');
-            tableBody.innerHTML = mockData.map((gv, index) => `
+            document.getElementById('teacher-table-body').innerHTML = data.map(gv => `
                 <tr>
                     <td><strong>${gv.MaGV}</strong></td>
                     <td>${gv.TenGV}</td>
@@ -75,81 +78,76 @@
                     <td>${gv.ChuyenMon}</td>
                     <td><span class="status-tag ${gv.TrangThai === 'Đang giảng dạy' ? 'status-teaching' : 'status-paused'}">${gv.TrangThai}</span></td>
                     <td>
-                        <button onclick="editTeacher(${index})" class="btn-edit">Sửa</button>
-                        <button onclick="deleteTeacher(${index})" class="btn-delete">Xóa</button>
+                        <button onclick="editTeacher('${gv.MaGV}')" class="btn-edit">Sửa</button>
+                        <button onclick="deleteTeacher('${gv.MaGV}')" class="btn-delete">Xóa</button>
                     </td>
                 </tr>
             `).join('');
         }
 
-        // Hàm xử lý khi bấm nút Thêm/Lưu
-        function handleTeacher() {
-            const ten = document.getElementById('tenGV').value;
+        async function handleTeacher() {
+            const ten   = document.getElementById('tenGV').value;
             const email = document.getElementById('email').value;
+            if (!ten || !email) return alert('Vui lòng nhập ít nhất Họ tên và Email!');
 
-            if(!ten || !email) return alert("Vui lòng nhập ít nhất Họ tên và Email!");
-
-            const gvInfo = {
-                TenGV: ten,
-                Email: email,
-                SDT: document.getElementById('sdt').value,
-                HocVi: document.getElementById('hocVi').value,
+            const body = {
+                TenGV    : ten,
+                Email    : email,
+                SDT      : document.getElementById('sdt').value,
+                HocVi    : document.getElementById('hocVi').value,
                 ChuyenMon: document.getElementById('chuyenMon').value,
-                TrangThai: document.getElementById('trangThai').value
+                TrangThai: document.getElementById('trangThai').value,
             };
 
-            if (editingIndex !== null) {
-                // ĐANG Ở CHẾ ĐỘ SỬA
-                gvInfo.MaGV = mockData[editingIndex].MaGV; // Giữ nguyên mã cũ
-                mockData[editingIndex] = gvInfo;
-                editingIndex = null;
-                document.getElementById('main-btn').innerText = "Thêm mới";
-                document.getElementById('main-btn').style.backgroundColor = ""; // Trả về màu gốc (xanh lá)
+            if (editingMa) {
+                await fetch(`${API}/${editingMa}`, {
+                    method : 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body   : JSON.stringify(body),
+                });
+                editingMa = null;
+                document.getElementById('main-btn').innerText = 'Thêm mới';
+                document.getElementById('main-btn').style.backgroundColor = '';
             } else {
-                // ĐANG Ở CHẾ ĐỘ THÊM MỚI
-                const lastNum = mockData.length > 0 ? parseInt(mockData[mockData.length - 1].MaGV.replace('GV', '')) : 0;
-                gvInfo.MaGV = "GV" + (lastNum + 1).toString().padStart(3, '0');
-                mockData.push(gvInfo);
+                await fetch(API, {
+                    method : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body   : JSON.stringify(body),
+                });
             }
-
-            renderTable();
             resetForm();
+            loadData();
         }
 
-        // Hàm đưa dữ liệu lên form để sửa
-        function editTeacher(index) {
-            const gv = mockData[index];
-            editingIndex = index;
-
-            document.getElementById('maGV').value = gv.MaGV;
-            document.getElementById('tenGV').value = gv.TenGV;
-            document.getElementById('email').value = gv.Email;
-            document.getElementById('sdt').value = gv.SDT;
-            document.getElementById('hocVi').value = gv.HocVi;
+        function editTeacher(ma) {
+            const gv = data.find(g => g.MaGV === ma);
+            editingMa = ma;
+            document.getElementById('maGV').value      = gv.MaGV;
+            document.getElementById('tenGV').value     = gv.TenGV;
+            document.getElementById('email').value     = gv.Email;
+            document.getElementById('sdt').value       = gv.SDT;
+            document.getElementById('hocVi').value     = gv.HocVi;
             document.getElementById('chuyenMon').value = gv.ChuyenMon;
             document.getElementById('trangThai').value = gv.TrangThai;
 
-            // Thay đổi giao diện nút bấm
             const btn = document.getElementById('main-btn');
-            btn.innerText = "Lưu cập nhật";
-            btn.style.backgroundColor = "#3b82f6"; // Chuyển sang màu xanh dương khi sửa
-            
-            window.scrollTo({ top: 0, behavior: 'smooth' }); // Cuộn nhẹ lên đầu trang
+            btn.innerText = 'Lưu cập nhật';
+            btn.style.backgroundColor = '#3b82f6';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function deleteTeacher(ma) {
+            if (!confirm('Bạn có chắc chắn muốn xóa giảng viên này?')) return;
+            await fetch(`${API}/${ma}`, { method: 'DELETE' });
+            loadData();
         }
 
         function resetForm() {
-            document.querySelectorAll('.input-group input:not(#maGV)').forEach(input => input.value = '');
-            document.getElementById('maGV').value = "Mã: Tự động";
+            document.querySelectorAll('.input-group input:not(#maGV)').forEach(i => i.value = '');
+            document.getElementById('maGV').value = 'Mã: Tự động';
         }
 
-        function deleteTeacher(index) {
-            if(confirm("Bạn có chắc chắn muốn xóa giảng viên này?")) {
-                mockData.splice(index, 1);
-                renderTable();
-            }
-        }
-
-        renderTable();
+        loadData();
     </script>
 </body>
 </html>
