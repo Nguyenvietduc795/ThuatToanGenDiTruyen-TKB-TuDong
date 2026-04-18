@@ -46,23 +46,9 @@
     </div>
 
     <script>
-        const API = 'http://localhost:3000/api/phonghoc';
-        let data = [];
-        let editingMa = null;
-
-        async function loadData() {
-            try {
-                const res = await fetch(API);
-                data = await res.json();
-                renderTable();
-            } catch {
-                alert('Không kết nối được server. Hãy chạy: node server.js');
-            }
-        }
-
-        function getStatusClass(status) {
-            return status === 'Đang bảo trì' ? 'status-paused' : 'status-teaching';
-        }
+        const API_BASE = 'http://localhost:3000/api';
+        let roomData = [];
+        let editIndex = null;
 
         function renderTable() {
             document.getElementById('room-table-body').innerHTML = data.map(p => `
@@ -79,7 +65,32 @@
             `).join('');
         }
 
-        async function handleRoom() {
+        function getStatusClass(status) {
+            switch(status) {
+                case 'Sẵn sàng': return 'status-teaching';
+                case 'Đang sử dụng': return 'status-teaching'; 
+                case 'Đang bảo trì': return 'status-paused';
+                default: return '';
+            }
+        }
+
+        async function loadRooms() {
+            try {
+                const res = await fetch(`${API_BASE}/phonghoc`);
+                const data = await res.json();
+                roomData = data.map(row => ({
+                    MaPhong: row.maphong,
+                    TenPhong: row.tenphong,
+                    LoaiPhong: row.loaiphong,
+                    TrangThai: row.trangthai
+                }));
+                renderRoomTable();
+            } catch (error) {
+                console.error('Lỗi khi tải dữ liệu phòng học:', error);
+            }
+        }
+
+        function handleRoom() {
             const ten = document.getElementById('tenPhong').value;
             if (!ten) return alert('Vui lòng nhập tên phòng!');
 
@@ -99,11 +110,11 @@
                 document.getElementById('room-btn').innerText = 'Thêm Phòng';
                 document.getElementById('room-btn').style.backgroundColor = '';
             } else {
-                await fetch(API, {
-                    method : 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body   : JSON.stringify(body),
-                });
+                const lastNum = roomData.length > 0 
+                    ? parseInt(roomData[roomData.length - 1].MaPhong.replace('P', '')) 
+                    : 0;
+                roomInfo.MaPhong = "P" + (lastNum + 1).toString().padStart(3, '0');
+                roomData.push(roomInfo);
             }
             resetForm();
             loadData();
@@ -134,7 +145,7 @@
             document.getElementById('maPhong').value  = 'Mã: Tự động';
         }
 
-        loadData();
+        window.addEventListener('DOMContentLoaded', loadRooms);
     </script>
 </body>
 </html>
