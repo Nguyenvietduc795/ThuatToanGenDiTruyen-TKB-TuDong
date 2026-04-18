@@ -10,26 +10,20 @@
     <div class="container" style="max-width: 1200px;">
         <header>
             <h1>DANH MỤC MÔN HỌC</h1>
-        
         </header>
 
         <section class="form-section">
             <div class="input-group">
                 <input type="text" id="maMon" value="Mã: Tự động" readonly title="Mã môn tự sinh">
-                
                 <input type="text" id="tenMon" placeholder="Tên môn học">
-                
-                <input type="number" id="soTinChi" placeholder="Số tín chỉ" min="0">
-                <input type="number" id="tongSoTiet" placeholder="Tổng tiết" min="0">
-                <input type="number" id="soTietLT" placeholder="Lý thuyết" min="0">
-                <input type="number" id="soTietTH" placeholder="Thực hành" min="0">
-                
+                <input type="number" id="soTinChi"   placeholder="Số tín chỉ"  min="0">
+                <input type="number" id="tongSoTiet" placeholder="Tổng tiết"   min="0">
+                <input type="number" id="soTietLT"   placeholder="Lý thuyết"   min="0">
+                <input type="number" id="soTietTH"   placeholder="Thực hành"   min="0">
                 <select id="loaiPhong">
-                    <option value="Phòng máy">Phòng máy</option>
                     <option value="Lý thuyết">Lý thuyết</option>
-                    <option value="Hội trường">Hội trường</option>
+                    <option value="Phòng máy">Phòng máy</option>
                 </select>
-
                 <button onclick="handleSubject()" class="btn-add" id="sub-btn">Thêm Môn</button>
             </div>
         </section>
@@ -48,8 +42,7 @@
                         <th>Thao tác</th>
                     </tr>
                 </thead>
-                <tbody id="subject-table-body">
-                    </tbody>
+                <tbody id="subject-table-body"></tbody>
             </table>
         </div>
     </div>
@@ -59,9 +52,8 @@
         let subjectData = [];
         let editIndex = null;
 
-        function renderSubjectTable() {
-            const tableBody = document.getElementById('subject-table-body');
-            tableBody.innerHTML = subjectData.map((mh, index) => `
+        function renderTable() {
+            document.getElementById('subject-table-body').innerHTML = data.map(mh => `
                 <tr>
                     <td><strong>${mh.MaMon}</strong></td>
                     <td>${mh.TenMon}</td>
@@ -71,8 +63,8 @@
                     <td>${mh.SoTietTH}</td>
                     <td>${mh.LoaiPhong}</td>
                     <td>
-                        <button onclick="editSubject(${index})" class="btn-edit">Sửa</button>
-                        <button onclick="deleteSubject(${index})" class="btn-delete">Xóa</button>
+                        <button onclick="editSubject('${mh.MaMon}')" class="btn-edit">Sửa</button>
+                        <button onclick="deleteSubject('${mh.MaMon}')" class="btn-delete">Xóa</button>
                     </td>
                 </tr>
             `).join('');
@@ -109,21 +101,24 @@
                 return alert("Các giá trị số (Tín chỉ, Tiết học) không được là số âm!");
             }
 
-            const newMH = {
-                TenMon: ten,
-                SoTinChi: tinChi,
+            const body = {
+                TenMon    : ten,
+                SoTinChi  : tinChi,
                 TongSoTiet: tong,
-                SoTietLT: lt,
-                SoTietTH: th,
-                LoaiPhong: document.getElementById('loaiPhong').value
+                SoTietLT  : lt,
+                SoTietTH  : th,
+                LoaiPhong : document.getElementById('loaiPhong').value,
             };
 
-            if (editIndex !== null) {
-                newMH.MaMon = subjectData[editIndex].MaMon;
-                subjectData[editIndex] = newMH;
-                editIndex = null;
-                document.getElementById('sub-btn').innerText = "Thêm Môn";
-                document.getElementById('sub-btn').style.backgroundColor = "";
+            if (editingMa) {
+                await fetch(`${API}/${editingMa}`, {
+                    method : 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body   : JSON.stringify(body),
+                });
+                editingMa = null;
+                document.getElementById('sub-btn').innerText = 'Thêm Môn';
+                document.getElementById('sub-btn').style.backgroundColor = '';
             } else {
                 const lastNum = subjectData.length > 0 
                     ? parseInt(subjectData[subjectData.length - 1].MaMon.replace('MH', '')) 
@@ -131,39 +126,36 @@
                 newMH.MaMon = "MH" + (lastNum + 1).toString().padStart(3, '0');
                 subjectData.push(newMH);
             }
-
-            renderSubjectTable();
             resetForm();
+            loadData();
         }
 
-        function editSubject(index) {
-            const mh = subjectData[index];
-            editIndex = index;
-
-            document.getElementById('maMon').value = mh.MaMon;
-            document.getElementById('tenMon').value = mh.TenMon;
-            document.getElementById('soTinChi').value = mh.SoTinChi;
+        function editSubject(ma) {
+            const mh = data.find(m => m.MaMon === ma);
+            editingMa = ma;
+            document.getElementById('maMon').value      = mh.MaMon;
+            document.getElementById('tenMon').value     = mh.TenMon;
+            document.getElementById('soTinChi').value   = mh.SoTinChi;
             document.getElementById('tongSoTiet').value = mh.TongSoTiet;
-            document.getElementById('soTietLT').value = mh.SoTietLT;
-            document.getElementById('soTietTH').value = mh.SoTietTH;
-            document.getElementById('loaiPhong').value = mh.LoaiPhong;
+            document.getElementById('soTietLT').value   = mh.SoTietLT;
+            document.getElementById('soTietTH').value   = mh.SoTietTH;
+            document.getElementById('loaiPhong').value  = mh.LoaiPhong;
 
             const btn = document.getElementById('sub-btn');
-            btn.innerText = "Lưu cập nhật";
-            btn.style.backgroundColor = "#3b82f6";
+            btn.innerText = 'Lưu cập nhật';
+            btn.style.backgroundColor = '#3b82f6';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function deleteSubject(index) {
-            if(confirm("Xóa môn học này?")) {
-                subjectData.splice(index, 1);
-                renderSubjectTable();
-            }
+        async function deleteSubject(ma) {
+            if (!confirm('Xóa môn học này?')) return;
+            await fetch(`${API}/${ma}`, { method: 'DELETE' });
+            loadData();
         }
 
         function resetForm() {
             document.querySelectorAll('.input-group input:not(#maMon)').forEach(i => i.value = '');
-            document.getElementById('maMon').value = "Mã: Tự động";
+            document.getElementById('maMon').value = 'Mã: Tự động';
         }
 
         window.addEventListener('DOMContentLoaded', loadSubjects);

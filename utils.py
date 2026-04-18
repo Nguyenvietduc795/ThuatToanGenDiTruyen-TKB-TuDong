@@ -1,6 +1,8 @@
 import json
+import math
 import os
 import random
+from datetime import date, timedelta
 from costs import (
     check_hard_constraints,
     subjects_order_cost,
@@ -260,6 +262,20 @@ def write_viewer_html(filled, data, filepath):
     phong_map = {p['maphong']: p['tenphong'] for p in raw['phong_hoc']}
     groups_by_idx = {idx: malop for malop, idx in data.groups.items()}
 
+    # Lookup để tính last_week
+    pc_lookup  = {pc['mapc']: pc for pc in raw['phan_cong_giang_day']}
+    mon_detail = {m['mamon']: m  for m in raw['mon_hoc']}
+
+    def calc_last_week(cls):
+        """Tuần cuối cùng học phần còn xuất hiện trên lịch."""
+        pc = pc_lookup.get(cls.assignment_id, {})
+        sobuoi    = int(pc.get('sobuoimoituan', 1))
+        tiets_pw  = sobuoi * int(cls.duration)   # tiết/tuần cho loại này
+        mon       = mon_detail.get(cls.subject, {})
+        field     = 'sotietlythuyet' if cls.type == 'LT' else 'sotietthuchanh'
+        total     = int(mon.get(field, tiets_pw))
+        return math.ceil(total / tiets_pw) if tiets_pw > 0 else 1
+
     # Xay dung danh sach lich
     lich = []
     for class_idx, time_fields in filled.items():
@@ -286,7 +302,11 @@ def write_viewer_html(filled, data, filepath):
             'thu_idx'   : day_idx,
             'tiet_start': start_s,
             'tiet_end'  : end_s,
+            'last_week' : calc_last_week(c),
         })
+
+    today  = date.today()
+    monday = today - timedelta(days=today.weekday())   # thứ 2 của tuần hiện tại
 
     data_js = json.dumps({
         'lich'      : lich,
@@ -297,6 +317,11 @@ def write_viewer_html(filled, data, filepath):
                         'loaiphong': p['loaiphong']}
                        for p in raw['phong_hoc']
                        if p.get('trangthai') == 'active'],
+        'mon_list'  : [{'mamon': m['mamon'],
+                        'sotietlythuyet': m.get('sotietlythuyet', 0),
+                        'sotietthuchanh': m.get('sotietthuchanh', 0)}
+                       for m in raw['mon_hoc']],
+        'start_date': monday.isoformat(),   # "YYYY-MM-DD" — tuần 1 bắt đầu từ đây
     }, ensure_ascii=False)
 
     html_content = _build_viewer_html(data_js)

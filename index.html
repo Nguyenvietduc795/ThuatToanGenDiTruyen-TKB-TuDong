@@ -10,7 +10,6 @@
     <div class="container" style="max-width: 1200px;">
         <header>
             <h1>HỆ THỐNG GIẢNG VIÊN</h1>
-          
         </header>
 
         <section class="form-section">
@@ -22,6 +21,7 @@
                 <select id="hocVi">
                     <option value="Thạc sĩ">Thạc sĩ</option>
                     <option value="Tiến sĩ">Tiến sĩ</option>
+                    <option value="Giáo sư - Tiến sĩ">Giáo sư - Tiến sĩ</option>
                     <option value="Cử nhân">Cử nhân</option>
                 </select>
                 <input type="text" id="chuyenMon" placeholder="Chuyên môn">
@@ -47,8 +47,7 @@
                         <th style="width: 150px;">Thao tác</th>
                     </tr>
                 </thead>
-                <tbody id="teacher-table-body">
-                    </tbody>
+                <tbody id="teacher-table-body"></tbody>
             </table>
         </div>
     </div>
@@ -81,8 +80,8 @@
                     <td>${gv.ChuyenMon}</td>
                     <td><span class="status-tag ${gv.TrangThai === 'Đang giảng dạy' ? 'status-teaching' : 'status-paused'}">${gv.TrangThai}</span></td>
                     <td>
-                        <button onclick="editTeacher(${index})" class="btn-edit">Sửa</button>
-                        <button onclick="deleteTeacher(${index})" class="btn-delete">Xóa</button>
+                        <button onclick="editTeacher('${gv.MaGV}')" class="btn-edit">Sửa</button>
+                        <button onclick="deleteTeacher('${gv.MaGV}')" class="btn-delete">Xóa</button>
                     </td>
                 </tr>
             `).join('');
@@ -122,16 +121,15 @@
         function handleTeacher() {
             const ten = document.getElementById('tenGV').value;
             const email = document.getElementById('email').value;
+            if (!ten || !email) return alert('Vui lòng nhập ít nhất Họ tên và Email!');
 
-            if(!ten || !email) return alert("Vui lòng nhập ít nhất Họ tên và Email!");
-
-            const gvInfo = {
-                TenGV: ten,
-                Email: email,
-                SDT: document.getElementById('sdt').value,
-                HocVi: document.getElementById('hocVi').value,
+            const body = {
+                TenGV    : ten,
+                Email    : email,
+                SDT      : document.getElementById('sdt').value,
+                HocVi    : document.getElementById('hocVi').value,
                 ChuyenMon: document.getElementById('chuyenMon').value,
-                TrangThai: document.getElementById('trangThai').value
+                TrangThai: document.getElementById('trangThai').value,
             };
 
             if (editingIndex !== null) {
@@ -145,9 +143,8 @@
                 gvInfo.MaGV = "GV" + (lastNum + 1).toString().padStart(3, '0');
                 teacherData.push(gvInfo);
             }
-
-            renderTable();
             resetForm();
+            loadData();
         }
 
         function editTeacher(index) {
@@ -168,9 +165,10 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function resetForm() {
-            document.querySelectorAll('.input-group input:not(#maGV)').forEach(input => input.value = '');
-            document.getElementById('maGV').value = "Mã: Tự động";
+        async function deleteTeacher(ma) {
+            if (!confirm('Bạn có chắc chắn muốn xóa giảng viên này?')) return;
+            await fetch(`${API}/${ma}`, { method: 'DELETE' });
+            loadData();
         }
 
         function deleteTeacher(index) {

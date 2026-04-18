@@ -10,16 +10,13 @@
     <div class="container" style="max-width: 1200px;">
         <header>
             <h1>HỆ THỐNG QUẢN LÝ LỚP</h1>
-       
         </header>
 
         <section class="form-section">
             <div class="input-group">
                 <input type="text" id="maLop" value="Mã: Tự động" readonly title="Mã lớp tự sinh">
-                
-                <input type="text" id="khoa" placeholder="Khóa (VD: K20)">
-                <input type="text" id="tenLop" placeholder="Tên Lớp (VD: Kỹ thuật phần mềm 1)">
-                
+                <input type="text" id="tenLop" placeholder="Tên Lớp (VD: CNTT-K22A)">
+                <input type="text" id="maKhoa" placeholder="Mã Khoa (VD: CNTT)">
                 <button onclick="handleClass()" class="btn-add" id="class-btn">Thêm Lớp</button>
             </div>
         </section>
@@ -29,13 +26,12 @@
                 <thead>
                     <tr>
                         <th>Mã Lớp</th>
-                        <th>Khóa</th>
                         <th>Tên Lớp</th>
+                        <th>Mã Khoa</th>
                         <th style="width: 150px;">Thao tác</th>
                     </tr>
                 </thead>
-                <tbody id="class-table-body">
-                    </tbody>
+                <tbody id="class-table-body"></tbody>
             </table>
         </div>
     </div>
@@ -50,11 +46,11 @@
             tableBody.innerHTML = classData.map((lop, index) => `
                 <tr>
                     <td><strong>${lop.MaLop}</strong></td>
-                    <td>${lop.Khoa}</td>
                     <td>${lop.TenLop}</td>
+                    <td>${lop.MaKhoa}</td>
                     <td>
-                        <button onclick="editClass(${index})" class="btn-edit">Sửa</button>
-                        <button onclick="deleteClass(${index})" class="btn-delete">Xóa</button>
+                        <button onclick="editClass('${lop.MaLop}')" class="btn-edit">Sửa</button>
+                        <button onclick="deleteClass('${lop.MaLop}')" class="btn-delete">Xóa</button>
                     </td>
                 </tr>
             `).join('');
@@ -99,9 +95,8 @@
                 newLop.MaLop = "L" + (lastNum + 1).toString().padStart(2, '0');
                 classData.push(newLop);
             }
-
-            renderClassTable();
             resetForm();
+            loadData();
         }
 
         function editClass(index) {
@@ -111,6 +106,7 @@
             document.getElementById('maLop').value = lop.MaLop;
             document.getElementById('khoa').value = lop.Khoa;
             document.getElementById('tenLop').value = lop.TenLop;
+            document.getElementById('maKhoa').value = lop.MaKhoa;
 
             const btn = document.getElementById('class-btn');
             btn.innerText = "Lưu cập nhật";
@@ -126,9 +122,9 @@
         }
 
         function resetForm() {
-            document.getElementById('khoa').value = '';
             document.getElementById('tenLop').value = '';
-            document.getElementById('maLop').value = "Mã: Tự động";
+            document.getElementById('maKhoa').value = '';
+            document.getElementById('maLop').value  = 'Mã: Tự động';
         }
 
         window.addEventListener('DOMContentLoaded', loadClasses);
