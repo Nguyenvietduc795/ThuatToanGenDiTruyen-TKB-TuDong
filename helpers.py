@@ -77,6 +77,66 @@ def initial_population(data, matrix, free, filled,
             matrix[row][col] = index
 
 
+def initial_population_random(data, matrix, free, filled,
+                               groups_empty_space, teachers_empty_space, subjects_order):
+    """
+    Xep tung buoi hoc vao vi tri NGAU NHIEN HOP LE trong matrix.
+    Thu thap tat ca vi tri hop le roi chon ngau nhien 1 cai.
+
+    Hop le nghia la:
+      - Phong hop loai (LT/TH)
+      - Buoi hoc khong bi tran qua ngay hom sau
+      - Buoi hoc khong vuot ranh gioi sang/chieu
+      - Toan bo block tiet lien tiep deu con trong (free)
+
+    Khong kiem tra xung dot GV/lop - de GA xu ly qua fitness.
+    """
+    for index, classs in data.classes.items():
+        free_set = set(free)
+        duration = int(classs.duration)
+
+        valid_starts = []
+        for start_field in free:
+            start_row = start_field[0]
+            end_row   = start_row + duration - 1
+
+            if start_row % SLOTS_PER_DAY > end_row % SLOTS_PER_DAY:
+                continue
+
+            slot_in_day = start_row % SLOTS_PER_DAY + 1
+            if slot_in_day not in _get_valid_start_slots(classs):
+                continue
+
+            if not _check_session_boundary(start_row, duration):
+                continue
+
+            if start_field[1] not in classs.classrooms:
+                continue
+
+            fields = [(start_row + offset, start_field[1])
+                      for offset in range(duration)]
+            if all(f in free_set for f in fields):
+                valid_starts.append(fields)
+
+        if not valid_starts:
+            continue
+
+        chosen    = random.choice(valid_starts)
+        start_row = chosen[0][0]
+
+        for group_idx in classs.groups:
+            insert_order(subjects_order, classs.subject, group_idx,
+                         classs.type, start_row)
+            for (row, col) in chosen:
+                groups_empty_space[group_idx].append(row)
+
+        for (row, col) in chosen:
+            filled.setdefault(index, []).append((row, col))
+            free.remove((row, col))
+            matrix[row][col] = index
+            teachers_empty_space[classs.teacher].append(row)
+
+
 def _get_valid_start_slots(classs):
     """
     Tra ve tap cac so tiet (1-indexed) hop le de bat dau buoi hoc.
