@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Phòng Học - DNC</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Navigation Menu Styles */
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            display: block;
+            min-height: 70px;
+        }
+
+        .navbar-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            height: 70px;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            font-weight: bold;
+            font-size: 24px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .logo-icon {
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+        }
+
+        .brand-text {
+            font-size: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        .navbar-toggle {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 6px;
+        }
+
+        .navbar-toggle span {
+            width: 25px;
+            height: 3px;
+            background-color: white;
+            border-radius: 3px;
+            transition: 0.3s;
+        }
+
+        .navbar-menu {
+            display: flex;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            gap: 0;
+        }
+
+        .nav-item {
+            position: relative;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            text-decoration: none;
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-radius: 5px;
+            margin: 0 5px;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.3);
+            border-bottom: 3px solid white;
+        }
+
+        .nav-icon {
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .navbar-toggle {
+                display: flex;
+            }
+
+            .navbar-menu {
+                position: absolute;
+                top: 70px;
+                left: 0;
+                right: 0;
+                flex-direction: column;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s;
+            }
+
+            .navbar-menu.active {
+                max-height: 400px;
+            }
+
+            .nav-item {
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .nav-link {
+                padding: 15px 20px;
+                margin: 0;
+            }
+        }
+
+        /* Navigation Menu */
+        .nav-menu {
+            background: white;
+            display: flex;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .nav-menu a {
+            flex: 1;
+            padding: 16px 20px;
+            text-decoration: none;
+            color: #2c3e50;
+            text-align: center;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            font-size: 15px;
+        }
+
+        .nav-menu a:hover {
+            background-color: #f8f9fa;
+        }
+
+        .nav-menu a.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background-color: #f0f4ff;
+        }
+
+        @media (max-width: 768px) {
+            .nav-menu {
+                flex-wrap: wrap;
+            }
+
+            .nav-menu a {
+                flex: 0 0 50%;
+                font-size: 14px;
+                padding: 12px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Menu -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <span class="logo-icon">📅</span>
+                <span class="brand-text">Quản Lý TKB</span>
+            </div>
+            
+            <div class="navbar-toggle" id="navbarToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            
+            <ul class="navbar-menu" id="navbarMenu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <span class="nav-icon">🏠</span>
+                        <span>Trang Chủ</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="monhoc.html" class="nav-link">
+                        <span class="nav-icon">📚</span>
+                        <span>Môn Học</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="lop.html" class="nav-link">
+                        <span class="nav-icon">👥</span>
+                        <span>Lớp Học</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="phonghoc.html" class="nav-link">
+                        <span class="nav-icon">🏛️</span>
+                        <span>Phòng Học</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <span class="nav-icon">⚙️</span>
+                        <span>Cài Đặt</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div id="menu-container"></div>
+    <div class="container" style="max-width: 1200px;">
+        <div class="nav-menu">
+            <a href="index.html" class="nav-link">👨‍🏫 Giảng Viên</a>
+            <a href="lop.html" class="nav-link">👥 Lớp Học</a>
+            <a href="monhoc.html" class="nav-link">📚 Môn Học</a>
+            <a href="phonghoc.html" class="nav-link">🏛️ Phòng Học</a>
+        </div>
+
+        <header>
+            <h1>HỆ THỐNG QUẢN LÝ PHÒNG HỌC</h1>
+         
+        </header>
+
+        <section class="form-section">
+            <div class="input-group">
+                <input type="text" id="maPhong" value="Mã: Tự động" readonly title="Mã phòng tự sinh">
+                
+                <input type="text" id="tenPhong" placeholder="Tên Phòng (VD: B1.01)">
+                
+                <select id="loaiPhong">
+                    <option value="Phòng máy">Phòng máy</option>
+                    <option value="Lý thuyết">Lý thuyết</option>
+                    <option value="Hội trường">Hội trường</option>
+                </select>
+
+                <select id="trangThai">
+                    <option value="Sẵn sàng">Sẵn sàng</option>
+                    <option value="Đang sử dụng">Đang sử dụng</option>
+                    <option value="Đang bảo trì">Đang bảo trì</option>
+                </select>
+
+                <button onclick="handleRoom()" class="btn-add" id="room-btn">Thêm Phòng</button>
+            </div>
+        </section>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mã Phòng</th>
+                        <th>Tên Phòng</th>
+                        <th>Loại Phòng</th>
+                        <th>Trạng Thái</th>
+                        <th style="width: 150px;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="room-table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        let roomData = [];
+        let editingMa = null;
+
+        function renderRoomTable() {
+            const tableBody = document.getElementById('room-table-body');
+            tableBody.innerHTML = roomData.map((room, index) => `
+                <tr>
+                    <td><strong>${room.MaPhong}</strong></td>
+                    <td>${room.TenPhong}</td>
+                    <td>${room.LoaiPhong}</td>
+                    <td>
+                        <span class="status-tag ${getStatusClass(room.TrangThai)}">
+                            ${room.TrangThai}
+                        </span>
+                    </td>
+                    <td>
+                        <button onclick="editRoom(${index})" class="btn-edit">Sửa</button>
+                        <button onclick="deleteRoom(${index})" class="btn-delete">Xóa</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getStatusClass(status) {
+            switch(status) {
+                case 'Sẵn sàng': return 'status-ready';
+                case 'Đang sử dụng': return 'status-teaching'; 
+                case 'Đang bảo trì': return 'status-paused';
+                default: return '';
+            }
+        }
+
+        function loadMockData() {
+            return [
+                {
+                    maphong: 'P101',
+                    tenphong: 'Phòng Lý Thuyết 101',
+                    loaiphong: 'Lý thuyết',
+                    trangthai: 'Sẵn sàng'
+                },
+                {
+                    maphong: 'P102',
+                    tenphong: 'Phòng Lý Thuyết 102',
+                    loaiphong: 'Lý thuyết',
+                    trangthai: 'Sẵn sàng'
+                },
+                {
+                    maphong: 'LAB01',
+                    tenphong: 'Phòng Máy Tính 01',
+                    loaiphong: 'Phòng máy',
+                    trangthai: 'Sẵn sàng'
+                },
+                {
+                    maphong: 'LAB02',
+                    tenphong: 'Phòng Máy Tính 02',
+                    loaiphong: 'Phòng máy',
+                    trangthai: 'Đang bảo trì'
+                },
+                {
+                    maphong: 'HT01',
+                    tenphong: 'Hội Trường Hội Thảo',
+                    loaiphong: 'Hội trường',
+                    trangthai: 'Sẵn sàng'
+                }
+            ];
+        }
+
+        async function loadRooms() {
+            try {
+                const res = await fetch(`${API_BASE}/phonghoc`);
+                if (!res.ok) throw new Error('Server không phản hồi');
+                const data = await res.json();
+                roomData = data.map(row => ({
+                    MaPhong: row.maphong,
+                    TenPhong: row.tenphong,
+                    LoaiPhong: row.loaiphong,
+                    TrangThai: row.trangthai
+                }));
+                renderRoomTable();
+            } catch (error) {
+                console.warn('Không thể kết nối server, sử dụng dữ liệu mẫu:', error);
+                const mockData = loadMockData();
+                roomData = mockData.map(row => ({
+                    MaPhong: row.maphong,
+                    TenPhong: row.tenphong,
+                    LoaiPhong: row.loaiphong,
+                    TrangThai: row.trangthai
+                }));
+                renderRoomTable();
+                alert('Máy chủ không hoạt động. Đang sử dụng dữ liệu mẫu.');
+            }
+        }
+
+        function handleRoom() {
+            const ten = document.getElementById('tenPhong').value;
+            if (!ten) return alert("Vui lòng nhập tên phòng!");
+
+            const roomInfo = {
+                MaPhong: editIndex !== null ? roomData[editIndex].MaPhong : `P${roomData.length + 1}`,
+                TenPhong: ten,
+                LoaiPhong: document.getElementById('loaiPhong').value,
+                TrangThai: document.getElementById('trangThai').value
+            };
+
+            if (editIndex !== null) {
+                roomData[editIndex] = roomInfo;
+                editIndex = null;
+                document.getElementById('room-btn').innerText = "Thêm Phòng";
+                document.getElementById('room-btn').style.backgroundColor = "#10b981";
+            } else {
+                roomData.push(roomInfo);
+            }
+
+            renderRoomTable();
+            resetForm();
+        }
+
+        function editRoom(index) {
+            const room = roomData[index];
+            editIndex = index;
+            document.getElementById('tenPhong').value = room.TenPhong;
+            document.getElementById('loaiPhong').value = room.LoaiPhong;
+            document.getElementById('trangThai').value = room.TrangThai;
+
+            const btn = document.getElementById('room-btn');
+            btn.innerText = "Lưu cập nhật";
+            btn.style.backgroundColor = "#3b82f6";
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function deleteRoom(index) {
+            if(confirm("Xóa phòng học này?")) {
+                roomData.splice(index, 1);
+                renderRoomTable();
+            }
+        }
+
+        function resetForm() {
+            document.getElementById('tenPhong').value = '';
+            document.getElementById('loaiPhong').value = 'Phòng máy';
+            document.getElementById('trangThai').value = 'Sẵn sàng';
+            document.getElementById('maPhong').value = "Mã: Tự động";
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadRooms();
+
+            // Set active menu item based on current page
+            const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === currentPage || (currentPage === '' && href === 'index.html')) {
+                    link.classList.add('active');
+                }
+            });
+
+            // Mobile menu toggle
+            const navbarToggle = document.getElementById('navbarToggle');
+            const navbarMenu = document.getElementById('navbarMenu');
+            
+            if (navbarToggle) {
+                navbarToggle.addEventListener('click', () => {
+                    navbarMenu.classList.toggle('active');
+                });
+
+                // Close menu when clicking on a link
+                const navItems = document.querySelectorAll('.nav-item');
+                navItems.forEach(item => {
+                    item.addEventListener('click', () => {
+                        navbarMenu.classList.remove('active');
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>

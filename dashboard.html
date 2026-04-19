@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Quản Lý Thời Khóa Biểu</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            overflow-x: hidden;
+        }
+
+        .dashboard-wrapper {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .sidebar-logo {
+            font-size: 32px;
+            line-height: 1;
+        }
+
+        .sidebar-title {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .sidebar-subtitle {
+            font-size: 11px;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+        }
+
+        .menu-item {
+            margin-bottom: 15px;
+        }
+
+        .menu-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 15px;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .menu-link:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(5px);
+        }
+
+        .menu-link.active {
+            background: rgba(255, 255, 255, 0.25);
+            border-left: 4px solid white;
+            padding-left: 11px;
+        }
+
+        .menu-icon {
+            font-size: 20px;
+            width: 24px;
+            text-align: center;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            margin-left: 280px;
+            flex: 1;
+            padding: 30px;
+        }
+
+        .content-header {
+            margin-bottom: 30px;
+        }
+
+        .content-header h1 {
+            color: #2c3e50;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .content-header p {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        /* Cards Grid */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border-top: 4px solid #667eea;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: -50px;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-icon {
+            font-size: 40px;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+
+        .card-description {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .card-stats {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .stat-box {
+            text-align: center;
+            flex: 1;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-visit,
+        .btn-add {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-visit {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-visit:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-add {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn-add:hover {
+            background: #f0f4ff;
+        }
+
+        /* Color Variants */
+        .card.card-gv {
+            border-top-color: #ff6b6b;
+        }
+
+        .card.card-mon {
+            border-top-color: #4ecdc4;
+        }
+
+        .card.card-lop {
+            border-top-color: #f9ca24;
+        }
+
+        .card.card-phong {
+            border-top-color: #6c5ce7;
+        }
+
+        .card.card-gv .stat-value { color: #ff6b6b; }
+        .card.card-mon .stat-value { color: #4ecdc4; }
+        .card.card-lop .stat-value { color: #f9ca24; }
+        .card.card-phong .stat-value { color: #6c5ce7; }
+
+        /* Sidebar Toggle Button */
+        .sidebar-toggle {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            z-index: 999;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 240px;
+            }
+
+            .main-content {
+                margin-left: 240px;
+            }
+
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 20px;
+            }
+
+            .content-header h1 {
+                font-size: 24px;
+            }
+
+            .sidebar-toggle {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Scrollbar Styling */
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <!-- Sidebar Menu -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">📅</div>
+                <div>
+                    <div class="sidebar-title">TKB Manager</div>
+                    <div class="sidebar-subtitle">Dashboard</div>
+                </div>
+            </div>
+
+            <ul class="sidebar-menu">
+                <li class="menu-item">
+                    <a href="#" class="menu-link active" data-page="overview">
+                        <span class="menu-icon">🏠</span>
+                        <span>Tổng Quan</span>
+                    </a>
+                </li>
+                <li class="menu-item">
+                    <a href="index.html" class="menu-link" data-page="teachers">
+                        <span class="menu-icon">👨‍🏫</span>
+                        <span>Quản Lý Giảng Viên</span>
+                    </a>
+                </li>
+                <li class="menu-item">
+                    <a href="monhoc.html" class="menu-link" data-page="subjects">
+                        <span class="menu-icon">📚</span>
+                        <span>Quản Lý Môn Học</span>
+                    </a>
+                </li>
+                <li class="menu-item">
+                    <a href="lop.html" class="menu-link" data-page="classes">
+                        <span class="menu-icon">👥</span>
+                        <span>Quản Lý Lớp Học</span>
+                    </a>
+                </li>
+                <li class="menu-item">
+                    <a href="phonghoc.html" class="menu-link" data-page="rooms">
+                        <span class="menu-icon">🏛️</span>
+                        <span>Quản Lý Phòng Học</span>
+                    </a>
+                </li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="content-header">
+                <h1>📅 Dashboard Hệ Thống TKB</h1>
+                <p>Quản lý tài liệu và thông tin thời khóa biểu - Khoa Công Nghệ Thông Tin</p>
+            </div>
+
+            <div class="cards-grid">
+                <!-- Card Giảng Viên -->
+                <div class="card card-gv">
+                    <span class="card-icon">👨‍🏫</span>
+                    <h2 class="card-title">Giảng Viên</h2>
+                    <p class="card-description">Quản lý danh sách giảng viên, email, số điện thoại, học vị và chuyên môn</p>
+                    <div class="card-stats">
+                        <div class="stat-box">
+                            <div class="stat-value" id="gv-count">0</div>
+                            <div class="stat-label">Tổng</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="gv-active">0</div>
+                            <div class="stat-label">Đang Dạy</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <a href="index.html" class="btn-visit">🔍 Chi Tiết</a>
+                        <a href="index.html" class="btn-add">➕ Thêm</a>
+                    </div>
+                </div>
+
+                <!-- Card Môn Học -->
+                <div class="card card-mon">
+                    <span class="card-icon">📚</span>
+                    <h2 class="card-title">Môn Học</h2>
+                    <p class="card-description">Danh sách các môn học, tín chỉ, số tiết lý thuyết và thực hành</p>
+                    <div class="card-stats">
+                        <div class="stat-box">
+                            <div class="stat-value" id="mon-count">0</div>
+                            <div class="stat-label">Tổng</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="mon-credits">0</div>
+                            <div class="stat-label">Tín Chỉ</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <a href="monhoc.html" class="btn-visit">🔍 Chi Tiết</a>
+                        <a href="monhoc.html" class="btn-add">➕ Thêm</a>
+                    </div>
+                </div>
+
+                <!-- Card Lớp Học -->
+                <div class="card card-lop">
+                    <span class="card-icon">👥</span>
+                    <h2 class="card-title">Lớp Học</h2>
+                    <p class="card-description">Quản lý các lớp học, khóa, tên lớp và thông tin liên quan</p>
+                    <div class="card-stats">
+                        <div class="stat-box">
+                            <div class="stat-value" id="lop-count">0</div>
+                            <div class="stat-label">Tổng</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="lop-khoa">0</div>
+                            <div class="stat-label">Khóa</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <a href="lop.html" class="btn-visit">🔍 Chi Tiết</a>
+                        <a href="lop.html" class="btn-add">➕ Thêm</a>
+                    </div>
+                </div>
+
+                <!-- Card Phòng Học -->
+                <div class="card card-phong">
+                    <span class="card-icon">🏛️</span>
+                    <h2 class="card-title">Phòng Học</h2>
+                    <p class="card-description">Quản lý phòng học, loại phòng (máy/lý thuyết) và trạng thái</p>
+                    <div class="card-stats">
+                        <div class="stat-box">
+                            <div class="stat-value" id="phong-count">0</div>
+                            <div class="stat-label">Tổng</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value" id="phong-ready">0</div>
+                            <div class="stat-label">Sẵn Sàng</div>
+                        </div>
+                    </div>
+                    <div class="card-actions">
+                        <a href="phonghoc.html" class="btn-visit">🔍 Chi Tiết</a>
+                        <a href="phonghoc.html" class="btn-add">➕ Thêm</a>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+
+        // Sidebar toggle for mobile
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.getElementById('sidebar');
+
+        sidebarToggle?.addEventListener('click', () => {
+            sidebar.classList.toggle('active');
+        });
+
+        // Close sidebar when link is clicked on mobile
+        document.querySelectorAll('.menu-link').forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.remove('active');
+                }
+            });
+        });
+
+        // Load statistics from API
+        async function loadDashboardStats() {
+            try {
+                // Load Giảng Viên
+                const gvRes = await fetch(`${API_BASE}/giangvien`);
+                if (gvRes.ok) {
+                    const gvData = await gvRes.json();
+                    document.getElementById('gv-count').textContent = gvData.length;
+                    document.getElementById('gv-active').textContent = gvData.filter(g => g.trangthai === 'Đang giảng dạy').length;
+                }
+            } catch (e) {
+                console.warn('Không thể tải giảng viên:', e);
+                loadMockStats();
+            }
+
+            try {
+                // Load Môn Học
+                const monRes = await fetch(`${API_BASE}/monhoc`);
+                if (monRes.ok) {
+                    const monData = await monRes.json();
+                    document.getElementById('mon-count').textContent = monData.length;
+                    const totalCredits = monData.reduce((sum, m) => sum + (m.sotinchi || 0), 0);
+                    document.getElementById('mon-credits').textContent = totalCredits;
+                }
+            } catch (e) {
+                console.warn('Không thể tải môn học:', e);
+            }
+
+            try {
+                // Load Lớp Học
+                const lopRes = await fetch(`${API_BASE}/lop`);
+                if (lopRes.ok) {
+                    const lopData = await lopRes.json();
+                    document.getElementById('lop-count').textContent = lopData.length;
+                    const khoas = new Set(lopData.map(l => l.khoa)).size;
+                    document.getElementById('lop-khoa').textContent = khoas;
+                }
+            } catch (e) {
+                console.warn('Không thể tải lớp học:', e);
+            }
+
+            try {
+                // Load Phòng Học
+                const phRes = await fetch(`${API_BASE}/phonghoc`);
+                if (phRes.ok) {
+                    const phData = await phRes.json();
+                    document.getElementById('phong-count').textContent = phData.length;
+                    const ready = phData.filter(p => p.trangthai === 'Sẵn sàn').length;
+                    document.getElementById('phong-ready').textContent = ready;
+                }
+            } catch (e) {
+                console.warn('Không thể tải phòng học:', e);
+            }
+        }
+
+        function loadMockStats() {
+            document.getElementById('gv-count').textContent = '10';
+            document.getElementById('gv-active').textContent = '8';
+            document.getElementById('mon-count').textContent = '15';
+            document.getElementById('mon-credits').textContent = '45';
+            document.getElementById('lop-count').textContent = '12';
+            document.getElementById('lop-khoa').textContent = '3';
+            document.getElementById('phong-count').textContent = '20';
+            document.getElementById('phong-ready').textContent = '18';
+        }
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', loadDashboardStats);
+
+        // Refresh stats every 30 seconds
+        setInterval(loadDashboardStats, 30000);
+    </script>
+</body>
+</html>

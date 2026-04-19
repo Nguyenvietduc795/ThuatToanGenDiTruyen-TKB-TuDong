@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Quản Lý Thời Khóa Biểu - DNC</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Navigation Menu Styles */
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            display: block;
+            min-height: 70px;
+        }
+
+        .navbar-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            height: 70px;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            font-weight: bold;
+            font-size: 24px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .logo-icon {
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+        }
+
+        .brand-text {
+            font-size: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        .navbar-toggle {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 6px;
+        }
+
+        .navbar-toggle span {
+            width: 25px;
+            height: 3px;
+            background-color: white;
+            border-radius: 3px;
+            transition: 0.3s;
+        }
+
+        .navbar-menu {
+            display: flex;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            gap: 0;
+        }
+
+        .nav-item {
+            position: relative;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            text-decoration: none;
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-radius: 5px;
+            margin: 0 5px;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.3);
+            border-bottom: 3px solid white;
+        }
+
+        .nav-icon {
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .navbar-toggle {
+                display: flex;
+            }
+
+            .navbar-menu {
+                position: absolute;
+                top: 70px;
+                left: 0;
+                right: 0;
+                flex-direction: column;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s;
+            }
+
+            .navbar-menu.active {
+                max-height: 400px;
+            }
+
+            .nav-item {
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .nav-link {
+                padding: 15px 20px;
+                margin: 0;
+            }
+        }
+
+        /* Dashboard Styles */
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding-bottom: 40px;
+        }
+
+        .dashboard-container {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .dashboard-header {
+            text-align: center;
+            margin-bottom: 50px;
+            color: #2c3e50;
+        }
+
+        .dashboard-header h1 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .dashboard-header p {
+            font-size: 16px;
+            color: #7f8c8d;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-icon {
+            font-size: 50px;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .card-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .card-description {
+            font-size: 14px;
+            color: #7f8c8d;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .card-stats {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 28px;
+            font-weight: 700;
+            color: #667eea;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-visit {
+            flex: 1;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-visit:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-new {
+            flex: 1;
+            padding: 12px;
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn-new:hover {
+            background: #f0f4ff;
+        }
+
+        /* Color variants for cards */
+        .card.card-gv::before {
+            background: linear-gradient(90deg, #ff6b6b 0%, #ee5a6f 100%);
+        }
+
+        .card.card-mon::before {
+            background: linear-gradient(90deg, #4ecdc4 0%, #44a08d 100%);
+        }
+
+        .card.card-lop::before {
+            background: linear-gradient(90deg, #f9ca24 0%, #f0932b 100%);
+        }
+
+        .card.card-phong::before {
+            background: linear-gradient(90deg, #6c5ce7 0%, #a29bfe 100%);
+        }
+
+        .stat-number.gv { color: #ff6b6b; }
+        .stat-number.mon { color: #4ecdc4; }
+        .stat-number.lop { color: #f9ca24; }
+        .stat-number.phong { color: #6c5ce7; }
+
+        .quick-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-box-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .stat-box-number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        .stat-box-label {
+            font-size: 13px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 70px;
+            width: 250px;
+            height: calc(100vh - 70px);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 0;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 999;
+            overflow-y: auto;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-item {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: white;
+            text-decoration: none;
+            padding: 18px 20px;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+
+        .sidebar-link:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-left-color: white;
+            padding-left: 24px;
+        }
+
+        .sidebar-link.active {
+            background-color: rgba(255, 255, 255, 0.25);
+            border-left-color: white;
+        }
+
+        .sidebar-icon {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 30px;
+        }
+
+        .sidebar-text {
+            flex: 1;
+        }
+
+        /* Adjust main content with sidebar */
+        .dashboard-container {
+            margin-left: 250px;
+        }
+
+        .nav-menu {
+            display: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 0;
+                padding: 0;
+                overflow: hidden;
+                transition: width 0.3s ease;
+            }
+
+            .sidebar.active {
+                width: 250px;
+                padding: 0;
+            }
+
+            .dashboard-container {
+                margin-left: 0;
+            }
+
+            .nav-menu {
+                display: flex;
+            }
+        }
+
+        /* Navigation Menu */
+        .nav-menu {
+            background: white;
+            display: flex;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .nav-menu a {
+            flex: 1;
+            padding: 16px 20px;
+            text-decoration: none;
+            color: #2c3e50;
+            text-align: center;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            font-size: 15px;
+        }
+
+        .nav-menu a:hover {
+            background-color: #f8f9fa;
+        }
+
+        .nav-menu a.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background-color: #f0f4ff;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-header h1 {
+                font-size: 28px;
+            }
+
+            .cards-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .card-actions {
+                flex-direction: column;
+            }
+
+            .nav-menu {
+                flex-wrap: wrap;
+            }
+
+            .nav-menu a {
+                flex: 0 0 50%;
+                font-size: 14px;
+                padding: 12px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Menu -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <span class="logo-icon">📅</span>
+                <span class="brand-text">Quản Lý TKB</span>
+            </div>
+            
+            <div class="navbar-toggle" id="navbarToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            
+            <ul class="navbar-menu" id="navbarMenu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <span class="nav-icon">🏠</span>
+                        <span>Trang Chủ</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="monhoc.html" class="nav-link">
+                        <span class="nav-icon">📚</span>
+                        <span>Môn Học</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="lop.html" class="nav-link">
+                        <span class="nav-icon">👥</span>
+                        <span>Lớp Học</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="phonghoc.html" class="nav-link">
+                        <span class="nav-icon">🏛️</span>
+                        <span>Phòng Học</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <span class="nav-icon">⚙️</span>
+                        <span>Cài Đặt</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Sidebar Menu -->
+    <aside class="sidebar" id="sidebar">
+        <ul class="sidebar-menu">
+            <li class="sidebar-item">
+                <a href="index.html" class="sidebar-link active" data-page="index">
+                    <span class="sidebar-icon">👨‍🏫</span>
+                    <span class="sidebar-text">Giảng Viên</span>
+                </a>
+            </li>
+            <li class="sidebar-item">
+                <a href="phonghoc.html" class="sidebar-link" data-page="phonghoc">
+                    <span class="sidebar-icon">🏛️</span>
+                    <span class="sidebar-text">Phòng Học</span>
+                </a>
+            </li>
+            <li class="sidebar-item">
+                <a href="lop.html" class="sidebar-link" data-page="lop">
+                    <span class="sidebar-icon">👥</span>
+                    <span class="sidebar-text">Lớp Học</span>
+                </a>
+            </li>
+            <li class="sidebar-item">
+                <a href="monhoc.html" class="sidebar-link" data-page="monhoc">
+                    <span class="sidebar-icon">📚</span>
+                    <span class="sidebar-text">Môn Học</span>
+                </a>
+            </li>
+        </ul>
+    </aside>
+
+    <div id="menu-container"></div>
+    <div class="dashboard-container">
+        <div class="nav-menu">
+            <a href="index.html" class="nav-link">👨‍🏫 Giảng Viên</a>
+            <a href="lop.html" class="nav-link">👥 Lớp Học</a>
+            <a href="monhoc.html" class="nav-link">📚 Môn Học</a>
+            <a href="phonghoc.html" class="nav-link">🏛️ Phòng Học</a>
+        </div>
+
+        <div class="dashboard-header">
+            <h1>📅 Hệ Thống Quản Lý Thời Khóa Biểu</h1>
+            <p>Khoa Công Nghệ Thông Tin - Năm học 2024-2025</p>
+        </div>
+
+        <div class="quick-stats">
+            <div class="stat-box">
+                <div class="stat-box-icon">👨‍🏫</div>
+                <div class="stat-box-number" id="total-gv">0</div>
+                <div class="stat-box-label">Giảng Viên</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-box-icon">📚</div>
+                <div class="stat-box-number" id="total-mon">0</div>
+                <div class="stat-box-label">Môn Học</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-box-icon">👥</div>
+                <div class="stat-box-number" id="total-lop">0</div>
+                <div class="stat-box-label">Lớp Học</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-box-icon">🏛️</div>
+                <div class="stat-box-number" id="total-phong">0</div>
+                <div class="stat-box-label">Phòng Học</div>
+            </div>
+        </div>
+
+        <div class="cards-grid">
+            <!-- Card Giảng Viên -->
+            <div class="card card-gv">
+                <span class="card-icon">👨‍🏫</span>
+                <h2 class="card-title">Quản Lý Giảng Viên</h2>
+                <p class="card-description">Quản lý thông tin giảng viên, email, số điện thoại, học vị và chuyên môn</p>
+                <div class="card-stats">
+                    <span class="stat-number gv" id="gv-count">0</span>
+                    <span class="stat-label">Giảng Viên</span>
+                </div>
+                <div class="card-actions">
+                    <a href="#giangvien" class="btn-visit">🔍 Xem Chi Tiết</a>
+                    <button class="btn-new" onclick="document.getElementById('tenGV').focus()">➕ Thêm Mới</button>
+                </div>
+            </div>
+
+            <!-- Card Môn Học -->
+            <div class="card card-mon">
+                <span class="card-icon">📚</span>
+                <h2 class="card-title">Quản Lý Môn Học</h2>
+                <p class="card-description">Quản lý danh sách các môn học, tín chỉ, số tiết lý thuyết và thực hành</p>
+                <div class="card-stats">
+                    <span class="stat-number mon" id="mon-count">0</span>
+                    <span class="stat-label">Môn Học</span>
+                </div>
+                <div class="card-actions">
+                    <a href="monhoc.html" class="btn-visit">🔍 Xem Chi Tiết</a>
+                    <button class="btn-new" onclick="window.location.href='monhoc.html'">➕ Thêm Mới</button>
+                </div>
+            </div>
+
+            <!-- Card Lớp Học -->
+            <div class="card card-lop">
+                <span class="card-icon">👥</span>
+                <h2 class="card-title">Quản Lý Lớp Học</h2>
+                <p class="card-description">Quản lý các lớp học, khóa, tên lớp và thông tin liên quan</p>
+                <div class="card-stats">
+                    <span class="stat-number lop" id="lop-count">0</span>
+                    <span class="stat-label">Lớp Học</span>
+                </div>
+                <div class="card-actions">
+                    <a href="lop.html" class="btn-visit">🔍 Xem Chi Tiết</a>
+                    <button class="btn-new" onclick="window.location.href='lop.html'">➕ Thêm Mới</button>
+                </div>
+            </div>
+
+            <!-- Card Phòng Học -->
+            <div class="card card-phong">
+                <span class="card-icon">🏛️</span>
+                <h2 class="card-title">Quản Lý Phòng Học</h2>
+                <p class="card-description">Quản lý phòng học, loại phòng (máy/lý thuyết) và trạng thái</p>
+                <div class="card-stats">
+                    <span class="stat-number phong" id="phong-count">0</span>
+                    <span class="stat-label">Phòng Học</span>
+                </div>
+                <div class="card-actions">
+                    <a href="phonghoc.html" class="btn-visit">🔍 Xem Chi Tiết</a>
+                    <button class="btn-new" onclick="window.location.href='phonghoc.html'">➕ Thêm Mới</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+
+        // Load all data on page load
+        async function loadAllData() {
+            try {
+                // Load Giảng Viên
+                const gvRes = await fetch(`${API_BASE}/giangvien`);
+                if (gvRes.ok) {
+                    const gvData = await gvRes.json();
+                    document.getElementById('gv-count').textContent = gvData.length;
+                    document.getElementById('total-gv').textContent = gvData.length;
+                }
+            } catch (e) {
+                console.warn('Không thể tải giảng viên:', e);
+                document.getElementById('gv-count').textContent = '?';
+            }
+
+            try {
+                // Load Môn Học
+                const monRes = await fetch(`${API_BASE}/monhoc`);
+                if (monRes.ok) {
+                    const monData = await monRes.json();
+                    document.getElementById('mon-count').textContent = monData.length;
+                    document.getElementById('total-mon').textContent = monData.length;
+                }
+            } catch (e) {
+                console.warn('Không thể tải môn học:', e);
+                document.getElementById('mon-count').textContent = '?';
+            }
+
+            try {
+                // Load Lớp Học
+                const lopRes = await fetch(`${API_BASE}/lop`);
+                if (lopRes.ok) {
+                    const lopData = await lopRes.json();
+                    document.getElementById('lop-count').textContent = lopData.length;
+                    document.getElementById('total-lop').textContent = lopData.length;
+                }
+            } catch (e) {
+                console.warn('Không thể tải lớp học:', e);
+                document.getElementById('lop-count').textContent = '?';
+            }
+
+            try {
+                // Load Phòng Học
+                const phRes = await fetch(`${API_BASE}/phonghoc`);
+                if (phRes.ok) {
+                    const phData = await phRes.json();
+                    document.getElementById('phong-count').textContent = phData.length;
+                    document.getElementById('total-phong').textContent = phData.length;
+                }
+            } catch (e) {
+                console.warn('Không thể tải phòng học:', e);
+                document.getElementById('phong-count').textContent = '?';
+            }
+        }
+
+        // Refresh stats every 30 seconds
+        window.addEventListener('DOMContentLoaded', () => {
+            loadAllData();
+            setInterval(loadAllData, 30000);
+
+            // Set active menu item based on current page
+            const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+            
+            // Update navbar links
+            const navLinks = document.querySelectorAll('.nav-link:not(.sidebar-link)');
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === currentPage || (currentPage === '' && href === 'index.html')) {
+                    link.classList.add('active');
+                }
+            });
+
+            // Update sidebar links
+            const sidebarLinks = document.querySelectorAll('.sidebar-link');
+            sidebarLinks.forEach(link => {
+                link.classList.remove('active');
+                const dataPage = link.getAttribute('data-page');
+                if (dataPage === currentPage.replace('.html', '') || 
+                    (currentPage === '' && dataPage === 'index')) {
+                    link.classList.add('active');
+                }
+            });
+
+            // Mobile menu toggle
+            const navbarToggle = document.getElementById('navbarToggle');
+            const navbarMenu = document.getElementById('navbarMenu');
+            
+            if (navbarToggle) {
+                navbarToggle.addEventListener('click', () => {
+                    navbarMenu.classList.toggle('active');
+                });
+
+                // Close menu when clicking on a link
+                const navItems = document.querySelectorAll('.nav-item');
+                navItems.forEach(item => {
+                    item.addEventListener('click', () => {
+                        navbarMenu.classList.remove('active');
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>

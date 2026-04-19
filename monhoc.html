@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Môn Học - DNC</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Navigation Menu Styles */
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            display: block;
+            min-height: 70px;
+        }
+
+        .navbar-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            height: 70px;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            font-weight: bold;
+            font-size: 24px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .logo-icon {
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+        }
+
+        .brand-text {
+            font-size: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        .navbar-toggle {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 6px;
+        }
+
+        .navbar-toggle span {
+            width: 25px;
+            height: 3px;
+            background-color: white;
+            border-radius: 3px;
+            transition: 0.3s;
+        }
+
+        .navbar-menu {
+            display: flex;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            gap: 0;
+        }
+
+        .nav-item {
+            position: relative;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            text-decoration: none;
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-radius: 5px;
+            margin: 0 5px;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.3);
+            border-bottom: 3px solid white;
+        }
+
+        .nav-icon {
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 70px;
+            width: 250px;
+            height: calc(100vh - 70px);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 0;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 999;
+            overflow-y: auto;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-item {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: white;
+            text-decoration: none;
+            padding: 18px 20px;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+
+        .sidebar-link:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-left-color: white;
+            padding-left: 24px;
+        }
+
+        .sidebar-link.active {
+            background-color: rgba(255, 255, 255, 0.25);
+            border-left-color: white;
+        }
+
+        .sidebar-icon {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 30px;
+        }
+
+        .sidebar-text {
+            flex: 1;
+        }
+
+        .main-wrapper {
+            margin-left: 250px;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 0;
+                padding: 0;
+                overflow: hidden;
+                transition: width 0.3s ease;
+            }
+
+            .sidebar.active {
+                width: 250px;
+                padding: 0;
+            }
+
+            .main-wrapper {
+                margin-left: 0;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .navbar-toggle {
+                display: flex;
+            }
+
+            .navbar-menu {
+                position: absolute;
+                top: 70px;
+                left: 0;
+                right: 0;
+                flex-direction: column;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s;
+            }
+
+            .navbar-menu.active {
+                max-height: 400px;
+            }
+
+            .nav-item {
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .nav-link {
+                padding: 15px 20px;
+                margin: 0;
+            }
+        }
+
+        /* Navigation Menu */
+        .nav-menu {
+            background: white;
+            display: flex;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .nav-menu a {
+            flex: 1;
+            padding: 16px 20px;
+            text-decoration: none;
+            color: #2c3e50;
+            text-align: center;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            font-size: 15px;
+        }
+
+        .nav-menu a:hover {
+            background-color: #f8f9fa;
+        }
+
+        .nav-menu a.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background-color: #f0f4ff;
+        }
+
+        @media (max-width: 768px) {
+            .nav-menu {
+                flex-wrap: wrap;
+            }
+
+            .nav-menu a {
+                flex: 0 0 50%;
+                font-size: 14px;
+                padding: 12px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Menu -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <span class="logo-icon">📅</span>
+                <span class="brand-text">Quản Lý TKB</span>
+            </div>
+            
+            <div class="navbar-toggle" id="navbarToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            
+            <ul class="navbar-menu" id="navbarMenu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <span class="nav-icon">🏠</span>
+                        <span>Trang Chủ</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="monhoc.html" class="nav-link">
+                        <span class="nav-icon">📚</span>
+                        <span>Môn Học</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="lop.html" class="nav-link">
+                        <span class="nav-icon">👥</span>
+                        <span>Lớp Học</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="phonghoc.html" class="nav-link">
+                        <span class="nav-icon">🏛️</span>
+                        <span>Phòng Học</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <span class="nav-icon">⚙️</span>
+                        <span>Cài Đặt</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Sidebar Menu -->
+    <aside class="sidebar" id="sidebar">
+        <ul class="sidebar-menu">
+            <li class="sidebar-item">
+                <a href="index.html" class="sidebar-link" data-page="index">
+                    <span class="sidebar-icon">👨‍🏫</span>
+                    <span class="sidebar-text">Giảng Viên</span>
+                </a>
+            </li>
+            <li class="sidebar-item">
+                <a href="phonghoc.html" class="sidebar-link" data-page="phonghoc">
+                    <span class="sidebar-icon">🏛️</span>
+                    <span class="sidebar-text">Phòng Học</span>
+                </a>
+            </li>
+            <li class="sidebar-item">
+                <a href="lop.html" class="sidebar-link" data-page="lop">
+                    <span class="sidebar-icon">👥</span>
+                    <span class="sidebar-text">Lớp Học</span>
+                </a>
+            </li>
+            <li class="sidebar-item">
+                <a href="monhoc.html" class="sidebar-link active" data-page="monhoc">
+                    <span class="sidebar-icon">📚</span>
+                    <span class="sidebar-text">Môn Học</span>
+                </a>
+            </li>
+        </ul>
+    </aside>
+
+    <div id="menu-container"></div>
+    <div class="main-wrapper">
+    <div class="container" style="max-width: 1200px;">
+        <div class="nav-menu">
+            <a href="index.html" class="nav-link">👨‍🏫 Giảng Viên</a>
+            <a href="lop.html" class="nav-link">👥 Lớp Học</a>
+            <a href="monhoc.html" class="nav-link">📚 Môn Học</a>
+            <a href="phonghoc.html" class="nav-link">🏛️ Phòng Học</a>
+        </div>
+
+        <header>
+            <h1>HỆ THỐNG QUẢN LÝ MÔN HỌC</h1>
+        </header>
+
+        <section class="form-section">
+            <div class="input-group">
+                <input type="text" id="maMon" value="Mã: Tự động" readonly title="Mã môn tự sinh">
+                
+                <input type="text" id="tenMon" placeholder="Tên Môn Học (VD: Lập Trình C++)">
+                
+                <input type="number" id="soTinChi" placeholder="Số Tín Chỉ" min="0">
+                <input type="number" id="tongSoTiet" placeholder="Tổng tiết" min="0">
+                <input type="number" id="soTietLT" placeholder="Lý thuyết" min="0">
+                <input type="number" id="soTietTH" placeholder="Thực hành" min="0">
+                
+                <select id="loaiPhong">
+                    <option value="Phòng máy">Phòng máy</option>
+                    <option value="Lý thuyết">Lý thuyết</option>
+                    <option value="Hội trường">Hội trường</option>
+                </select>
+
+                <button onclick="handleSubject()" class="btn-add" id="sub-btn">Thêm Môn</button>
+            </div>
+        </section>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mã Môn</th>
+                        <th>Tên Môn Học</th>
+                        <th>Số Tín Chỉ</th>
+                        <th>Tổng Tiết</th>
+                        <th>Lý Thuyết</th>
+                        <th>Thực Hành</th>
+                        <th>Loại Phòng</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="subject-table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        let subjectData = [];
+        let editingMa = null;
+
+        function renderSubjectTable() {
+            const tableBody = document.getElementById('subject-table-body');
+            tableBody.innerHTML = subjectData.map((mh, index) => `
+                <tr>
+                    <td><strong>${mh.MaMon}</strong></td>
+                    <td>${mh.TenMon}</td>
+                    <td>${mh.SoTinChi}</td>
+                    <td>${mh.TongSoTiet}</td>
+                    <td>${mh.SoTietLT}</td>
+                    <td>${mh.SoTietTH}</td>
+                    <td>${mh.LoaiPhong}</td>
+                    <td>
+                        <button onclick="editSubject(${index})" class="btn-edit">Sửa</button>
+                        <button onclick="deleteSubject(${index})" class="btn-delete">Xóa</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function loadMockData() {
+            return [
+                {
+                    mamon: 'MON001',
+                    tenmon: 'Lập Trình C++',
+                    sotinchi: 3,
+                    tongsotiet: 45,
+                    sotietlythuyet: 30,
+                    sotietthuchanh: 15,
+                    loaiphong: 'Phòng máy'
+                },
+                {
+                    mamon: 'MON002',
+                    tenmon: 'Cơ Sở Dữ Liệu',
+                    sotinchi: 3,
+                    tongsotiet: 45,
+                    sotietlythuyet: 30,
+                    sotietthuchanh: 15,
+                    loaiphong: 'Phòng máy'
+                },
+                {
+                    mamon: 'MON003',
+                    tenmon: 'Mạng Máy Tính',
+                    sotinchi: 3,
+                    tongsotiet: 45,
+                    sotietlythuyet: 35,
+                    sotietthuchanh: 10,
+                    loaiphong: 'Lý thuyết'
+                },
+                {
+                    mamon: 'MON004',
+                    tenmon: 'Hệ Điều Hành',
+                    sotinchi: 3,
+                    tongsotiet: 45,
+                    sotietlythuyet: 35,
+                    sotietthuchanh: 10,
+                    loaiphong: 'Lý thuyết'
+                },
+                {
+                    mamon: 'MON005',
+                    tenmon: 'Thực Tập Thực Hành',
+                    sotinchi: 2,
+                    tongsotiet: 30,
+                    sotietlythuyet: 0,
+                    sotietthuchanh: 30,
+                    loaiphong: 'Phòng máy'
+                }
+            ];
+        }
+
+        async function loadSubjects() {
+            try {
+                const res = await fetch(`${API_BASE}/monhoc`);
+                if (!res.ok) throw new Error('Server không phản hồi');
+                const data = await res.json();
+                subjectData = data.map(row => ({
+                    MaMon: row.mamon,
+                    TenMon: row.tenmon,
+                    SoTinChi: row.sotinchi,
+                    TongSoTiet: row.tongsotiet,
+                    SoTietLT: row.sotietlythuyet,
+                    SoTietTH: row.sotietthuchanh,
+                    LoaiPhong: row.loaiphong
+                }));
+                renderSubjectTable();
+            } catch (error) {
+                console.warn('Không thể kết nối server, sử dụng dữ liệu mẫu:', error);
+                const mockData = loadMockData();
+                subjectData = mockData.map(row => ({
+                    MaMon: row.mamon,
+                    TenMon: row.tenmon,
+                    SoTinChi: row.sotinchi,
+                    TongSoTiet: row.tongsotiet,
+                    SoTietLT: row.sotietlythuyet,
+                    SoTietTH: row.sotietthuchanh,
+                    LoaiPhong: row.loaiphong
+                }));
+                renderSubjectTable();
+                alert('Máy chủ không hoạt động. Đang sử dụng dữ liệu mẫu.');
+            }
+        }
+
+        function handleSubject() {
+            const tenMon = document.getElementById('tenMon').value;
+            const soTinChi = document.getElementById('soTinChi').value;
+
+            if (!tenMon || !soTinChi) return alert("Vui lòng nhập đầy đủ thông tin!");
+
+            const newSubject = {
+                MaMon: editIndex !== null ? subjectData[editIndex].MaMon : `MON${subjectData.length + 1}`,
+                TenMon: tenMon,
+                SoTinChi: soTinChi,
+                TongSoTiet: document.getElementById('tongSoTiet').value,
+                SoTietLT: document.getElementById('soTietLT').value,
+                SoTietTH: document.getElementById('soTietTH').value,
+                LoaiPhong: document.getElementById('loaiPhong').value
+            };
+
+            if (editIndex !== null) {
+                subjectData[editIndex] = newSubject;
+                editIndex = null;
+                document.getElementById('sub-btn').innerText = "Thêm Môn";
+                document.getElementById('sub-btn').style.backgroundColor = "#10b981";
+            } else {
+                subjectData.push(newSubject);
+            }
+
+            renderSubjectTable();
+            resetForm();
+        }
+
+        function editSubject(index) {
+            const mh = subjectData[index];
+            editIndex = index;
+            document.getElementById('tenMon').value = mh.TenMon;
+            document.getElementById('soTinChi').value = mh.SoTinChi;
+            document.getElementById('tongSoTiet').value = mh.TongSoTiet;
+            document.getElementById('soTietLT').value = mh.SoTietLT;
+            document.getElementById('soTietTH').value = mh.SoTietTH;
+            document.getElementById('loaiPhong').value = mh.LoaiPhong;
+
+            const btn = document.getElementById('sub-btn');
+            btn.innerText = "Lưu cập nhật";
+            btn.style.backgroundColor = "#3b82f6";
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function deleteSubject(index) {
+            if(confirm("Xóa môn học này?")) {
+                subjectData.splice(index, 1);
+                renderSubjectTable();
+            }
+        }
+
+        function resetForm() {
+            document.querySelectorAll('.input-group input:not(#maMon)').forEach(i => i.value = '');
+            document.getElementById('maMon').value = "Mã: Tự động";
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSubjects();
+
+            // Set active menu item based on current page
+            const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === currentPage || (currentPage === '' && href === 'index.html')) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

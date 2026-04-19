@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Lớp Học - DNC</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Navigation Menu Styles */
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            display: block;
+            min-height: 70px;
+        }
+
+        .navbar-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            height: 70px;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: white;
+            font-weight: bold;
+            font-size: 24px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .logo-icon {
+            font-size: 32px;
+            display: flex;
+            align-items: center;
+        }
+
+        .brand-text {
+            font-size: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        .navbar-toggle {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 6px;
+        }
+
+        .navbar-toggle span {
+            width: 25px;
+            height: 3px;
+            background-color: white;
+            border-radius: 3px;
+            transition: 0.3s;
+        }
+
+        .navbar-menu {
+            display: flex;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            gap: 0;
+        }
+
+        .nav-item {
+            position: relative;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+            text-decoration: none;
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-radius: 5px;
+            margin: 0 5px;
+        }
+
+        .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.3);
+            border-bottom: 3px solid white;
+        }
+
+        .nav-icon {
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .navbar-toggle {
+                display: flex;
+            }
+
+            .navbar-menu {
+                position: absolute;
+                top: 70px;
+                left: 0;
+                right: 0;
+                flex-direction: column;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                max-height: 0;
+                overflow: hidden;
+                transition: max-height 0.3s;
+            }
+
+            .navbar-menu.active {
+                max-height: 400px;
+            }
+
+            .nav-item {
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .nav-link {
+                padding: 15px 20px;
+                margin: 0;
+            }
+        }
+
+        /* Navigation Menu */
+        .nav-menu {
+            background: white;
+            display: flex;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .nav-menu a {
+            flex: 1;
+            padding: 16px 20px;
+            text-decoration: none;
+            color: #2c3e50;
+            text-align: center;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            font-size: 15px;
+        }
+
+        .nav-menu a:hover {
+            background-color: #f8f9fa;
+        }
+
+        .nav-menu a.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background-color: #f0f4ff;
+        }
+
+        @media (max-width: 768px) {
+            .nav-menu {
+                flex-wrap: wrap;
+            }
+
+            .nav-menu a {
+                flex: 0 0 50%;
+                font-size: 14px;
+                padding: 12px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Menu -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <span class="logo-icon">📅</span>
+                <span class="brand-text">Quản Lý TKB</span>
+            </div>
+            
+            <div class="navbar-toggle" id="navbarToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            
+            <ul class="navbar-menu" id="navbarMenu">
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <span class="nav-icon">🏠</span>
+                        <span>Trang Chủ</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="monhoc.html" class="nav-link">
+                        <span class="nav-icon">📚</span>
+                        <span>Môn Học</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="lop.html" class="nav-link">
+                        <span class="nav-icon">👥</span>
+                        <span>Lớp Học</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="phonghoc.html" class="nav-link">
+                        <span class="nav-icon">🏛️</span>
+                        <span>Phòng Học</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="index.html" class="nav-link">
+                        <span class="nav-icon">⚙️</span>
+                        <span>Cài Đặt</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <div id="menu-container"></div>
+    <div class="container" style="max-width: 1200px;">
+        <div class="nav-menu">
+            <a href="index.html" class="nav-link">👨‍🏫 Giảng Viên</a>
+            <a href="lop.html" class="nav-link">👥 Lớp Học</a>
+            <a href="monhoc.html" class="nav-link">📚 Môn Học</a>
+            <a href="phonghoc.html" class="nav-link">🏛️ Phòng Học</a>
+        </div>
+
+        <header>
+            <h1>HỆ THỐNG QUẢN LÝ LỚP</h1>
+        </header>
+
+        <section class="form-section">
+            <div class="input-group">
+                <input type="text" id="maLop" value="Mã: Tự động" readonly title="Mã lớp tự sinh">
+                
+                <input type="text" id="khoa" placeholder="Khóa (VD: K20)">
+                <input type="text" id="tenLop" placeholder="Tên Lớp (VD: Kỹ thuật phần mềm 1)">
+
+                <button onclick="handleClass()" class="btn-add" id="class-btn">Thêm Lớp</button>
+            </div>
+        </section>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mã Lớp</th>
+                        <th>Khóa</th>
+                        <th>Tên Lớp</th>
+                        <th style="width: 150px;">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="class-table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        let classData = [];
+        let editIndex = null;
+
+        function renderClassTable() {
+            const tableBody = document.getElementById('class-table-body');
+            tableBody.innerHTML = classData.map((lop, index) => `
+                <tr>
+                    <td><strong>${lop.MaLop}</strong></td>
+                    <td>${lop.Khoa}</td>
+                    <td>${lop.TenLop}</td>
+                    <td>
+                        <button onclick="editClass(${index})" class="btn-edit">Sửa</button>
+                        <button onclick="deleteClass(${index})" class="btn-delete">Xóa</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function loadMockData() {
+            return [
+                {
+                    malop: 'L01',
+                    khoa: 'K22',
+                    tenlop: 'Công Nghệ Thông Tin - A'
+                },
+                {
+                    malop: 'L02',
+                    khoa: 'K22',
+                    tenlop: 'Công Nghệ Thông Tin - B'
+                },
+                {
+                    malop: 'L03',
+                    khoa: 'K23',
+                    tenlop: 'Công Nghệ Thông Tin - A'
+                },
+                {
+                    malop: 'L04',
+                    khoa: 'K23',
+                    tenlop: 'Kỹ Thuật Phần Mềm - A'
+                },
+                {
+                    malop: 'L05',
+                    khoa: 'K21',
+                    tenlop: 'Hệ Thống Thông Tin - B'
+                }
+            ];
+        }
+
+        async function loadClasses() {
+            try {
+                const res = await fetch(`${API_BASE}/lop`);
+                if (!res.ok) throw new Error('Server không phản hồi');
+                const data = await res.json();
+                classData = data.map(row => ({
+                    MaLop: row.malop,
+                    Khoa: row.khoa,
+                    TenLop: row.tenlop
+                }));
+                renderClassTable();
+            } catch (error) {
+                console.warn('Không thể kết nối server, sử dụng dữ liệu mẫu:', error);
+                const mockData = loadMockData();
+                classData = mockData.map(row => ({
+                    MaLop: row.malop,
+                    Khoa: row.khoa,
+                    TenLop: row.tenlop
+                }));
+                renderClassTable();
+                alert('Máy chủ không hoạt động. Đang sử dụng dữ liệu mẫu.');
+            }
+        }
+
+        function handleClass() {
+            const khoa = document.getElementById('khoa').value;
+            const tenLop = document.getElementById('tenLop').value;
+
+            if (!khoa || !tenLop) return alert("Vui lòng nhập đầy đủ Khóa và Tên lớp!");
+
+            const newClass = {
+                MaLop: editIndex !== null ? classData[editIndex].MaLop : `L${classData.length + 1}`,
+                Khoa: khoa,
+                TenLop: tenLop
+            };
+
+            if (editIndex !== null) {
+                classData[editIndex] = newClass;
+                editIndex = null;
+                document.getElementById('class-btn').innerText = "Thêm Lớp";
+                document.getElementById('class-btn').style.backgroundColor = "#10b981";
+            } else {
+                classData.push(newClass);
+            }
+
+            renderClassTable();
+            resetForm();
+        }
+
+        function editClass(index) {
+            const lop = classData[index];
+            editIndex = index;
+            document.getElementById('khoa').value = lop.Khoa;
+            document.getElementById('tenLop').value = lop.TenLop;
+
+            const btn = document.getElementById('class-btn');
+            btn.innerText = "Lưu cập nhật";
+            btn.style.backgroundColor = "#3b82f6";
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function deleteClass(index) {
+            if(confirm("Bạn có chắc chắn muốn xóa lớp học này?")) {
+                classData.splice(index, 1);
+                renderClassTable();
+            }
+        }
+
+        function resetForm() {
+            document.getElementById('khoa').value = '';
+            document.getElementById('tenLop').value = '';
+            document.getElementById('maLop').value = "Mã: Tự động";
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadClasses();
+
+            // Set active menu item based on current page
+            const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === currentPage || (currentPage === '' && href === 'index.html')) {
+                    link.classList.add('active');
+                }
+            });
+
+            // Mobile menu toggle
+            const navbarToggle = document.getElementById('navbarToggle');
+            const navbarMenu = document.getElementById('navbarMenu');
+            
+            if (navbarToggle) {
+                navbarToggle.addEventListener('click', () => {
+                    navbarMenu.classList.toggle('active');
+                });
+
+                // Close menu when clicking on a link
+                const navItems = document.querySelectorAll('.nav-item');
+                navItems.forEach(item => {
+                    item.addEventListener('click', () => {
+                        navbarMenu.classList.remove('active');
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>
