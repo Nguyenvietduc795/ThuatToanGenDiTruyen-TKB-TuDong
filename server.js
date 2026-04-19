@@ -371,7 +371,7 @@ app.post('/api/ga/generate', async (req, res) => {
       tuanhoc = 1,
       persist = true,
       popSize = 20,
-      maxGen = 200,
+      maxGen = 500,
     } = req.body || {};
 
     const parsedTuanhoc = Number(tuanhoc);
