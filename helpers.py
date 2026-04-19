@@ -88,12 +88,20 @@ def initial_population_random(data, matrix, free, filled,
       - Buoi hoc khong bi tran qua ngay hom sau
       - Buoi hoc khong vuot ranh gioi sang/chieu
       - Toan bo block tiet lien tiep deu con trong (free)
+      - Cung mapc (phan_cong) khong duoc xep 2 buoi cung ngay
 
     Khong kiem tra xung dot GV/lop - de GA xu ly qua fitness.
     """
+    # Theo doi ngay da duoc su dung cho tung mapc
+    # mapc_days_used: {assignment_id -> set of day_index}
+    mapc_days_used = {}
+
     for index, classs in data.classes.items():
         free_set = set(free)
         duration = int(classs.duration)
+
+        # Lay tap ngay ma mapc nay da duoc xep
+        used_days = mapc_days_used.get(classs.assignment_id, set())
 
         valid_starts = []
         for start_field in free:
@@ -113,6 +121,11 @@ def initial_population_random(data, matrix, free, filled,
             if start_field[1] not in classs.classrooms:
                 continue
 
+            # RANG BUOC: cung mapc khong duoc xep 2 buoi cung ngay
+            day_of_slot = start_row // SLOTS_PER_DAY
+            if classs.assignment_id and day_of_slot in used_days:
+                continue
+
             fields = [(start_row + offset, start_field[1])
                       for offset in range(duration)]
             if all(f in free_set for f in fields):
@@ -123,6 +136,11 @@ def initial_population_random(data, matrix, free, filled,
 
         chosen    = random.choice(valid_starts)
         start_row = chosen[0][0]
+        day_chosen = start_row // SLOTS_PER_DAY
+
+        # Cap nhat mapc_days_used
+        if classs.assignment_id:
+            mapc_days_used.setdefault(classs.assignment_id, set()).add(day_chosen)
 
         for group_idx in classs.groups:
             insert_order(subjects_order, classs.subject, group_idx,
@@ -198,6 +216,23 @@ def valid_teacher_group_row(matrix, data, index_class, row):
     return True
 
 
+def _get_mapc_days(filled, data, exclude_idx):
+    """
+    Tra ve dict {assignment_id -> set(day_index)} cho tat ca buoi hoc
+    NGOAI TRU buoi hoc co index exclude_idx.
+    Dung de kiem tra rang buoc 'cung mapc khong cung ngay' khi mutation.
+    """
+    mapc_days = {}
+    for idx, fields in filled.items():
+        if idx == exclude_idx:
+            continue
+        asgn = data.classes[idx].assignment_id
+        if asgn:
+            day = fields[0][0] // SLOTS_PER_DAY
+            mapc_days.setdefault(asgn, set()).add(day)
+    return mapc_days
+
+
 def mutate_ideal_spot(matrix, data, ind_class, free, filled,
                       groups_empty_space, teachers_empty_space, subjects_order):
     """
@@ -207,6 +242,10 @@ def mutate_ideal_spot(matrix, data, ind_class, free, filled,
     """
     classs      = data.classes[ind_class]
     old_fields  = filled[ind_class]
+
+    # Lay cac ngay da dung boi cac buoi cung mapc (tru chinh no)
+    mapc_days = _get_mapc_days(filled, data, ind_class)
+    used_days  = mapc_days.get(classs.assignment_id, set())
 
     ind = 0
     while ind < len(free):
@@ -228,6 +267,11 @@ def mutate_ideal_spot(matrix, data, ind_class, free, filled,
             continue
 
         if start_field[1] not in classs.classrooms:
+            ind += 1
+            continue
+
+        # Rang buoc: cung mapc khong duoc cung ngay
+        if classs.assignment_id and (start_row // SLOTS_PER_DAY) in used_days:
             ind += 1
             continue
 

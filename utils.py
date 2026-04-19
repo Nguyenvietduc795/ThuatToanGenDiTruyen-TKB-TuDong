@@ -12,6 +12,109 @@ from costs import (
 )
 from model import Class, Classroom, Data
 
+
+# ============================================================
+# HELPER: TINH TOAN SO TUAN VA RANG BUOC BUOI HOC
+# ============================================================
+
+def calculate_weeks_needed(tongsotiet: int, sobuoimoituan: int, sotietmoibuoi: int) -> int:
+    """
+    Tinh so tuan can thiet de hoan thanh mot hoc phan.
+
+    Cong thuc: ceil(tongsotiet / (sobuoimoituan * sotietmoibuoi))
+
+    Vi du:
+      tongsotiet=45, sobuoimoituan=1, sotietmoibuoi=5 => ceil(45/ 5) =  9 tuan
+      tongsotiet=45, sobuoimoituan=2, sotietmoibuoi=3 => ceil(45/ 6) =  8 tuan
+      tongsotiet=30, sobuoimoituan=1, sotietmoibuoi=3 => ceil(30/ 3) = 10 tuan
+
+    Luu y: tuan cuoi co the du tiet (vi xep theo block nguyen buoi).
+    Vi du tren: 8 tuan x 6 tiet = 48 tiet, du 3 so voi tongsotiet=45.
+    Uu tien xep tron buoi (khong cat giua buoi), chi dung lai o tuan N+1.
+    """
+    tiets_per_week = sobuoimoituan * sotietmoibuoi
+    if tiets_per_week <= 0:
+        return 0
+    return math.ceil(tongsotiet / tiets_per_week)
+
+
+def calculate_total_assigned_periods(so_tuan: int, sobuoimoituan: int, sotietmoibuoi: int) -> int:
+    """
+    Tinh tong so tiet se duoc xep sau `so_tuan` tuan hoc.
+
+    Co the du hon tongsotiet o tuan cuoi vi xep nguyen buoi (khong cat block).
+    """
+    return so_tuan * sobuoimoituan * sotietmoibuoi
+
+
+def enforce_session_rules(sobuoimoituan: int, sotietmoibuoi: int) -> int:
+    """
+    Ap dung rang buoc cung ve so buoi moi tuan theo loai block:
+
+      sotietmoibuoi == 5 => chi duoc 1 buoi/tuan (bat buoc)
+        Block 5 tiet chi xep duoc o tiet 1-5 (sang) hoac 7-11 (chieu),
+        khong du cho de xep 2 buoi trong 1 ngay.
+
+      sotietmoibuoi == 3 => cho phep 1 hoac 2 buoi/tuan
+        Block 3 tiet, bat dau hop le: tiet 1, 4, 7 hoac 10.
+
+      Cac loai khac => giu nguyen, dam bao >= 1.
+
+    Rang buoc slot hop le (tiet bat dau) duoc xu ly rieng trong
+    _get_valid_start_slots() o helpers.py.
+    """
+    if sotietmoibuoi == 5:
+        return 1
+    if sotietmoibuoi == 3:
+        return min(2, max(1, sobuoimoituan))
+    return max(1, sobuoimoituan)
+
+
+def check_conflict(sessions: list) -> dict:
+    """
+    Kiem tra xung dot trong danh sach buoi hoc da xep (output cua run_ga_with_raw).
+
+    :param sessions: list[dict], moi dict co cac key:
+        day_index, slot_numbers, mapc, maphong, magv, malop_index
+    :return: {'ok': bool, 'conflicts': list[str]}
+
+    Ba loai xung dot duoc kiem tra:
+      [PHONG] Hai buoi cung phong, cung ngay, co tiet giao nhau
+      [GV]    Hai buoi cung giang vien, cung ngay, co tiet giao nhau
+      [LOP]   Hai buoi cung lop (malop_index), cung ngay, co tiet giao nhau
+    """
+    conflicts = []
+
+    for i in range(len(sessions)):
+        for j in range(i + 1, len(sessions)):
+            s1, s2 = sessions[i], sessions[j]
+
+            if s1['day_index'] != s2['day_index']:
+                continue
+
+            overlap = set(s1['slot_numbers']) & set(s2['slot_numbers'])
+            if not overlap:
+                continue
+
+            label = f"ngay={s1['day_index']}, tiet={sorted(overlap)}"
+
+            if s1['maphong'] == s2['maphong']:
+                conflicts.append(
+                    f"[PHONG] {s1['maphong']}: {s1['mapc']} & {s2['mapc']} | {label}"
+                )
+            if s1['magv'] == s2['magv']:
+                conflicts.append(
+                    f"[GV] {s1['magv']}: {s1['mapc']} & {s2['mapc']} | {label}"
+                )
+            li1 = s1.get('malop_index')
+            li2 = s2.get('malop_index')
+            if li1 is not None and li1 == li2:
+                conflicts.append(
+                    f"[LOP] idx={li1}: {s1['mapc']} & {s2['mapc']} | {label}"
+                )
+
+    return {'ok': len(conflicts) == 0, 'conflicts': conflicts}
+
 # ============================================================
 # CONSTANTS - cau truc thoi gian
 # WHY changed: tu 5 ngay (Mon-Fri) sang 6 ngay (Mon-Sat), tu gio 9-20 sang tiet 1-12
@@ -22,6 +125,176 @@ TOTAL_SLOTS    = DAYS_PER_WEEK * SLOTS_PER_DAY  # 72 hang trong matrix
 MORNING_SLOTS  = 6   # Tiet 1-6 la buoi sang
 
 DAYS = ['Thu 2', 'Thu 3', 'Thu 4', 'Thu 5', 'Thu 6', 'Thu 7']
+
+
+def _strip_vn(text):
+  """Bo dau tieng Viet + khoang trang de so sanh on dinh."""
+  if text is None:
+    return ''
+  normalized = str(text).strip().lower()
+  normalized = normalized.replace('đ', 'd')
+  table = str.maketrans('àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ',
+              'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyy')
+  normalized = normalized.translate(table)
+  return normalized.replace(' ', '').replace('_', '')
+
+
+def _normalize_room_type(value):
+  """Chuan hoa loai phong ve LT/TH de GA xu ly thong nhat."""
+  text = _strip_vn(value)
+  if text in {'lt', 'lythuyet', 'theory'}:
+    return 'LT'
+  if text in {'th', 'thuchanh', 'phongmay', 'phongmaytinh', 'lab'}:
+    return 'TH'
+  return str(value).strip().upper()
+
+
+def _is_active(value):
+    """Tra ve True neu trang thai duoc xem la dang hoat dong."""
+    if value is None:
+        return True
+
+    normalized = _strip_vn(value)
+    return normalized in {
+      'active', 'hoatdong', 'danggiangday', 'sansang', 'ranh',
+      'available', 'ready', 'true', '1',
+    }
+
+
+def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_order,
+                       tuanhoc=None):
+    """
+    Doc va xu ly du lieu tu dict (du lieu den tu Supabase).
+
+    :param raw:                  dict chua cac bang du lieu (phan_cong_giang_day, mon_hoc, ...)
+    :param teachers_empty_space: dict khoi tao {magv: []} — duoc dien trong qua trinh xu ly
+    :param groups_empty_space:   dict khoi tao {group_idx: []}
+    :param subjects_order:       dict khoi tao {(mamon, group_idx): {'LT': -1, 'TH': -1}}
+    :param tuanhoc:              so tuan dang xep lich (1-indexed, None = bo qua kiem tra tuan).
+                                 Neu khac None, se bo qua cac phan_cong da hoan thanh
+                                 (tuanhoc > so_tuan_can_hoc).
+    """
+    classes    = {}
+    classrooms = {}
+    teachers   = {}
+    groups     = {}
+    class_list = []
+
+    # ── Build mon_hoc lookup: mamon -> mon_info ──────────────────────────────
+    # Can thiet de lay loaiphong va tongsotiet (khong co trong phan_cong_giang_day).
+    mon_hoc_map = {
+        m['mamon']: m
+        for m in raw.get('mon_hoc', [])
+        if isinstance(m, dict) and 'mamon' in m
+    }
+
+    # ── Phong hoc (chi them phong dang hoat dong) ─────────────────────────────
+    # BUG FIX: indent cu sai khien phong khong active van duoc them vao classrooms.
+    for room in raw.get('phong_hoc', []):
+        if _is_active(room.get('trangthai')):
+            idx = len(classrooms)
+            classrooms[idx] = Classroom(
+                room['maphong'],
+                _normalize_room_type(room.get('loaiphong')),
+            )
+
+    # ── Lop hoc ───────────────────────────────────────────────────────────────
+    for lop in raw.get('lop', []):
+        idx = len(groups)
+        groups[lop['malop']] = idx
+        groups_empty_space[idx] = []
+
+    # ── Giang vien (chi them GV dang hoat dong) ───────────────────────────────
+    for gv in raw.get('giang_vien', []):
+        if _is_active(gv.get('trangthai')):
+            teachers[gv['magv']] = len(teachers)
+            teachers_empty_space[gv['magv']] = []
+
+    # ── Phan cong giang day ───────────────────────────────────────────────────
+    for pc in raw.get('phan_cong_giang_day', []):
+        if not isinstance(pc, dict) or 'mapc' not in pc:
+            continue
+
+        malop = pc['malop']
+        mamon = pc['mamon']
+        magv  = pc['magv']
+        mapc  = pc['mapc']
+
+        # BUG FIX: loaiphong phai lay tu mon_hoc (phan_cong khong co truong nay).
+        mon_info  = mon_hoc_map.get(mamon, {})
+        loaiphong = _normalize_room_type(
+            mon_info.get('loaiphong') or pc.get('loaiphong') or 'LT'
+        )
+
+        sotietmoibuoi_raw = int(pc.get('sotietmoibuoi', 3))
+        sobuoimoituan_raw = int(pc.get('sobuoimoituan', 1))
+
+        # BUG FIX: enforce rang buoc cung
+        #   sotietmoibuoi=5 => bat buoc sobuoimoituan=1
+        #   sotietmoibuoi=3 => cho phep 1 hoac 2
+        sobuoimoituan = enforce_session_rules(sobuoimoituan_raw, sotietmoibuoi_raw)
+        sotietmoibuoi = sotietmoibuoi_raw
+
+        # ── Kiem tra diem dung theo tuan ─────────────────────────────────────
+        # Neu biet tuanhoc, tinh so_tuan_can_hoc va bo qua phan_cong da hoan thanh.
+        #
+        # Vi du: tongsotiet=45, sobuoimoituan=2, sotietmoibuoi=3
+        #   tiets/tuan = 6, so_tuan_can_hoc = ceil(45/6) = 8
+        #   => Chi xep tu tuan 1 den tuan 8. Tu tuan 9 tro di: skip.
+        #
+        # Luu y: tuan 8 xep 6 tiet (tong = 48, du 3 tiet so voi 45).
+        # Chap nhan du tiet o tuan cuoi, KHONG cat buoi giua chung.
+        if tuanhoc is not None:
+            tongsotiet = int(mon_info.get('tongsotiet', 0))
+            if tongsotiet > 0:
+                so_tuan_can_hoc = calculate_weeks_needed(
+                    tongsotiet, sobuoimoituan, sotietmoibuoi
+                )
+                if tuanhoc > so_tuan_can_hoc:
+                    # Hoc phan nay da hoan thanh — khong xep lich cho tuan nay nua.
+                    continue
+
+        compatible_rooms = [
+            idx for idx, room in classrooms.items()
+            if room.type == loaiphong
+        ]
+        if not compatible_rooms:
+            raise ValueError(
+                f"Khong tim duoc phong loai '{loaiphong}' cho phan cong {mapc} "
+                f"(mon {mamon}). Kiem tra lai bang phong_hoc."
+            )
+
+        if malop not in groups:
+            raise ValueError(f"Khong tim thay lop '{malop}' trong danh sach lop")
+        if magv not in teachers:
+            raise ValueError(
+                f"Khong tim thay giang vien '{magv}' hoac GV khong hoat dong"
+            )
+
+        group_idx = groups[malop]
+        if (mamon, group_idx) not in subjects_order:
+            subjects_order[(mamon, group_idx)] = {'LT': -1, 'TH': -1}
+
+        # Tao sobuoimoituan buoi hoc cho tuan nay.
+        # Moi buoi = 1 doi tuong Class (sotietmoibuoi tiet lien tiep).
+        for _ in range(sobuoimoituan):
+            class_list.append(
+                Class(
+                    groups=[group_idx],
+                    teacher=magv,
+                    subject=mamon,
+                    type=loaiphong,
+                    duration=sotietmoibuoi,
+                    classrooms=list(compatible_rooms),
+                    assignment_id=mapc,
+                )
+            )
+
+    random.shuffle(class_list)
+    for cls in class_list:
+        classes[len(classes)] = cls
+
+    return Data(groups, teachers, classes, classrooms)
 
 
 def load_data(file_path, teachers_empty_space, groups_empty_space, subjects_order):
@@ -38,85 +311,7 @@ def load_data(file_path, teachers_empty_space, groups_empty_space, subjects_orde
     with open(file_path, encoding='utf-8') as f:
         raw = json.load(f)
 
-    classes    = {}   # index (int) -> Class
-    classrooms = {}   # index (int) -> Classroom
-    teachers   = {}   # magv (str)  -> index (int)
-    groups     = {}   # malop (str) -> index (int)
-    class_list = []   # tam thoi luu truoc khi shuffle
-
-    # --- 1. Xay dung danh sach phong hoc (cot trong matrix) ---
-    for room in raw['phong_hoc']:
-        if room['trangthai'] == 'active':
-            idx = len(classrooms)
-            classrooms[idx] = Classroom(room['maphong'], room['loaiphong'])
-
-    # --- 2. Xay dung danh sach lop hoc (groups) ---
-    for lop in raw['lop']:
-        idx = len(groups)
-        groups[lop['malop']] = idx
-        groups_empty_space[idx] = []   # khoi tao empty space theo doi
-
-    # --- 3. Xay dung danh sach giang vien ---
-    for gv in raw['giang_vien']:
-        if gv['trangthai'] == 'active':
-            teachers[gv['magv']] = len(teachers)
-            teachers_empty_space[gv['magv']] = []   # khoi tao empty space theo doi
-
-    # --- 4. Tao cac doi tuong Class tu phan_cong_giang_day ---
-    # Moi ban ghi phan_cong voi sobuoimoituan=N se tao ra N doi tuong Class
-    # (moi doi tuong = 1 buoi hoc trong tuan)
-    for pc in raw['phan_cong_giang_day']:
-        # Bo qua cac key comment trong JSON
-        if not isinstance(pc, dict) or 'mapc' not in pc:
-            continue
-
-        malop         = pc['malop']
-        mamon         = pc['mamon']
-        magv          = pc['magv']
-        loaiphong     = pc['loaiphong']     # 'LT' hoac 'TH' - kieu phong can dung
-        sotietmoibuoi = int(pc['sotietmoibuoi'])
-        sobuoimoituan = int(pc['sobuoimoituan'])
-        mapc          = pc['mapc']
-
-        # Tim cac phong hop le theo loaiphong
-        compatible_rooms = [
-            idx for idx, room in classrooms.items()
-            if room.type == loaiphong
-        ]
-        if not compatible_rooms:
-            raise ValueError(
-                f"Khong tim duoc phong loai '{loaiphong}' cho phan cong {mapc}"
-            )
-
-        # Index cua lop hoc
-        group_idx = groups[malop]
-
-        # Khoi tao subjects_order neu chua co
-        # WHY: theo doi thu tu LT truoc TH cua cung 1 mon cho cung 1 lop
-        if (mamon, group_idx) not in subjects_order:
-            subjects_order[(mamon, group_idx)] = {'LT': -1, 'TH': -1}
-
-        # Tao sobuoimoituan doi tuong Class (moi doi tuong = 1 session/tuan)
-        for _ in range(sobuoimoituan):
-            new_class = Class(
-                groups=[group_idx],
-                teacher=magv,
-                subject=mamon,
-                type=loaiphong,
-                duration=sotietmoibuoi,
-                classrooms=list(compatible_rooms),  # copy de tranh shared reference
-                assignment_id=mapc,
-            )
-            class_list.append(new_class)
-
-    # Shuffle de giam thien kien ve thu tu (quan trong cho giang vien day nhieu lop)
-    random.shuffle(class_list)
-
-    # Gan index chinh thuc
-    for cls in class_list:
-        classes[len(classes)] = cls
-
-    return Data(groups, teachers, classes, classrooms)
+    return load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_order)
 
 
 def set_up(num_of_columns):
@@ -177,7 +372,8 @@ def show_timetable(matrix):
 
 
 def write_solution_to_file(matrix, data, filled, filepath,
-                           groups_empty_space, teachers_empty_space, subjects_order):
+                           groups_empty_space, teachers_empty_space, subjects_order,
+                           raw_data=None):
     """
     Ghi ket qua thoi khoa bieu va thong ke ra file.
     WHAT changed: format thoi gian tu gio sang tiet, them thong tin buoi sang/chieu
@@ -238,22 +434,25 @@ def write_solution_to_file(matrix, data, filled, filepath,
     print(f'Da ghi ket qua ra: {out_path}')
 
     # Tao them file viewer HTML
-    write_viewer_html(filled, data, filepath)
+    write_viewer_html(filled, data, filepath, raw_data)
 
 
 # ============================================================
 # VIEWER HTML EXPORT
 # ============================================================
 
-def write_viewer_html(filled, data, filepath):
+def write_viewer_html(filled, data, filepath, raw_data=None):
     """
     Tao file HTML de xem TKB theo 3 goc do: Quan ly / Giang vien / Sinh vien.
     File duoc ghi vao: solution_files/sol_<name>_viewer.html
     Mo bang trinh duyet la xem duoc ngay, khong can server.
     """
     # Doc du lieu goc de lay ten day du
-    with open('test_files/' + filepath, encoding='utf-8') as f:
-        raw = json.load(f)
+    if raw_data is not None:
+        raw = raw_data
+    else:
+        with open('test_files/' + filepath, encoding='utf-8') as f:
+            raw = json.load(f)
 
     gv_map    = {gv['magv']: {'tengv': gv['tengv'], 'hocvi': gv['hocvi']}
                  for gv in raw['giang_vien']}
@@ -655,3 +854,41 @@ def show_statistics(matrix, data, subjects_order, groups_empty_space, teachers_e
     else:
         print('Khong co tiet nao trong toan truong.')
     print('------------------------------\n')
+
+
+# ============================================================
+# DEMO / SELF-TEST (chay: python utils.py)
+# ============================================================
+
+if __name__ == '__main__':
+    print('=' * 55)
+    print('DEMO: calculate_weeks_needed & enforce_session_rules')
+    print('=' * 55)
+
+    cases = [
+        # (mo_ta,                   tongsotiet, sobuoimoituan, sotietmoibuoi)
+        ('45t | 1 buoi/tuan | 5t/buoi', 45, 1, 5),
+        ('45t | 2 buoi/tuan | 3t/buoi', 45, 2, 3),
+        ('30t | 1 buoi/tuan | 3t/buoi', 30, 1, 3),
+        ('60t | 2 buoi/tuan | 3t/buoi', 60, 2, 3),
+        # Truong hop sobuoimoituan vi pham quy tac (phai duoc enforce)
+        ('45t | 2 buoi/tuan | 5t/buoi (sai -> ep 1)', 45, 2, 5),
+    ]
+
+    for mo_ta, tongsotiet, sobuoi_raw, sotiet in cases:
+        sobuoi = enforce_session_rules(sobuoi_raw, sotiet)
+        so_tuan = calculate_weeks_needed(tongsotiet, sobuoi, sotiet)
+        total   = calculate_total_assigned_periods(so_tuan, sobuoi, sotiet)
+        du      = total - tongsotiet
+        print(f'\n  [{mo_ta}]')
+        if sobuoi != sobuoi_raw:
+            print(f'    sobuoimoituan: {sobuoi_raw} -> enforce -> {sobuoi}')
+        print(f'    {sotiet} tiet/buoi x {sobuoi} buoi/tuan = {sotiet*sobuoi} tiet/tuan')
+        print(f'    so_tuan_can_hoc = ceil({tongsotiet} / {sotiet*sobuoi}) = {so_tuan} tuan')
+        print(f'    Tong sau {so_tuan} tuan = {total} tiet '
+              f'({"du " + str(du) + " tiet o tuan cuoi" if du > 0 else "vua du"})')
+
+    print('\n' + '=' * 55)
+    print('Ket luan: He thong se DUNG sau so_tuan_can_hoc tuan.')
+    print('Tuan cuoi co the du tiet (xep tron buoi, khong cat block).')
+    print('=' * 55)
