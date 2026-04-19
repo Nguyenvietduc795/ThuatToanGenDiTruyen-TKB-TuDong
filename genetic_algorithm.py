@@ -72,7 +72,7 @@ from helpers import (
 # ============================================================
 
 POP_SIZE       = 20    # Kích thước quần thể
-MAX_GEN        = 200   # Số thế hệ tối đa
+MAX_GEN        = 500   # Số thế hệ tối đa
 CROSSOVER_RATE = 0.85  # Xác suất lai ghép một cặp cha/mẹ
 MUTATION_RATE  = 0.15  # Xác suất đột biến mỗi buổi học
 TOURNAMENT_K   = 3     # Số cá thể tham gia mỗi tournament

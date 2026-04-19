@@ -161,7 +161,7 @@
       <div id="gen-advanced" class="hidden grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
         <div>
           <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Số thế hệ (maxGen)</label>
-          <input id="gen-maxgen" type="number" min="10" value="200"
+          <input id="gen-maxgen" type="number" min="10" value="500"
             class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
           <p class="text-xs text-gray-400 mt-1">Cao hơn = chất lượng tốt hơn, chạy lâu hơn</p>
         </div>
@@ -547,7 +547,7 @@ async function generateTKB() {
   const namhoc  = document.getElementById('gen-namhoc').value.trim() || null;
   const malops  = getCheckedLop();
   const mamons  = getCheckedMon();
-  const maxGen  = Number(document.getElementById('gen-maxgen').value)  || 200;
+  const maxGen  = Number(document.getElementById('gen-maxgen').value)  || 500;
   const popSize = Number(document.getElementById('gen-popsize').value) || 20;
 
   const btn = document.getElementById('gen-btn');
