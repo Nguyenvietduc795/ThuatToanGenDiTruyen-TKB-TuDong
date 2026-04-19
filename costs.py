@@ -99,6 +99,45 @@ def _classroom_type_mismatch(matrix, data):
     return cost, cost_per_class
 
 
+def _same_assignment_same_day(matrix, data):
+    """
+    HARD - 2 buoi hoc cua cung phan_cong (mapc) KHONG duoc xep cung ngay.
+
+    Rule: neu sobuoimoituan=2 thi 2 buoi phai nam o 2 NGAY KHAC NHAU.
+    Vi pham dien hinh: Mon 3tiet x 2 buoi/tuan bi xep Thu 2 ca 2 → 6 tiet lien tuc.
+
+    SCORING: +1 moi buoi du thua tren cung ngay cua cung mapc.
+    Vi du: mapc=PC001 co 2 buoi, ca 2 o Thu 2 → cost += 1.
+    """
+    cost = 0
+    cost_per_class = {idx: 0 for idx in data.classes}
+
+    for day in range(DAYS_PER_WEEK):
+        # Thu thap cac class_idx xuat hien trong ngay (chi dem 1 lan moi class)
+        seen_class = set()
+        mapc_classes = {}   # mapc -> [class_idx, ...]
+
+        for slot_idx in range(SLOTS_PER_DAY):
+            row = day * SLOTS_PER_DAY + slot_idx
+            for col in range(len(matrix[row])):
+                class_idx = matrix[row][col]
+                if class_idx is not None and class_idx not in seen_class:
+                    seen_class.add(class_idx)
+                    asgn_id = data.classes[class_idx].assignment_id
+                    if asgn_id:
+                        mapc_classes.setdefault(asgn_id, []).append(class_idx)
+
+        # Neu cung 1 mapc xuat hien > 1 lan trong ngay -> vi pham
+        for idxs in mapc_classes.values():
+            if len(idxs) > 1:
+                extra = len(idxs) - 1   # so buoi du thua
+                cost += extra
+                for idx in idxs:
+                    cost_per_class[idx] += extra
+
+    return cost, cost_per_class
+
+
 def calculate_hard_constraints(matrix, data):
     """
     TINH TONG COST VI PHAM RANG BUOC CUNG.
@@ -108,31 +147,37 @@ def calculate_hard_constraints(matrix, data):
 
     SCORING: Minimization - THAP hon = TOT hon. 0 = khong vi pham.
 
-    Gom 3 loai rang buoc cung:
-      1. teacher_conflicts    - GV day 2 lop cung tiet
-      2. group_conflicts      - Lop hoc 2 mon cung tiet
-      3. classroom_mismatches - Phong sai loai
+    Gom 4 loai rang buoc cung:
+      1. teacher_conflicts      - GV day 2 lop cung tiet
+      2. group_conflicts        - Lop hoc 2 mon cung tiet
+      3. classroom_mismatches   - Phong sai loai
+      4. same_assignment_day    - 2 buoi cung mapc xep cung ngay (FORBIDDEN)
 
     details_dict chua:
       - 'cost_per_class'        : {class_idx: int} - de sort khi chon class de dot bien
       - 'teacher_conflicts'     : int
       - 'group_conflicts'       : int
       - 'classroom_mismatches'  : int
+      - 'same_assignment_day'   : int
     """
     tc, tc_per = _teacher_conflicts(matrix, data)
     gc, gc_per = _group_conflicts(matrix, data)
     cc, cc_per = _classroom_type_mismatch(matrix, data)
+    sa, sa_per = _same_assignment_same_day(matrix, data)
 
-    # Gop cost_per_class tu ca 3 nguon
-    combined = {idx: tc_per.get(idx, 0) + gc_per.get(idx, 0) + cc_per.get(idx, 0)
-                for idx in data.classes}
+    combined = {
+        idx: tc_per.get(idx, 0) + gc_per.get(idx, 0)
+             + cc_per.get(idx, 0) + sa_per.get(idx, 0)
+        for idx in data.classes
+    }
 
-    total = tc + gc + cc
+    total = tc + gc + cc + sa
     details = {
-        'cost_per_class':       combined,
-        'teacher_conflicts':    tc,
-        'group_conflicts':      gc,
+        'cost_per_class':      combined,
+        'teacher_conflicts':   tc,
+        'group_conflicts':     gc,
         'classroom_mismatches': cc,
+        'same_assignment_day': sa,
     }
     return total, details
 
@@ -374,7 +419,8 @@ def log_fitness(hard_cost, soft_cost, hard_details, soft_details, prefix=''):
     print(f'{prefix}[FITNESS] Total={total} | Hard={hard_cost} (x{HARD_WEIGHT}) | Soft={soft_cost}')
     print(f'{prefix}  Hard breakdown: teacher={hard_details["teacher_conflicts"]} | '
           f'group={hard_details["group_conflicts"]} | '
-          f'classroom={hard_details["classroom_mismatches"]}')
+          f'classroom={hard_details["classroom_mismatches"]} | '
+          f'same_assign_day={hard_details.get("same_assignment_day", 0)}')
     print(f'{prefix}  Soft breakdown: empty_groups={soft_details["empty_groups"]} | '
           f'empty_teachers={soft_details["empty_teachers"]} | '
           f'fragmentation={soft_details["fragmentation"]} | '

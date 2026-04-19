@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thời Khóa Biểu — Khoa CNTT</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; }
+  .timetable { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  .timetable th { border:1px solid #d1d5db; background:#f3f4f6; padding:8px 4px; text-align:center; font-size:13px; font-weight:600; }
+  .timetable td { border:1px solid #e5e7eb; }
+  .tiet-lbl  { width:40px; text-align:center; font-size:11px; color:#6b7280; background:#f9fafb; padding:2px; }
+  .empty-td  { background:#fafafa; height:30px; }
+  .free-td   { background:#f0fdf4 !important; text-align:center; vertical-align:middle; color:#16a34a; font-size:11px; font-weight:600; height:30px; }
+  .sess-cell { vertical-align:top; padding:3px; }
+  .sess-card { border-radius:7px; padding:5px 7px; height:100%; }
+  .sess-name { font-weight:700; font-size:12px; line-height:1.3; margin-bottom:3px; }
+  .sess-info { color:#374151; font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px; }
+  .badge     { display:inline-block; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-bottom:3px; }
+  .bdg-lt { background:#dbeafe; color:#1d4ed8; }
+  .bdg-th { background:#dcfce7; color:#15803d; }
+  .sang-hd td  { background:#fffbeb; text-align:center; font-size:11px; font-weight:700; color:#92400e; padding:5px; }
+  .chieu-hd td { background:#eff6ff; text-align:center; font-size:11px; font-weight:700; color:#1e40af; padding:5px; }
+  .c-0{background:#eff6ff;border-left:3px solid #3b82f6}
+  .c-1{background:#f0fdf4;border-left:3px solid #22c55e}
+  .c-2{background:#faf5ff;border-left:3px solid #a855f7}
+  .c-3{background:#fff7ed;border-left:3px solid #f97316}
+  .c-4{background:#fef2f2;border-left:3px solid #ef4444}
+  .c-5{background:#fefce8;border-left:3px solid #eab308}
+  .c-6{background:#f0fdfa;border-left:3px solid #14b8a6}
+  .c-7{background:#fdf4ff;border-left:3px solid #d946ef}
+  .c-8{background:#fff1f2;border-left:3px solid #fb7185}
+  .c-9{background:#f0f9ff;border-left:3px solid #0ea5e9}
+  .c-def{background:#f9fafb;border-left:3px solid #9ca3af}
+  .tab-on { background:#1d4ed8 !important; color:#fff !important; }
+  .day-btn-on { background:#0f766e !important; color:#fff !important; }
+  .week-nav-btn:hover { background:#e0e7ff; }
+  .week-nav-btn:disabled { opacity:.35; cursor:default; }
+  #gen-spinner { display:none; }
+  #gen-spinner.running { display:inline-block; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .spinner-icon { animation: spin .8s linear infinite; display:inline-block; }
+  #loading-overlay {
+    position:fixed; inset:0; background:rgba(255,255,255,.85);
+    display:none; align-items:center; justify-content:center;
+    z-index:9999; flex-direction:column; gap:12px;
+  }
+  #loading-overlay.show { display:flex; }
+  .lo-spinner { width:48px; height:48px; border:5px solid #e5e7eb; border-top-color:#1d4ed8; border-radius:50%; animation: spin .8s linear infinite; }
+</style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+<script src="/sidebar.js"></script>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="lo-spinner"></div>
+  <p class="text-gray-600 font-semibold text-sm" id="loading-msg">Đang xử lý...</p>
+</div>
+
+<div class="max-w-screen-xl mx-auto p-4">
+
+  <!-- Header -->
+  <div class="bg-gradient-to-r from-blue-700 to-indigo-600 text-white rounded-2xl p-5 mb-5 shadow-lg flex items-center gap-4">
+    <div class="text-5xl">📅</div>
+    <div class="flex-1">
+      <h1 class="text-2xl font-bold tracking-tight">Thời Khóa Biểu</h1>
+      <p class="text-blue-200 text-sm mt-0.5" id="header-sub">Khoa Công nghệ Thông tin</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- PANEL: TẠO THỜI KHÓA BIỂU                             -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="bg-white rounded-2xl shadow mb-5 overflow-hidden">
+    <!-- Tiêu đề panel (click để toggle) -->
+    <button onclick="toggleGenPanel()"
+      class="w-full flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-sm rounded-t-2xl hover:opacity-95 transition-all">
+      <span>🚀 Tạo Thời Khóa Biểu (Thuật Toán Di Truyền)</span>
+      <span id="gen-panel-arrow" class="text-lg transition-transform">▲</span>
+    </button>
+
+    <div id="gen-panel" class="px-5 py-4">
+
+      <!-- Bước 1 + 2: Lớp | Môn -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
+        <!-- ── Chọn Lớp ── -->
+        <div class="border border-gray-200 rounded-xl p-3 bg-gray-50">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-gray-600 uppercase tracking-wide">🎓 Bước 1 — Chọn Lớp</span>
+            <div class="flex items-center gap-1.5">
+              <span id="lop-count" class="text-xs text-blue-600 font-semibold"></span>
+              <button onclick="selectAllLop(true)"
+                class="text-xs px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium">Tất cả</button>
+              <button onclick="selectAllLop(false)"
+                class="text-xs px-2 py-0.5 rounded-md bg-gray-200 text-gray-600 hover:bg-gray-300 font-medium">Bỏ</button>
+            </div>
+          </div>
+          <input id="lop-search" type="text" placeholder="🔍 Tìm lớp..." oninput="filterLopList()"
+            class="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs mb-2 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white">
+          <div id="lop-list" class="overflow-y-auto max-h-44 space-y-0.5">
+            <p class="text-xs text-gray-400 px-2 py-2 text-center">⏳ Đang tải...</p>
+          </div>
+          <p class="text-xs text-gray-400 mt-2">Không chọn = tất cả lớp</p>
+        </div>
+
+        <!-- ── Chọn Môn ── -->
+        <div class="border border-gray-200 rounded-xl p-3 bg-gray-50">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-gray-600 uppercase tracking-wide">📚 Bước 2 — Chọn Môn</span>
+            <div class="flex items-center gap-1.5">
+              <span id="mon-count" class="text-xs text-blue-600 font-semibold"></span>
+              <button onclick="selectAllMon(true)"
+                class="text-xs px-2 py-0.5 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium">Tất cả</button>
+              <button onclick="selectAllMon(false)"
+                class="text-xs px-2 py-0.5 rounded-md bg-gray-200 text-gray-600 hover:bg-gray-300 font-medium">Bỏ</button>
+            </div>
+          </div>
+          <input id="mon-search" type="text" placeholder="🔍 Tìm môn học..." oninput="filterMonList()"
+            class="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs mb-2 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white">
+          <div id="mon-list" class="overflow-y-auto max-h-44 space-y-0.5">
+            <p class="text-xs text-gray-400 px-2 py-2 text-center">⏳ Đang tải...</p>
+          </div>
+          <p id="mon-note" class="text-xs text-gray-400 mt-2">Không chọn = tất cả môn</p>
+        </div>
+      </div>
+
+      <!-- Tuần + Học kỳ + Năm học + Nâng cao -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Tuần học *</label>
+          <input id="gen-tuan" type="number" min="1" value="1"
+            class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Học kỳ</label>
+          <select id="gen-hocky"
+            class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+            <option value="">-- Tất cả --</option>
+            <option value="1">Học kỳ 1</option>
+            <option value="2">Học kỳ 2</option>
+            <option value="3">Học kỳ hè</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Năm học</label>
+          <input id="gen-namhoc" type="text" placeholder="vd: 2024-2025"
+            class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+        <div class="flex items-end">
+          <button onclick="toggleAdvanced()"
+            class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 font-medium">
+            ⚙️ Nâng cao
+          </button>
+        </div>
+      </div>
+
+      <!-- Advanced -->
+      <div id="gen-advanced" class="hidden grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Số thế hệ (maxGen)</label>
+          <input id="gen-maxgen" type="number" min="10" value="200"
+            class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <p class="text-xs text-gray-400 mt-1">Cao hơn = chất lượng tốt hơn, chạy lâu hơn</p>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Kích thước quần thể (popSize)</label>
+          <input id="gen-popsize" type="number" min="5" value="20"
+            class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <p class="text-xs text-gray-400 mt-1">Thường 20–50 là đủ</p>
+        </div>
+      </div>
+
+      <!-- Generate button + status -->
+      <div class="flex items-center gap-4">
+        <button onclick="generateTKB()" id="gen-btn"
+          class="px-8 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-lg transition-all flex items-center gap-2">
+          <span id="gen-btn-icon">🚀</span>
+          <span id="gen-btn-text">Tạo Thời Khóa Biểu</span>
+          <span id="gen-spinner" class="spinner-icon">⏳</span>
+        </button>
+        <div id="gen-status" class="text-sm text-gray-500 italic flex-1"></div>
+      </div>
+      <div id="gen-result" class="hidden mt-4 p-4 rounded-xl border"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- CONTROLS XEM TKB                                      -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="bg-white rounded-2xl shadow px-5 py-4 mb-5 flex flex-wrap items-end gap-4">
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 mb-1">Tuần xem</label>
+      <input id="view-tuan" type="number" min="1" value="1"
+        class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-20 focus:outline-none focus:ring-2 focus:ring-blue-400">
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 mb-1">Học kỳ</label>
+      <select id="view-hocky" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+        <option value="">-- Tất cả --</option>
+        <option value="1">Học kỳ 1</option>
+        <option value="2">Học kỳ 2</option>
+        <option value="3">Học kỳ hè</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 mb-1">Năm học</label>
+      <input id="view-namhoc" type="text" placeholder="vd: 2024-2025"
+        class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-blue-400">
+    </div>
+    <button onclick="loadViewData()"
+      class="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow transition-all">
+      🔄 Tải TKB
+    </button>
+    <span id="view-status" class="text-xs text-gray-400 italic self-center"></span>
+  </div>
+
+  <!-- Tab buttons -->
+  <div class="flex gap-2 mb-4 flex-wrap">
+    <button id="btn-ql" onclick="switchTab('ql')"
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">🏫 Quản lý</button>
+    <button id="btn-gv" onclick="switchTab('gv')"
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">👨‍🏫 Giảng viên</button>
+    <button id="btn-sv" onclick="switchTab('sv')"
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">🎓 Sinh viên</button>
+    <button id="btn-ph" onclick="switchTab('ph')"
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">🏛 Phòng học</button>
+  </div>
+
+  <!-- Week nav -->
+  <div class="bg-white rounded-2xl shadow px-4 py-3 mb-5 flex items-center justify-between gap-4">
+    <button onclick="prevWeek()" id="btn-prev"
+      class="week-nav-btn px-4 py-2 rounded-xl font-semibold text-sm border border-gray-200 text-gray-700 transition-all">← Tuần trước</button>
+    <div class="text-center flex-1">
+      <div class="font-bold text-gray-800 text-base" id="week-label"></div>
+      <div class="text-xs text-gray-400 mt-0.5" id="week-range"></div>
+    </div>
+    <button onclick="nextWeek()" id="btn-next"
+      class="week-nav-btn px-4 py-2 rounded-xl font-semibold text-sm border border-gray-200 text-gray-700 transition-all">Tuần sau →</button>
+  </div>
+
+  <!-- TAB: Quản lý -->
+  <div id="tab-ql" class="tab-pane">
+    <div id="stats-row" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"></div>
+    <div id="legend-row" class="flex flex-wrap gap-2 mb-4 bg-white rounded-xl p-3 shadow text-xs items-center"></div>
+    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+      <p class="text-xs text-gray-400 mb-3">Tất cả buổi học trong tuần. Nhiều thẻ cùng ô = song song.</p>
+      <div id="grid-ql"></div>
+    </div>
+  </div>
+
+  <!-- TAB: Giảng viên -->
+  <div id="tab-gv" class="tab-pane hidden">
+    <div class="bg-white rounded-2xl shadow p-4 mb-4 flex flex-wrap items-center gap-3">
+      <span class="text-sm font-semibold text-gray-700">👨‍🏫 Chọn giảng viên:</span>
+      <select id="sel-gv" onchange="renderGV()"
+        class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-52 bg-white"></select>
+      <span id="gv-info" class="text-xs text-gray-400 italic"></span>
+    </div>
+    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto"><div id="grid-gv"></div></div>
+  </div>
+
+  <!-- TAB: Sinh viên -->
+  <div id="tab-sv" class="tab-pane hidden">
+    <div class="bg-white rounded-2xl shadow p-4 mb-4 flex flex-wrap items-center gap-3">
+      <span class="text-sm font-semibold text-gray-700">🎓 Chọn lớp:</span>
+      <select id="sel-lop" onchange="renderSV()"
+        class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-52 bg-white"></select>
+    </div>
+    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto"><div id="grid-sv"></div></div>
+  </div>
+
+  <!-- TAB: Phòng học -->
+  <div id="tab-ph" class="tab-pane hidden">
+    <div id="room-stats" class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4"></div>
+    <div class="bg-white rounded-2xl shadow p-4 mb-4">
+      <p class="text-sm font-semibold text-gray-700 mb-3">📆 Chọn ngày:</p>
+      <div id="day-btns" class="flex gap-2 flex-wrap"></div>
+    </div>
+    <div class="flex gap-4 mb-4 text-xs items-center bg-white rounded-xl p-3 shadow">
+      <span class="text-gray-500 font-medium">Chú thích:</span>
+      <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-green-50 border border-green-200 text-green-700 font-semibold">🟢 TRỐNG</span>
+      <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-semibold">📘 Có lịch</span>
+    </div>
+    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto"><div id="grid-ph"></div></div>
+  </div>
+
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   DATA & STATE
+════════════════════════════════════════════════════════════════ */
+let DATA = null;
+
+const DAYS      = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+const PALETTE   = ['c-0','c-1','c-2','c-3','c-4','c-5','c-6','c-7','c-8','c-9'];
+let   colorMap  = {};
+
+function assignColors(list) {
+  colorMap = {};
+  list.forEach((m, i) => { colorMap[m.mamon] = PALETTE[i % PALETTE.length]; });
+}
+function clr(mamon) { return colorMap[mamon] || 'c-def'; }
+
+/* ════════════════════════════════════════════════════════════════
+   PANEL TẠO TKB
+════════════════════════════════════════════════════════════════ */
+let genPanelOpen = true;
+function toggleGenPanel() {
+  genPanelOpen = !genPanelOpen;
+  document.getElementById('gen-panel').classList.toggle('hidden', !genPanelOpen);
+  document.getElementById('gen-panel-arrow').textContent = genPanelOpen ? '▲' : '▼';
+}
+let advancedOpen = false;
+function toggleAdvanced() {
+  advancedOpen = !advancedOpen;
+  document.getElementById('gen-advanced').classList.toggle('hidden', !advancedOpen);
+}
+
+/* ── State cho checkbox lists ── */
+let allLopList  = [];
+let allMonList  = [];
+let allPhanCong = [];
+let lopMonMap   = new Map(); // malop → Set<mamon>
+let currentMonDisplay = []; // môn đang hiển thị
+let monStatusMap = new Map(); // mamon → { remaining, exhausted, tongsotiet, scheduled }
+
+/* ── Load data cho 2 danh sách ── */
+async function loadGenDropdowns() {
+  try {
+    const [lopRes, monRes, pcRes, statusRes] = await Promise.all([
+      fetch('/api/lop').then(r => r.json()),
+      fetch('/api/monhoc').then(r => r.json()),
+      fetch('/api/phan-cong').then(r => r.json()),
+      fetch('/api/ga/mon-status').then(r => r.json()),
+    ]);
+    allLopList  = lopRes  || [];
+    allMonList  = monRes  || [];
+    allPhanCong = pcRes   || [];
+
+    // Build monStatusMap: mamon → aggregate remaining across all mapc for that mamon
+    monStatusMap = new Map();
+    (statusRes || []).forEach(s => {
+      const cur = monStatusMap.get(s.mamon);
+      if (!cur) {
+        monStatusMap.set(s.mamon, {
+          tongsotiet: s.tongsotiet,
+          scheduled: s.scheduled,
+          remaining: s.remaining,
+          exhausted: s.exhausted,
+        });
+      } else {
+        // accumulate across multiple phan_cong for same mon
+        cur.scheduled += s.scheduled;
+        cur.remaining  = Math.max(0, cur.tongsotiet - cur.scheduled);
+        cur.exhausted  = cur.tongsotiet > 0 && cur.remaining === 0;
+      }
+    });
+
+    // Map: malop → Set của mamon
+    lopMonMap = new Map();
+    allPhanCong.forEach(pc => {
+      if (!lopMonMap.has(pc.malop)) lopMonMap.set(pc.malop, new Set());
+      lopMonMap.get(pc.malop).add(pc.mamon);
+    });
+
+    renderLopList(allLopList);
+    renderMonList(allMonList);
+  } catch (e) {
+    console.error('Loi tai dropdown:', e);
+    document.getElementById('lop-list').innerHTML = '<p class="text-xs text-red-400 px-2 py-2 text-center">❌ Lỗi tải dữ liệu</p>';
+    document.getElementById('mon-list').innerHTML = '<p class="text-xs text-red-400 px-2 py-2 text-center">❌ Lỗi tải dữ liệu</p>';
+  }
+}
+
+async function reloadMonStatus() {
+  try {
+    const statusRes = await fetch('/api/ga/mon-status').then(r => r.json());
+    monStatusMap = new Map();
+    (statusRes || []).forEach(s => {
+      const cur = monStatusMap.get(s.mamon);
+      if (!cur) {
+        monStatusMap.set(s.mamon, {
+          tongsotiet: s.tongsotiet, scheduled: s.scheduled,
+          remaining: s.remaining, exhausted: s.exhausted,
+        });
+      } else {
+        cur.scheduled += s.scheduled;
+        cur.remaining  = Math.max(0, cur.tongsotiet - cur.scheduled);
+        cur.exhausted  = cur.tongsotiet > 0 && cur.remaining === 0;
+      }
+    });
+    renderMonList(currentMonDisplay);
+  } catch (e) { console.error('Loi reload mon-status:', e); }
+}
+
+/* ── Render lớp checkboxes ── */
+function renderLopList(lops) {
+  const container = document.getElementById('lop-list');
+  if (!lops.length) {
+    container.innerHTML = '<p class="text-xs text-gray-400 px-2 py-2 text-center">Không có dữ liệu</p>';
+    updateLopCount(); return;
+  }
+  const prev = new Set(getCheckedLop());
+  container.innerHTML = lops.map(l => `
+    <label class="lop-item flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white cursor-pointer transition-colors select-none"
+      data-value="${l.malop}" data-search="${(l.malop+' '+l.tenlop+(l.khoa||'')).toLowerCase()}">
+      <input type="checkbox" value="${l.malop}" class="lop-cb w-3.5 h-3.5 cursor-pointer accent-blue-600"
+        ${prev.has(l.malop)?'checked':''} onchange="onLopCheckChange()">
+      <div class="min-w-0">
+        <div class="text-xs font-semibold text-gray-700 truncate">${l.tenlop}</div>
+        <div class="text-xs text-gray-400">${l.malop}${l.khoa?' · '+l.khoa:''}</div>
+      </div>
+    </label>`).join('');
+  updateLopCount();
+}
+
+/* ── Render môn checkboxes ── */
+function renderMonList(mons) {
+  currentMonDisplay = mons;
+  const container = document.getElementById('mon-list');
+  if (!mons.length) {
+    container.innerHTML = '<p class="text-xs text-gray-400 px-2 py-2 text-center">Không có môn phù hợp</p>';
+    updateMonCount(); return;
+  }
+  const prev = new Set(getCheckedMon());
+  container.innerHTML = mons.map(m => {
+    const isTH = Number(m.sotietthuchanh||0) > 0 && Number(m.sotietlythuyet||0) === 0;
+    const typeBadge = isTH
+      ? '<span class="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-bold shrink-0">TH</span>'
+      : '<span class="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-bold shrink-0">LT</span>';
+
+    const status = monStatusMap.get(m.mamon);
+    const tongsotiet = Number(m.tongsotiet || 0);
+    let statusBadge = '';
+    let remainInfo  = `${tongsotiet} tiết`;
+    let isExhausted = false;
+    let disabledAttr = '';
+    let itemClass = 'mon-item flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white cursor-pointer transition-colors select-none';
+
+    if (status) {
+      if (status.exhausted) {
+        isExhausted = true;
+        disabledAttr = 'disabled';
+        statusBadge = '<span class="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded font-bold shrink-0 ml-1">✅ Đã xong</span>';
+        remainInfo  = `${status.remaining}/${tongsotiet} tiết`;
+        itemClass   = 'mon-item flex items-center gap-2 px-2 py-1.5 rounded-lg select-none opacity-50 cursor-not-allowed';
+      } else if (tongsotiet > 0) {
+        const pct = Math.round((status.remaining / tongsotiet) * 100);
+        const color = pct <= 30 ? 'text-orange-500' : 'text-green-600';
+        remainInfo  = `<span class="${color} font-semibold">còn ${status.remaining}</span>/${tongsotiet} tiết`;
+      }
+    }
+
+    return `
+      <label class="${itemClass}"
+        data-value="${m.mamon}" data-search="${(m.mamon+' '+m.tenmon).toLowerCase()}">
+        <input type="checkbox" value="${m.mamon}" class="mon-cb w-3.5 h-3.5 accent-blue-600 ${isExhausted?'cursor-not-allowed':'cursor-pointer'}"
+          ${prev.has(m.mamon) && !isExhausted ? 'checked' : ''} ${disabledAttr} onchange="updateMonCount()">
+        <div class="flex-1 min-w-0">
+          <div class="text-xs font-semibold ${isExhausted?'text-gray-400':'text-gray-700'} truncate">${m.tenmon}</div>
+          <div class="text-xs text-gray-400">${m.mamon} · ${remainInfo}</div>
+        </div>
+        ${typeBadge}${statusBadge}
+      </label>`;
+  }).join('');
+  updateMonCount();
+}
+
+/* ── Helpers: get checked values ── */
+function getCheckedLop() { return [...document.querySelectorAll('.lop-cb:checked')].map(cb=>cb.value); }
+function getCheckedMon() { return [...document.querySelectorAll('.mon-cb:checked')].map(cb=>cb.value); }
+
+/* ── Select all / deselect all ── */
+function selectAllLop(check) {
+  document.querySelectorAll('.lop-item').forEach(el => {
+    if (el.style.display !== 'none') el.querySelector('.lop-cb').checked = check;
+  });
+  onLopCheckChange();
+}
+function selectAllMon(check) {
+  document.querySelectorAll('.mon-item').forEach(el => {
+    if (el.style.display !== 'none') {
+      const cb = el.querySelector('.mon-cb');
+      if (!cb.disabled) cb.checked = check;
+    }
+  });
+  updateMonCount();
+}
+
+/* ── Counts ── */
+function updateLopCount() {
+  const total   = document.querySelectorAll('.lop-cb').length;
+  const checked = document.querySelectorAll('.lop-cb:checked').length;
+  document.getElementById('lop-count').textContent = checked > 0 ? `${checked}/${total}` : '';
+}
+function updateMonCount() {
+  const total   = document.querySelectorAll('.mon-cb').length;
+  const checked = document.querySelectorAll('.mon-cb:checked').length;
+  document.getElementById('mon-count').textContent = checked > 0 ? `${checked}/${total}` : '';
+}
+
+/* ── Search/filter ── */
+function filterLopList() {
+  const q = document.getElementById('lop-search').value.toLowerCase();
+  document.querySelectorAll('.lop-item').forEach(el => {
+    el.style.display = el.dataset.search.includes(q) ? '' : 'none';
+  });
+}
+function filterMonList() {
+  const q = document.getElementById('mon-search').value.toLowerCase();
+  document.querySelectorAll('.mon-item').forEach(el => {
+    el.style.display = el.dataset.search.includes(q) ? '' : 'none';
+  });
+}
+
+/* ── Khi lớp thay đổi → cập nhật danh sách môn ── */
+function onLopCheckChange() {
+  updateLopCount();
+  const selectedLops = getCheckedLop();
+  if (selectedLops.length === 0) {
+    renderMonList(allMonList);
+    document.getElementById('mon-note').textContent = 'Không chọn = tất cả môn';
+    return;
+  }
+  // Tập hợp mamon có trong phan_cong của các lớp đã chọn
+  const relevantMamon = new Set();
+  selectedLops.forEach(malop => {
+    (lopMonMap.get(malop) || new Set()).forEach(mm => relevantMamon.add(mm));
+  });
+  // Nếu lopMonMap rỗng (chưa có phân công) → hiện tất cả môn
+  const filtered = relevantMamon.size > 0
+    ? allMonList.filter(m => relevantMamon.has(m.mamon))
+    : allMonList;
+  renderMonList(filtered);
+  document.getElementById('mon-note').textContent =
+    `${filtered.length} môn của ${selectedLops.length} lớp đã chọn`;
+}
+
+/* ── Generate TKB ── */
+async function generateTKB() {
+  const tuan    = Number(document.getElementById('gen-tuan').value) || 1;
+  const hocky   = document.getElementById('gen-hocky').value  || null;
+  const namhoc  = document.getElementById('gen-namhoc').value.trim() || null;
+  const malops  = getCheckedLop();
+  const mamons  = getCheckedMon();
+  const maxGen  = Number(document.getElementById('gen-maxgen').value)  || 200;
+  const popSize = Number(document.getElementById('gen-popsize').value) || 20;
+
+  const btn = document.getElementById('gen-btn');
+  btn.disabled = true;
+  document.getElementById('gen-btn-icon').textContent = '';
+  document.getElementById('gen-btn-text').textContent = 'Đang chạy GA...';
+  document.getElementById('gen-spinner').classList.add('running');
+  document.getElementById('gen-status').textContent = '⏳ Thuật toán đang chạy, vui lòng chờ...';
+  showResult('', '');
+  document.getElementById('loading-msg').textContent = 'Thuật toán di truyền đang chạy...';
+  document.getElementById('loading-overlay').classList.add('show');
+
+  try {
+    const body = {
+      tuanhoc: tuan, popSize, maxGen, persist: true,
+      ...(hocky          && { hocky: Number(hocky) }),
+      ...(namhoc         && { namhoc }),
+      ...(malops.length > 0 && { malop: malops }),
+      ...(mamons.length > 0 && { mamon: mamons }),
+    };
+
+    const res  = await fetch('/api/ga/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'Tạo TKB thất bại');
+
+    const { summary, generatedRows, generatedSessions, weekRange, weeksGenerated } = json;
+    const lopInfo  = malops.length > 0 ? `${malops.length} lớp` : 'tất cả lớp';
+    const monInfo  = mamons.length > 0 ? `${mamons.length} môn` : 'tất cả môn';
+    const wkInfo   = weekRange ? `tuần ${weekRange.from}–${weekRange.to} (${weeksGenerated} tuần)` : '';
+    showResult('success',
+      `✅ Tạo thành công cho ${lopInfo} · ${monInfo} — ` +
+      `${generatedSessions} buổi/tuần · ${generatedRows} dòng tổng · ${wkInfo} · Fitness: ${summary?.fitness ?? '?'}`
+    );
+    document.getElementById('gen-status').textContent = '';
+
+    // Sync view controls → reload
+    document.getElementById('view-tuan').value = tuan;
+    if (hocky)  document.getElementById('view-hocky').value  = hocky;
+    if (namhoc) document.getElementById('view-namhoc').value = namhoc;
+    await Promise.all([loadViewData(), reloadMonStatus()]);
+
+    // Auto-switch tab
+    if (malops.length === 1 && DATA) {
+      const selLop = document.getElementById('sel-lop');
+      if ([...selLop.options].some(o => o.value === malops[0])) selLop.value = malops[0];
+      switchTab('sv');
+    }
+  } catch (err) {
+    showResult('error', '❌ ' + err.message);
+    document.getElementById('gen-status').textContent = '';
+  } finally {
+    btn.disabled = false;
+    document.getElementById('gen-btn-icon').textContent = '🚀';
+    document.getElementById('gen-btn-text').textContent = 'Tạo Thời Khóa Biểu';
+    document.getElementById('gen-spinner').classList.remove('running');
+    document.getElementById('loading-overlay').classList.remove('show');
+  }
+}
+
+function showResult(type, msg) {
+  const el = document.getElementById('gen-result');
+  if (!msg) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  if (type === 'success') {
+    el.className = 'mt-4 p-4 rounded-xl border bg-green-50 border-green-200 text-green-800 font-medium text-sm';
+  } else if (type === 'error') {
+    el.className = 'mt-4 p-4 rounded-xl border bg-red-50 border-red-200 text-red-800 font-medium text-sm';
+  } else {
+    el.className = 'mt-4 p-4 rounded-xl border bg-gray-50 border-gray-200 text-gray-700 text-sm';
+  }
+  el.textContent = msg;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   WEEK NAVIGATION
+════════════════════════════════════════════════════════════════ */
+const START_DATE = (() => {
+  const d = new Date(); d.setHours(0,0,0,0);
+  d.setDate(d.getDate() - (d.getDay() === 0 ? 6 : d.getDay() - 1));
+  return d;
+})();
+let currentWeek = 1;
+
+function getWeekDates(w) {
+  return Array.from({length:6}, (_,i) => {
+    const d = new Date(START_DATE);
+    d.setDate(d.getDate() + (w-1)*7 + i);
+    return d;
+  });
+}
+function fmt(d) {
+  return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}`;
+}
+function updateWeekNav() {
+  const dates = getWeekDates(currentWeek);
+  document.getElementById('week-label').textContent = `Tuần ${currentWeek}`;
+  document.getElementById('week-range').textContent  = `${fmt(dates[0])} – ${fmt(dates[5])}`;
+  document.getElementById('btn-prev').disabled = currentWeek <= 1;
+}
+function prevWeek() {
+  if (currentWeek > 1) {
+    currentWeek--;
+    updateWeekNav();
+    document.getElementById('view-tuan').value = currentWeek;
+    loadViewData();
+  }
+}
+function nextWeek() {
+  currentWeek++;
+  updateWeekNav();
+  document.getElementById('view-tuan').value = currentWeek;
+  loadViewData();
+}
+
+function refreshActiveTab() {
+  const pane = document.querySelector('.tab-pane:not(.hidden)');
+  if (!pane || !DATA) return;
+  const tab = pane.id.replace('tab-','');
+  if      (tab==='ql') document.getElementById('grid-ql').innerHTML = buildGridAll(DATA.lich);
+  else if (tab==='gv') renderGV();
+  else if (tab==='sv') renderSV();
+  else if (tab==='ph') { rebuildDayBtns(); renderRoomGrid(currentDay); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LOAD VIEW DATA
+════════════════════════════════════════════════════════════════ */
+async function loadViewData() {
+  const tuan   = Number(document.getElementById('view-tuan').value) || 1;
+  currentWeek  = tuan; // đồng bộ week nav với input
+  updateWeekNav();
+  const hocky  = document.getElementById('view-hocky').value;
+  const namhoc = document.getElementById('view-namhoc').value.trim();
+
+  document.getElementById('view-status').textContent = 'Đang tải...';
+  document.getElementById('loading-msg').textContent = 'Đang tải dữ liệu TKB...';
+  document.getElementById('loading-overlay').classList.add('show');
+
+  let url = `/api/tkb/viewer?tuanhoc=${tuan}`;
+  if (hocky)  url += `&hocky=${hocky}`;
+  if (namhoc) url += `&namhoc=${encodeURIComponent(namhoc)}`;
+
+  try {
+    const json = await fetch(url).then(r => r.json());
+    if (!json.ok) throw new Error(json.error || 'API lỗi');
+
+    DATA = json;
+    assignColors(DATA.mon_list || []);
+
+    // Header
+    const parts = [];
+    if (hocky)  parts.push(`HK${hocky}`);
+    if (namhoc) parts.push(namhoc);
+    document.getElementById('header-sub').textContent =
+      `Khoa CNTT${parts.length ? ' — '+parts.join(' / ') : ''} — Tuần ${tuan}`;
+
+    // Populate GV dropdown
+    const sgv = document.getElementById('sel-gv');
+    sgv.innerHTML = '';
+    (DATA.gv_list||[]).forEach(g => {
+      const o = document.createElement('option');
+      o.value = g.magv; o.textContent = `${g.tengv} (${g.hocvi||''})`;
+      sgv.appendChild(o);
+    });
+
+    // Populate Lớp dropdown (tab Sinh viên)
+    const slop = document.getElementById('sel-lop');
+    slop.innerHTML = '';
+    (DATA.lop_list||[]).forEach(l => {
+      const o = document.createElement('option');
+      o.value = l.malop; o.textContent = l.tenlop;
+      slop.appendChild(o);
+    });
+
+    updateWeekNav();
+    document.getElementById('stats-row').innerHTML  = buildStats();
+    document.getElementById('legend-row').innerHTML = buildLegend();
+    document.getElementById('grid-ql').innerHTML    = buildGridAll(DATA.lich);
+    renderGV(); renderSV();
+    rebuildDayBtns(); renderRoomGrid(currentDay);
+
+    document.getElementById('view-status').textContent =
+      `✅ ${DATA.lich.length} buổi học — tuần ${tuan}`;
+  } catch (err) {
+    document.getElementById('view-status').textContent = '❌ ' + err.message;
+  } finally {
+    document.getElementById('loading-overlay').classList.remove('show');
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   HELPERS
+════════════════════════════════════════════════════════════════ */
+function dayHeaders() {
+  const dates = getWeekDates(currentWeek);
+  return DAYS.map((d,i) =>
+    `<th>${d}<br><span style="font-weight:400;font-size:11px;color:#6b7280">${fmt(dates[i])}</span></th>`
+  ).join('');
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-pane').forEach(e => e.classList.add('hidden'));
+  document.querySelectorAll('[id^="btn-"]').forEach(e => {
+    if (!e.id.startsWith('btn-prev') && !e.id.startsWith('btn-next')) {
+      e.classList.remove('tab-on'); e.classList.add('bg-white','text-gray-600');
+    }
+  });
+  document.getElementById('tab-'+tab).classList.remove('hidden');
+  const b = document.getElementById('btn-'+tab);
+  if (b) { b.classList.add('tab-on'); b.classList.remove('bg-white','text-gray-600'); }
+  if (!DATA) return;
+  if      (tab==='ql') document.getElementById('grid-ql').innerHTML = buildGridAll(DATA.lich);
+  else if (tab==='gv') renderGV();
+  else if (tab==='sv') renderSV();
+  else if (tab==='ph') { rebuildDayBtns(); renderRoomGrid(currentDay); }
+}
+
+/* ── Session card ── */
+function card(s, showGV, showLop, compact) {
+  const badge  = `<span class="badge ${s.loai==='TH'?'bdg-th':'bdg-lt'}">${s.loai}</span>`;
+  const tRange = compact
+    ? `<div class="sess-info" style="font-size:9px;color:#9ca3af">Tiết ${s.tiet_start}–${s.tiet_end}</div>` : '';
+  const gvLine  = showGV  ? `<div class="sess-info">👤 ${s.tengv}</div>`  : '';
+  const lopLine = showLop ? `<div class="sess-info">🎓 ${s.tenlop}</div>` : '';
+  return `<div class="sess-card ${clr(s.mamon)}" style="${compact?'margin-bottom:3px;':''}">
+    <div class="sess-name">${s.tenmon}</div>
+    ${badge}${tRange}${gvLine}${lopLine}
+    <div class="sess-info">🏛 ${s.maphong}</div>
+  </div>`;
+}
+
+/* ── Grid GV/SV với rowspan ── */
+function buildGrid(sessions, showGV, showLop) {
+  const g = {};
+  sessions.forEach(s => {
+    if (!g[s.thu_idx]) g[s.thu_idx] = {};
+    g[s.thu_idx][s.tiet_start] = s;
+  });
+  const rowEnd = new Array(6).fill(0);
+  let h = `<table class="timetable"><thead><tr><th style="width:40px">Tiết</th>${dayHeaders()}</tr></thead><tbody>`;
+  for (let t=1; t<=12; t++) {
+    if (t===1) h += '<tr class="sang-hd"><td colspan="7">☀️ BUỔI SÁNG (Tiết 1–6)</td></tr>';
+    if (t===7) h += '<tr class="chieu-hd"><td colspan="7">🌙 BUỔI CHIỀU (Tiết 7–12)</td></tr>';
+    h += `<tr><td class="tiet-lbl">${t}</td>`;
+    for (let d=0; d<6; d++) {
+      if (rowEnd[d] > t) continue;
+      const s = g[d] && g[d][t];
+      if (s) {
+        const sp = s.tiet_end - s.tiet_start + 1;
+        rowEnd[d] = t + sp;
+        h += `<td rowspan="${sp}" class="sess-cell">${card(s,showGV,showLop,false)}</td>`;
+      } else { h += '<td class="empty-td"></td>'; }
+    }
+    h += '</tr>';
+  }
+  return h + '</tbody></table>';
+}
+
+/* ── Grid quản lý (nhiều buổi cùng tiết) ── */
+function buildGridAll(sessions) {
+  const g = {};
+  sessions.forEach(s => {
+    if (!g[s.thu_idx]) g[s.thu_idx] = {};
+    if (!g[s.thu_idx][s.tiet_start]) g[s.thu_idx][s.tiet_start] = [];
+    g[s.thu_idx][s.tiet_start].push(s);
+  });
+  const tiets = [...new Set(sessions.map(s=>s.tiet_start))].sort((a,b)=>a-b);
+  let h = `<table class="timetable"><thead><tr><th style="width:55px">Tiết BĐ</th>${dayHeaders()}</tr></thead><tbody>`;
+  let prev = null;
+  tiets.forEach(t => {
+    const buoi = t<=6 ? 'sang' : 'chieu';
+    if (buoi!==prev) {
+      prev=buoi;
+      h += buoi==='sang'
+        ? '<tr class="sang-hd"><td colspan="7">☀️ BUỔI SÁNG</td></tr>'
+        : '<tr class="chieu-hd"><td colspan="7">🌙 BUỔI CHIỀU</td></tr>';
+    }
+    h += `<tr><td class="tiet-lbl" style="font-size:10px">Tiết<br><b>${t}</b></td>`;
+    for (let d=0; d<6; d++) {
+      const list = (g[d]&&g[d][t])||[];
+      if (!list.length) { h += '<td class="empty-td"></td>'; continue; }
+      h += '<td class="sess-cell" style="min-width:140px">';
+      list.forEach(s => h += card(s,true,true,true));
+      h += '</td>';
+    }
+    h += '</tr>';
+  });
+  return h + '</tbody></table>';
+}
+
+/* ── Room grid ── */
+let currentDay = 0;
+
+function buildRoomGrid(dayIdx) {
+  const rooms  = DATA.phong_list;
+  const rg = {};
+  rooms.forEach(r => { rg[r.maphong] = {}; });
+  DATA.lich.filter(s => s.thu_idx===dayIdx).forEach(s => { rg[s.maphong][s.tiet_start] = s; });
+
+  const freeCount = {};
+  rooms.forEach(r => {
+    const occ = new Set();
+    DATA.lich.filter(s => s.thu_idx===dayIdx && s.maphong===r.maphong)
+             .forEach(s => { for(let t=s.tiet_start; t<=s.tiet_end; t++) occ.add(t); });
+    freeCount[r.maphong] = 10 - occ.size;
+  });
+
+  const rowEnd = {};
+  rooms.forEach(r => { rowEnd[r.maphong] = 0; });
+  const nCols = rooms.length;
+  let h = `<table class="timetable"><thead><tr><th style="width:40px">Tiết</th>`;
+  rooms.forEach(r => {
+    const lt = r.loaiphong==='TH'
+      ? '<span style="font-size:9px;background:#dcfce7;color:#15803d;padding:1px 4px;border-radius:3px;font-weight:700">TH</span>'
+      : '<span style="font-size:9px;background:#dbeafe;color:#1d4ed8;padding:1px 4px;border-radius:3px;font-weight:700">LT</span>';
+    const fl = freeCount[r.maphong]>0
+      ? `<span style="font-size:9px;color:#16a34a">(còn ${freeCount[r.maphong]} tiết)</span>`
+      : `<span style="font-size:9px;color:#dc2626">(hết)</span>`;
+    h += `<th>${r.maphong} ${lt}<br><span style="font-size:10px;font-weight:400;color:#6b7280">${r.tenphong}</span><br>${fl}</th>`;
+  });
+  h += '</tr></thead><tbody>';
+  for (let t=1; t<=12; t++) {
+    if(t===1) h+=`<tr class="sang-hd"><td colspan="${nCols+1}">☀️ BUỔI SÁNG (Tiết 1–6)</td></tr>`;
+    if(t===7) h+=`<tr class="chieu-hd"><td colspan="${nCols+1}">🌙 BUỔI CHIỀU (Tiết 7–12)</td></tr>`;
+    h += `<tr><td class="tiet-lbl">${t}</td>`;
+    rooms.forEach(r => {
+      if (rowEnd[r.maphong] > t) return;
+      const s = rg[r.maphong][t];
+      if (s) {
+        const sp = s.tiet_end - s.tiet_start + 1;
+        rowEnd[r.maphong] = t + sp;
+        h += `<td rowspan="${sp}" class="sess-cell">
+          <div class="sess-card ${clr(s.mamon)}">
+            <div class="sess-name">${s.tenmon}</div>
+            <span class="badge ${s.loai==='TH'?'bdg-th':'bdg-lt'}">${s.loai}</span>
+            <div class="sess-info">🎓 ${s.tenlop}</div>
+            <div class="sess-info">👤 ${s.tengv}</div>
+          </div></td>`;
+      } else { h += '<td class="free-td">🟢<br>TRỐNG</td>'; }
+    });
+    h += '</tr>';
+  }
+  return h + '</tbody></table>';
+}
+
+function buildRoomStats(dayIdx) {
+  const rooms = DATA.phong_list;
+  let free=0, occ=0;
+  rooms.forEach(r => {
+    const s = new Set();
+    DATA.lich.filter(x => x.thu_idx===dayIdx && x.maphong===r.maphong)
+             .forEach(x => { for(let t=x.tiet_start; t<=x.tiet_end; t++) s.add(t); });
+    occ += s.size; free += 10-s.size;
+  });
+  const tot=rooms.length*10; const pFree=Math.round(free/tot*100);
+  return [
+    {icon:'🏛',val:rooms.length,   lbl:'Tổng phòng',         bg:'bg-blue-50', bd:'border-blue-200', tx:'text-blue-700'},
+    {icon:'🟢',val:`${free} tiết`, lbl:`Trống (${pFree}%)`,  bg:'bg-green-50',bd:'border-green-200',tx:'text-green-700'},
+    {icon:'🔴',val:`${occ} tiết`,  lbl:`Dùng (${100-pFree}%)`,bg:'bg-red-50', bd:'border-red-200',  tx:'text-red-700'},
+  ].map(i=>`<div class="rounded-2xl shadow border p-4 ${i.bg} ${i.bd}">
+    <div class="text-3xl">${i.icon}</div>
+    <div class="text-2xl font-bold ${i.tx} mt-1">${i.val}</div>
+    <div class="text-sm ${i.tx} font-medium mt-1">${i.lbl}</div>
+  </div>`).join('');
+}
+
+function rebuildDayBtns() {
+  const dates = getWeekDates(currentWeek);
+  document.getElementById('day-btns').innerHTML = DAYS.map((d,i) => `
+    <button id="daybtn-${i}" onclick="selectDay(${i})"
+      class="px-4 py-2 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">
+      ${d} <span style="font-weight:400;font-size:11px">${fmt(dates[i])}</span>
+    </button>`).join('');
+  const btn = document.getElementById('daybtn-'+currentDay);
+  if(btn){ btn.classList.add('day-btn-on'); btn.classList.remove('bg-white','text-gray-600'); }
+}
+function selectDay(i) {
+  currentDay=i;
+  document.querySelectorAll('[id^="daybtn-"]').forEach(b => {
+    b.classList.remove('day-btn-on'); b.classList.add('bg-white','text-gray-600');
+  });
+  const btn=document.getElementById('daybtn-'+i);
+  if(btn){ btn.classList.add('day-btn-on'); btn.classList.remove('bg-white','text-gray-600'); }
+  renderRoomGrid(i);
+}
+function renderRoomGrid(i) {
+  document.getElementById('room-stats').innerHTML = buildRoomStats(i);
+  document.getElementById('grid-ph').innerHTML    = buildRoomGrid(i);
+}
+
+function buildStats() {
+  const L = DATA.lich;
+  return [
+    {icon:'📅',val:L.length,                          lbl:'Tổng buổi học', bg:'bg-blue-50',  bd:'border-blue-200',  tx:'text-blue-700'},
+    {icon:'👨‍🏫',val:new Set(L.map(s=>s.magv)).size,   lbl:'Giảng viên',    bg:'bg-green-50', bd:'border-green-200', tx:'text-green-700'},
+    {icon:'🎓',val:new Set(L.map(s=>s.malop)).size,   lbl:'Lớp học',       bg:'bg-purple-50',bd:'border-purple-200',tx:'text-purple-700'},
+    {icon:'🏛',val:new Set(L.map(s=>s.maphong)).size, lbl:'Phòng dùng',    bg:'bg-orange-50',bd:'border-orange-200',tx:'text-orange-700'},
+  ].map(i=>`<div class="rounded-2xl shadow border p-4 ${i.bg} ${i.bd}">
+    <div class="text-3xl">${i.icon}</div>
+    <div class="text-3xl font-bold ${i.tx} mt-1">${i.val}</div>
+    <div class="text-sm ${i.tx} font-medium mt-1">${i.lbl}</div>
+  </div>`).join('');
+}
+function buildLegend() {
+  const ms={};
+  DATA.lich.forEach(s=>{ ms[s.mamon]=s.tenmon; });
+  return '<span class="text-gray-400 mr-1 self-center text-xs">Màu:</span>'
+    + Object.entries(ms).map(([m,n])=>
+        `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium ${clr(m)}">${m}: ${n}</span>`
+      ).join('');
+}
+
+function renderGV() {
+  const id = document.getElementById('sel-gv').value;
+  const gv = (DATA.gv_list||[]).find(g=>g.magv===id)||{};
+  document.getElementById('gv-info').textContent = gv.hocvi||'';
+  const ses = DATA.lich.filter(s=>s.magv===id);
+  document.getElementById('grid-gv').innerHTML = ses.length
+    ? buildGrid(ses,false,true)
+    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch dạy.</p>';
+}
+function renderSV() {
+  const id  = document.getElementById('sel-lop').value;
+  const ses = DATA.lich.filter(s=>s.malop===id);
+  document.getElementById('grid-sv').innerHTML = ses.length
+    ? buildGrid(ses,true,false)
+    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch học.</p>';
+}
+
+/* ════════════════════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════════════════════ */
+window.onload = async () => {
+  updateWeekNav();
+  switchTab('ql');
+  await Promise.all([
+    loadGenDropdowns(),
+    loadViewData(),
+  ]);
+};
+</script>
+</body>
+</html>

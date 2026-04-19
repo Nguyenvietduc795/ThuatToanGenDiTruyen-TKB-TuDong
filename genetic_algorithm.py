@@ -50,7 +50,7 @@ Hàm thích nghi (Fitness Function):
 import random
 import copy
 from utils import (
-    load_data, show_timetable, set_up, show_statistics,
+    load_data, load_data_from_raw, show_timetable, set_up, show_statistics,
     write_solution_to_file, SLOTS_PER_DAY, MORNING_SLOTS, TOTAL_SLOTS,
 )
 from costs import (
@@ -375,7 +375,7 @@ def mutate(individual: Individual, data, mutation_rate=MUTATION_RATE):
 # ============================================================
 
 def genetic_algorithm(data, n_rooms, file,
-                      pop_size=POP_SIZE, max_gen=MAX_GEN):
+                      pop_size=POP_SIZE, max_gen=MAX_GEN, raw_data=None):
     """
     Vòng lặp Giải thuật Di truyền chính.
 
@@ -479,9 +479,68 @@ def genetic_algorithm(data, n_rooms, file,
     write_solution_to_file(
         best.matrix, data, best.filled, file,
         best.groups_empty_space, best.teachers_empty_space, best.subjects_order,
+        raw_data=raw_data,
     )
 
     return best
+
+
+def run_ga_with_raw(raw_data, file='supabase_runtime.json',
+                    pop_size=POP_SIZE, max_gen=MAX_GEN, tuanhoc=None):
+    """
+    Chay GA voi du lieu da nap san (dict), phu hop khi goi tu backend API.
+    Tra ve ket qua de luu CSDL ma khong can doc mock file.
+
+    :param tuanhoc: so tuan dang xep lich — truyen vao load_data_from_raw de
+                    bo qua cac phan_cong da vuot so_tuan_can_hoc.
+                    None = khong loc theo tuan (dung khi goi thu nghiem).
+    """
+    data = load_data_from_raw(raw_data, {}, {}, {}, tuanhoc=tuanhoc)
+    n_rooms = len(data.classrooms)
+    best = genetic_algorithm(
+        data,
+        n_rooms,
+        file,
+        pop_size=pop_size,
+        max_gen=max_gen,
+        raw_data=raw_data,
+    )
+
+    sessions = []
+    for class_idx, fields in best.filled.items():
+        cls = data.classes[class_idx]
+        sorted_fields = sorted(fields, key=lambda item: item[0])
+        first_row = sorted_fields[0][0]
+        room_idx = sorted_fields[0][1]
+        day_index = first_row // SLOTS_PER_DAY
+        start_slot = first_row % SLOTS_PER_DAY + 1
+        end_slot = start_slot + int(cls.duration) - 1
+
+        sessions.append({
+            'class_index': class_idx,
+            'mapc': cls.assignment_id,
+            'mamon': cls.subject,
+            'magv': cls.teacher,
+            'malop_index': cls.groups[0] if cls.groups else None,
+            'loaiphong': cls.type,
+            'maphong': data.classrooms[room_idx].name,
+            'day_index': day_index,
+            'start_slot': start_slot,
+            'end_slot': end_slot,
+            'slot_numbers': list(range(start_slot, end_slot + 1)),
+        })
+
+    return {
+        'summary': {
+            'classes': len(data.classes),
+            'rooms': len(data.classrooms),
+            'groups': len(data.groups),
+            'teachers': len(data.teachers),
+            'sessions': len(sessions),
+            'fitness': best.get_fitness(data),
+        },
+        'sessions': sessions,
+    }
 
 
 # ============================================================
