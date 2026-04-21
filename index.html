@@ -55,8 +55,9 @@
     <script src="/sidebar.js"></script>
     <script>
         const API_BASE = 'http://localhost:3000/api';
+        const API = `${API_BASE}/giangvien`;
         let teacherData = [];
-        let editingIndex = null; // Biến tạm để biết đang sửa dòng nào
+        let editingMa = null;
 
         function renderTable() {
             const tableBody = document.getElementById('teacher-table-body');
@@ -119,7 +120,7 @@
             }
         }
 
-        function handleTeacher() {
+        async function handleTeacher() {
             const ten = document.getElementById('tenGV').value;
             const email = document.getElementById('email').value;
             if (!ten || !email) return alert('Vui lòng nhập ít nhất Họ tên và Email!');
@@ -133,24 +134,31 @@
                 TrangThai: document.getElementById('trangThai').value,
             };
 
-            if (editingIndex !== null) {
-                gvInfo.MaGV = teacherData[editingIndex].MaGV;
-                teacherData[editingIndex] = gvInfo;
-                editingIndex = null;
+            try {
+                const res = await fetch(editingMa ? `${API}/${editingMa}` : API, {
+                    method : editingMa ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body   : JSON.stringify(body),
+                });
+                if (!res.ok) {
+                    const error = await res.json().catch(() => ({}));
+                    throw new Error(error.error || `API lỗi ${res.status}`);
+                }
+
+                editingMa = null;
                 document.getElementById('main-btn').innerText = "Thêm mới";
                 document.getElementById('main-btn').style.backgroundColor = "";
-            } else {
-                const lastNum = teacherData.length > 0 ? parseInt(teacherData[teacherData.length - 1].MaGV.replace('GV', '')) : 0;
-                gvInfo.MaGV = "GV" + (lastNum + 1).toString().padStart(3, '0');
-                teacherData.push(gvInfo);
+                resetForm();
+                await loadTeachers();
+            } catch (error) {
+                alert(`Không thể lưu giảng viên: ${error.message}`);
             }
-            resetForm();
-            loadData();
         }
 
-        function editTeacher(index) {
-            const gv = teacherData[index];
-            editingIndex = index;
+        function editTeacher(ma) {
+            const gv = teacherData.find(item => item.MaGV === ma);
+            if (!gv) return alert('Không tìm thấy giảng viên cần sửa!');
+            editingMa = ma;
 
             document.getElementById('maGV').value = gv.MaGV;
             document.getElementById('tenGV').value = gv.TenGV;
@@ -168,15 +176,28 @@
 
         async function deleteTeacher(ma) {
             if (!confirm('Bạn có chắc chắn muốn xóa giảng viên này?')) return;
-            await fetch(`${API}/${ma}`, { method: 'DELETE' });
-            loadData();
+            try {
+                const res = await fetch(`${API}/${ma}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    const error = await res.json().catch(() => ({}));
+                    throw new Error(error.error || `API lỗi ${res.status}`);
+                }
+                if (editingMa === ma) {
+                    editingMa = null;
+                    resetForm();
+                }
+                await loadTeachers();
+            } catch (error) {
+                alert(`Không thể xóa giảng viên: ${error.message}`);
+            }
         }
 
-        function deleteTeacher(index) {
-            if(confirm("Bạn có chắc chắn muốn xóa giảng viên này?")) {
-                teacherData.splice(index, 1);
-                renderTable();
-            }
+        function resetForm() {
+            document.getElementById('maGV').value = 'Mã: Tự động';
+            document.getElementById('tenGV').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('sdt').value = '';
+            document.getElementById('chuyenMon').value = '';
         }
 
         window.addEventListener('DOMContentLoaded', loadTeachers);

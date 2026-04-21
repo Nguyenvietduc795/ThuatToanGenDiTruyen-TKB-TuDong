@@ -39,8 +39,9 @@
     <script src="/sidebar.js"></script>
     <script>
         const API_BASE = 'http://localhost:3000/api';
+        const API = `${API_BASE}/lop`;
         let classData = [];
-        let editIndex = null;
+        let editingMa = null;
 
         function renderClassTable() {
             const tableBody = document.getElementById('class-table-body');
@@ -48,7 +49,7 @@
                 <tr>
                     <td><strong>${lop.MaLop}</strong></td>
                     <td>${lop.TenLop}</td>
-                    <td>${lop.MaKhoa}</td>
+                    <td>${lop.Khoa}</td>
                     <td>
                         <button onclick="editClass('${lop.MaLop}')" class="btn-edit">Sửa</button>
                         <button onclick="deleteClass('${lop.MaLop}')" class="btn-delete">Xóa</button>
@@ -72,42 +73,46 @@
             }
         }
 
-        function handleClass() {
-            const khoa = document.getElementById('khoa').value;
+        async function handleClass() {
+            const khoa = document.getElementById('maKhoa').value;
             const tenLop = document.getElementById('tenLop').value;
 
             if (!khoa || !tenLop) return alert("Vui lòng nhập đầy đủ Khóa và Tên lớp!");
 
-            const newLop = {
+            const body = {
                 Khoa: khoa,
                 TenLop: tenLop
             };
 
-            if (editIndex !== null) {
-                newLop.MaLop = classData[editIndex].MaLop;
-                classData[editIndex] = newLop;
-                editIndex = null;
+            try {
+                const res = await fetch(editingMa ? `${API}/${editingMa}` : API, {
+                    method : editingMa ? 'PUT' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body   : JSON.stringify(body),
+                });
+                if (!res.ok) {
+                    const error = await res.json().catch(() => ({}));
+                    throw new Error(error.error || `API lỗi ${res.status}`);
+                }
+
+                editingMa = null;
                 document.getElementById('class-btn').innerText = "Thêm Lớp";
                 document.getElementById('class-btn').style.backgroundColor = "";
-            } else {
-                const lastNum = classData.length > 0 
-                    ? parseInt(classData[classData.length - 1].MaLop.replace('L', '')) 
-                    : 0;
-                newLop.MaLop = "L" + (lastNum + 1).toString().padStart(2, '0');
-                classData.push(newLop);
+                resetForm();
+                await loadClasses();
+            } catch (error) {
+                alert(`Không thể lưu lớp học: ${error.message}`);
             }
-            resetForm();
-            loadData();
         }
 
-        function editClass(index) {
-            const lop = classData[index];
-            editIndex = index;
+        function editClass(ma) {
+            const lop = classData.find(item => item.MaLop === ma);
+            if (!lop) return alert('Không tìm thấy lớp cần sửa!');
+            editingMa = ma;
 
             document.getElementById('maLop').value = lop.MaLop;
-            document.getElementById('khoa').value = lop.Khoa;
             document.getElementById('tenLop').value = lop.TenLop;
-            document.getElementById('maKhoa').value = lop.MaKhoa;
+            document.getElementById('maKhoa').value = lop.Khoa;
 
             const btn = document.getElementById('class-btn');
             btn.innerText = "Lưu cập nhật";
@@ -115,10 +120,21 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function deleteClass(index) {
-            if(confirm("Bạn có chắc chắn muốn xóa lớp học này?")) {
-                classData.splice(index, 1);
-                renderClassTable();
+        async function deleteClass(ma) {
+            if (!confirm("Bạn có chắc chắn muốn xóa lớp học này?")) return;
+            try {
+                const res = await fetch(`${API}/${ma}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    const error = await res.json().catch(() => ({}));
+                    throw new Error(error.error || `API lỗi ${res.status}`);
+                }
+                if (editingMa === ma) {
+                    editingMa = null;
+                    resetForm();
+                }
+                await loadClasses();
+            } catch (error) {
+                alert(`Không thể xóa lớp học: ${error.message}`);
             }
         }
 

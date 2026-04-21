@@ -48,11 +48,12 @@
     <script src="/sidebar.js"></script>
     <script>
         const API_BASE = 'http://localhost:3000/api';
+        const API = `${API_BASE}/phonghoc`;
         let roomData = [];
-        let editIndex = null;
+        let editingMa = null;
 
-        function renderTable() {
-            document.getElementById('room-table-body').innerHTML = data.map(p => `
+        function renderRoomTable() {
+            document.getElementById('room-table-body').innerHTML = roomData.map(p => `
                 <tr>
                     <td><strong>${p.MaPhong}</strong></td>
                     <td>${p.TenPhong}</td>
@@ -91,7 +92,7 @@
             }
         }
 
-        function handleRoom() {
+        async function handleRoom() {
             const ten = document.getElementById('tenPhong').value;
             if (!ten) return alert('Vui lòng nhập tên phòng!');
 
@@ -101,28 +102,30 @@
                 TrangThai: document.getElementById('trangThai').value,
             };
 
-            if (editingMa) {
-                await fetch(`${API}/${editingMa}`, {
-                    method : 'PUT',
+            try {
+                const res = await fetch(editingMa ? `${API}/${editingMa}` : API, {
+                    method : editingMa ? 'PUT' : 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body   : JSON.stringify(body),
                 });
+                if (!res.ok) {
+                    const error = await res.json().catch(() => ({}));
+                    throw new Error(error.error || `API lỗi ${res.status}`);
+                }
+
                 editingMa = null;
                 document.getElementById('room-btn').innerText = 'Thêm Phòng';
                 document.getElementById('room-btn').style.backgroundColor = '';
-            } else {
-                const lastNum = roomData.length > 0 
-                    ? parseInt(roomData[roomData.length - 1].MaPhong.replace('P', '')) 
-                    : 0;
-                roomInfo.MaPhong = "P" + (lastNum + 1).toString().padStart(3, '0');
-                roomData.push(roomInfo);
+                resetForm();
+                await loadRooms();
+            } catch (error) {
+                alert(`Không thể lưu phòng học: ${error.message}`);
             }
-            resetForm();
-            loadData();
         }
 
         function editRoom(ma) {
-            const p = data.find(r => r.MaPhong === ma);
+            const p = roomData.find(r => r.MaPhong === ma);
+            if (!p) return alert('Không tìm thấy phòng cần sửa!');
             editingMa = ma;
             document.getElementById('maPhong').value   = p.MaPhong;
             document.getElementById('tenPhong').value  = p.TenPhong;
@@ -137,8 +140,20 @@
 
         async function deleteRoom(ma) {
             if (!confirm('Bạn có chắc chắn muốn xóa phòng này?')) return;
-            await fetch(`${API}/${ma}`, { method: 'DELETE' });
-            loadData();
+            try {
+                const res = await fetch(`${API}/${ma}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    const error = await res.json().catch(() => ({}));
+                    throw new Error(error.error || `API lỗi ${res.status}`);
+                }
+                if (editingMa === ma) {
+                    editingMa = null;
+                    resetForm();
+                }
+                await loadRooms();
+            } catch (error) {
+                alert(`Không thể xóa phòng học: ${error.message}`);
+            }
         }
 
         function resetForm() {
