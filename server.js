@@ -207,12 +207,136 @@ function parseOptionalNumber(value, fieldName) {
   return parsed;
 }
 
+function firstValue(body, keys) {
+  for (const key of keys) {
+    if (body[key] !== undefined && body[key] !== null) {
+      return body[key];
+    }
+  }
+  return undefined;
+}
+
+function optionalText(value) {
+  return value === undefined || value === null ? null : String(value).trim();
+}
+
+function parseBodyNumber(value, fieldName) {
+  const parsed = Number(value || 0);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${fieldName} phai la so khong am`);
+  }
+  return parsed;
+}
+
+async function generateNextCode(tableName, columnName, prefix, width) {
+  const { data, error } = await supabase.from(tableName).select(columnName);
+  if (error) throw new Error(error.message);
+
+  const maxNumber = (data || []).reduce((max, row) => {
+    const value = String(row[columnName] || '');
+    const match = value.match(new RegExp(`^${prefix}(\\d+)$`, 'i'));
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+
+  return `${prefix}${String(maxNumber + 1).padStart(width, '0')}`;
+}
+
+function sendSupabaseError(res, error) {
+  return res.status(400).json({ ok: false, error: error.message });
+}
+
+async function deleteAssignmentsAndSchedules(filters) {
+  let query = supabase.from('phan_cong_giang_day').select('mapc');
+  for (const [column, value] of Object.entries(filters)) {
+    query = query.eq(column, value);
+  }
+
+  const { data: assignments, error: selectError } = await query;
+  if (selectError) throw new Error(selectError.message);
+
+  const mapcList = (assignments || []).map((row) => row.mapc).filter(Boolean);
+  if (mapcList.length > 0) {
+    const { error: scheduleError } = await supabase
+      .from('thoi_khoa_bieu')
+      .delete()
+      .in('mapc', mapcList);
+    if (scheduleError) throw new Error(scheduleError.message);
+
+    const { error: assignmentError } = await supabase
+      .from('phan_cong_giang_day')
+      .delete()
+      .in('mapc', mapcList);
+    if (assignmentError) throw new Error(assignmentError.message);
+  }
+}
+
 app.get('/api/giangvien', async (req, res) => {
   const { data, error } = await supabase
     .from('giang_vien')
     .select('*');
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
+});
+
+app.post('/api/giangvien', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const tengv = optionalText(firstValue(body, ['TenGV', 'tengv']));
+    const email = optionalText(firstValue(body, ['Email', 'email']));
+    if (!tengv || !email) throw new Error('Vui long nhap ho ten va email');
+
+    const row = {
+      magv: optionalText(firstValue(body, ['MaGV', 'magv'])) || await generateNextCode('giang_vien', 'magv', 'GV', 3),
+      tengv,
+      email,
+      sdt: optionalText(firstValue(body, ['SDT', 'sdt'])),
+      hocvi: optionalText(firstValue(body, ['HocVi', 'hocvi'])),
+      chuyenmon: optionalText(firstValue(body, ['ChuyenMon', 'chuyenmon'])),
+      trangthai: optionalText(firstValue(body, ['TrangThai', 'trangthai'])),
+    };
+
+    const { data, error } = await supabase.from('giang_vien').insert(row).select('*').single();
+    if (error) return sendSupabaseError(res, error);
+    return res.status(201).json(data);
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
+});
+
+app.put('/api/giangvien/:magv', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const row = {
+      tengv: optionalText(firstValue(body, ['TenGV', 'tengv'])),
+      email: optionalText(firstValue(body, ['Email', 'email'])),
+      sdt: optionalText(firstValue(body, ['SDT', 'sdt'])),
+      hocvi: optionalText(firstValue(body, ['HocVi', 'hocvi'])),
+      chuyenmon: optionalText(firstValue(body, ['ChuyenMon', 'chuyenmon'])),
+      trangthai: optionalText(firstValue(body, ['TrangThai', 'trangthai'])),
+    };
+
+    const { data, error } = await supabase
+      .from('giang_vien')
+      .update(row)
+      .eq('magv', req.params.magv)
+      .select('*')
+      .single();
+    if (error) return sendSupabaseError(res, error);
+    return res.json(data);
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
+});
+
+app.delete('/api/giangvien/:magv', async (req, res) => {
+  try {
+    await deleteAssignmentsAndSchedules({ magv: req.params.magv });
+    const { error } = await supabase.from('giang_vien').delete().eq('magv', req.params.magv);
+    if (error) return sendSupabaseError(res, error);
+    return res.json({ ok: true });
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
 });
 
 app.get('/api/lop', async (req, res) => {
@@ -223,6 +347,59 @@ app.get('/api/lop', async (req, res) => {
   res.json(data);
 });
 
+app.post('/api/lop', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const tenlop = optionalText(firstValue(body, ['TenLop', 'tenlop']));
+    const khoa = optionalText(firstValue(body, ['Khoa', 'MaKhoa', 'khoa']));
+    if (!tenlop || !khoa) throw new Error('Vui long nhap ten lop va khoa');
+
+    const row = {
+      malop: optionalText(firstValue(body, ['MaLop', 'malop'])) || await generateNextCode('lop', 'malop', 'L', 2),
+      tenlop,
+      khoa,
+    };
+
+    const { data, error } = await supabase.from('lop').insert(row).select('*').single();
+    if (error) return sendSupabaseError(res, error);
+    return res.status(201).json(data);
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
+});
+
+app.put('/api/lop/:malop', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const row = {
+      tenlop: optionalText(firstValue(body, ['TenLop', 'tenlop'])),
+      khoa: optionalText(firstValue(body, ['Khoa', 'MaKhoa', 'khoa'])),
+    };
+
+    const { data, error } = await supabase
+      .from('lop')
+      .update(row)
+      .eq('malop', req.params.malop)
+      .select('*')
+      .single();
+    if (error) return sendSupabaseError(res, error);
+    return res.json(data);
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
+});
+
+app.delete('/api/lop/:malop', async (req, res) => {
+  try {
+    await deleteAssignmentsAndSchedules({ malop: req.params.malop });
+    const { error } = await supabase.from('lop').delete().eq('malop', req.params.malop);
+    if (error) return sendSupabaseError(res, error);
+    return res.json({ ok: true });
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
+});
+
 app.get('/api/monhoc', async (req, res) => {
   const { data, error } = await supabase
     .from('mon_hoc')
@@ -231,12 +408,131 @@ app.get('/api/monhoc', async (req, res) => {
   res.json(data);
 });
 
+app.post('/api/monhoc', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const tenmon = optionalText(firstValue(body, ['TenMon', 'tenmon']));
+    if (!tenmon) throw new Error('Vui long nhap ten mon hoc');
+
+    const row = {
+      mamon: optionalText(firstValue(body, ['MaMon', 'mamon'])) || await generateNextCode('mon_hoc', 'mamon', 'MH', 3),
+      tenmon,
+      sotinchi: parseBodyNumber(firstValue(body, ['SoTinChi', 'sotinchi']), 'sotinchi'),
+      tongsotiet: parseBodyNumber(firstValue(body, ['TongSoTiet', 'tongsotiet']), 'tongsotiet'),
+      sotietlythuyet: parseBodyNumber(firstValue(body, ['SoTietLT', 'sotietlythuyet']), 'sotietlythuyet'),
+      sotietthuchanh: parseBodyNumber(firstValue(body, ['SoTietTH', 'sotietthuchanh']), 'sotietthuchanh'),
+      loaiphong: optionalText(firstValue(body, ['LoaiPhong', 'loaiphong'])),
+    };
+
+    const { data, error } = await supabase.from('mon_hoc').insert(row).select('*').single();
+    if (error) return sendSupabaseError(res, error);
+    return res.status(201).json(data);
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
+});
+
+app.put('/api/monhoc/:mamon', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const row = {
+      tenmon: optionalText(firstValue(body, ['TenMon', 'tenmon'])),
+      sotinchi: parseBodyNumber(firstValue(body, ['SoTinChi', 'sotinchi']), 'sotinchi'),
+      tongsotiet: parseBodyNumber(firstValue(body, ['TongSoTiet', 'tongsotiet']), 'tongsotiet'),
+      sotietlythuyet: parseBodyNumber(firstValue(body, ['SoTietLT', 'sotietlythuyet']), 'sotietlythuyet'),
+      sotietthuchanh: parseBodyNumber(firstValue(body, ['SoTietTH', 'sotietthuchanh']), 'sotietthuchanh'),
+      loaiphong: optionalText(firstValue(body, ['LoaiPhong', 'loaiphong'])),
+    };
+
+    const { data, error } = await supabase
+      .from('mon_hoc')
+      .update(row)
+      .eq('mamon', req.params.mamon)
+      .select('*')
+      .single();
+    if (error) return sendSupabaseError(res, error);
+    return res.json(data);
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
+});
+
+app.delete('/api/monhoc/:mamon', async (req, res) => {
+  try {
+    await deleteAssignmentsAndSchedules({ mamon: req.params.mamon });
+    const { error } = await supabase.from('mon_hoc').delete().eq('mamon', req.params.mamon);
+    if (error) return sendSupabaseError(res, error);
+    return res.json({ ok: true });
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
+});
+
 app.get('/api/phonghoc', async (req, res) => {
   const { data, error } = await supabase
     .from('phong_hoc')
     .select('maphong, tenphong, loaiphong, trangthai');
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
+});
+
+app.post('/api/phonghoc', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const tenphong = optionalText(firstValue(body, ['TenPhong', 'tenphong']));
+    if (!tenphong) throw new Error('Vui long nhap ten phong');
+
+    const row = {
+      maphong: optionalText(firstValue(body, ['MaPhong', 'maphong'])) || await generateNextCode('phong_hoc', 'maphong', 'P', 3),
+      tenphong,
+      loaiphong: optionalText(firstValue(body, ['LoaiPhong', 'loaiphong'])),
+      trangthai: optionalText(firstValue(body, ['TrangThai', 'trangthai'])),
+    };
+
+    const { data, error } = await supabase.from('phong_hoc').insert(row).select('*').single();
+    if (error) return sendSupabaseError(res, error);
+    return res.status(201).json(data);
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
+});
+
+app.put('/api/phonghoc/:maphong', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const row = {
+      tenphong: optionalText(firstValue(body, ['TenPhong', 'tenphong'])),
+      loaiphong: optionalText(firstValue(body, ['LoaiPhong', 'loaiphong'])),
+      trangthai: optionalText(firstValue(body, ['TrangThai', 'trangthai'])),
+    };
+
+    const { data, error } = await supabase
+      .from('phong_hoc')
+      .update(row)
+      .eq('maphong', req.params.maphong)
+      .select('*')
+      .single();
+    if (error) return sendSupabaseError(res, error);
+    return res.json(data);
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
+});
+
+app.delete('/api/phonghoc/:maphong', async (req, res) => {
+  try {
+    const { error: scheduleError } = await supabase
+      .from('thoi_khoa_bieu')
+      .delete()
+      .eq('maphong', req.params.maphong);
+    if (scheduleError) throw new Error(scheduleError.message);
+
+    const { error } = await supabase.from('phong_hoc').delete().eq('maphong', req.params.maphong);
+    if (error) return sendSupabaseError(res, error);
+    return res.json({ ok: true });
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
 });
 
 app.get('/api/phan-cong', async (req, res) => {
