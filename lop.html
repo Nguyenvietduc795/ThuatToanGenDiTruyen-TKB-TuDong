@@ -12,6 +12,8 @@
             <h1>HỆ THỐNG QUẢN LÝ LỚP</h1>
         </header>
 
+        <div id="notification" class="notification"></div>
+
         <section class="form-section">
             <div class="input-group">
                 <input type="text" id="maLop" value="Mã: Tự động" readonly title="Mã lớp tự sinh">
@@ -33,6 +35,16 @@
                 </thead>
                 <tbody id="class-table-body"></tbody>
             </table>
+        </div>
+    </div>
+
+    <div id="confirm-overlay" class="confirm-overlay">
+        <div class="confirm-dialog">
+            <div id="confirm-message" class="confirm-message"></div>
+            <div class="confirm-actions">
+                <button id="confirm-ok" class="btn-add">OK</button>
+                <button id="confirm-cancel" class="btn-delete">Cancel</button>
+            </div>
         </div>
     </div>
 
@@ -79,6 +91,9 @@
 
             if (!khoa || !tenLop) return alert("Vui lòng nhập đầy đủ Khóa và Tên lớp!");
 
+            const action = editingMa ? 'cập nhật' : 'thêm mới';
+            if (!await confirmAction(`Bạn có chắc chắn muốn ${action} lớp học này?`)) return;
+
             const body = {
                 Khoa: khoa,
                 TenLop: tenLop
@@ -95,14 +110,59 @@
                     throw new Error(error.error || `API lỗi ${res.status}`);
                 }
 
+                const successMessage = editingMa ? 'Cập nhật lớp học thành công.' : 'Thêm lớp học thành công.';
                 editingMa = null;
                 document.getElementById('class-btn').innerText = "Thêm Lớp";
                 document.getElementById('class-btn').style.backgroundColor = "";
                 resetForm();
                 await loadClasses();
+                showNotification(successMessage);
             } catch (error) {
                 alert(`Không thể lưu lớp học: ${error.message}`);
             }
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            clearTimeout(showNotification.timeout);
+            showNotification.timeout = setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        function confirmAction(message) {
+            const overlay = document.getElementById('confirm-overlay');
+            const messageEl = document.getElementById('confirm-message');
+            const okBtn = document.getElementById('confirm-ok');
+            const cancelBtn = document.getElementById('confirm-cancel');
+
+            messageEl.textContent = message;
+            overlay.style.display = 'flex';
+
+            return new Promise(resolve => {
+                const cleanup = () => {
+                    okBtn.removeEventListener('click', onOk);
+                    cancelBtn.removeEventListener('click', onCancel);
+                };
+
+                const onOk = () => {
+                    cleanup();
+                    overlay.style.display = 'none';
+                    resolve(true);
+                };
+
+                const onCancel = () => {
+                    cleanup();
+                    overlay.style.display = 'none';
+                    resolve(false);
+                };
+
+                okBtn.addEventListener('click', onOk);
+                cancelBtn.addEventListener('click', onCancel);
+            });
         }
 
         function editClass(ma) {
@@ -121,7 +181,7 @@
         }
 
         async function deleteClass(ma) {
-            if (!confirm("Bạn có chắc chắn muốn xóa lớp học này?")) return;
+            if (!await confirmAction('Bạn có chắc chắn muốn xóa lớp học này?')) return;
             try {
                 const res = await fetch(`${API}/${ma}`, { method: 'DELETE' });
                 if (!res.ok) {
@@ -133,6 +193,7 @@
                     resetForm();
                 }
                 await loadClasses();
+                showNotification('Xóa lớp học thành công.');
             } catch (error) {
                 alert(`Không thể xóa lớp học: ${error.message}`);
             }
