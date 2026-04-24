@@ -50,11 +50,12 @@
     <script src="/sidebar.js"></script>
     <script>
         const API_BASE = 'http://localhost:3000/api';
+        const API = `${API_BASE}/monhoc`;
         let subjectData = [];
-        let editIndex = null;
+        let editingMa = null;
 
-        function renderTable() {
-            document.getElementById('subject-table-body').innerHTML = data.map(mh => `
+        function renderSubjectTable() {
+            document.getElementById('subject-table-body').innerHTML = subjectData.map(mh => `
                 <tr>
                     <td><strong>${mh.MaMon}</strong></td>
                     <td>${mh.TenMon}</td>
@@ -90,7 +91,7 @@
             }
         }
 
-        function handleSubject() {
+        async function handleSubject() {
             const ten = document.getElementById('tenMon').value;
             const tinChi = parseInt(document.getElementById('soTinChi').value) || 0;
             const tong = parseInt(document.getElementById('tongSoTiet').value) || 0;
@@ -111,28 +112,30 @@
                 LoaiPhong : document.getElementById('loaiPhong').value,
             };
 
-            if (editingMa) {
-                await fetch(`${API}/${editingMa}`, {
-                    method : 'PUT',
+            try {
+                const res = await fetch(editingMa ? `${API}/${editingMa}` : API, {
+                    method : editingMa ? 'PUT' : 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body   : JSON.stringify(body),
                 });
+                if (!res.ok) {
+                    const error = await res.json().catch(() => ({}));
+                    throw new Error(error.error || `API lỗi ${res.status}`);
+                }
+
                 editingMa = null;
                 document.getElementById('sub-btn').innerText = 'Thêm Môn';
                 document.getElementById('sub-btn').style.backgroundColor = '';
-            } else {
-                const lastNum = subjectData.length > 0 
-                    ? parseInt(subjectData[subjectData.length - 1].MaMon.replace('MH', '')) 
-                    : 0;
-                newMH.MaMon = "MH" + (lastNum + 1).toString().padStart(3, '0');
-                subjectData.push(newMH);
+                resetForm();
+                await loadSubjects();
+            } catch (error) {
+                alert(`Không thể lưu môn học: ${error.message}`);
             }
-            resetForm();
-            loadData();
         }
 
         function editSubject(ma) {
-            const mh = data.find(m => m.MaMon === ma);
+            const mh = subjectData.find(m => m.MaMon === ma);
+            if (!mh) return alert('Không tìm thấy môn học cần sửa!');
             editingMa = ma;
             document.getElementById('maMon').value      = mh.MaMon;
             document.getElementById('tenMon').value     = mh.TenMon;
@@ -150,8 +153,20 @@
 
         async function deleteSubject(ma) {
             if (!confirm('Xóa môn học này?')) return;
-            await fetch(`${API}/${ma}`, { method: 'DELETE' });
-            loadData();
+            try {
+                const res = await fetch(`${API}/${ma}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    const error = await res.json().catch(() => ({}));
+                    throw new Error(error.error || `API lỗi ${res.status}`);
+                }
+                if (editingMa === ma) {
+                    editingMa = null;
+                    resetForm();
+                }
+                await loadSubjects();
+            } catch (error) {
+                alert(`Không thể xóa môn học: ${error.message}`);
+            }
         }
 
         function resetForm() {
