@@ -294,6 +294,13 @@
 ════════════════════════════════════════════════════════════════ */
 let DATA = null;
 
+const API_ORIGIN = (
+  window.location.origin && /^https?:\/\/localhost:3000$/i.test(window.location.origin)
+) ? '' : 'http://localhost:3000';
+function apiUrl(path) {
+  return `${API_ORIGIN}${path}`;
+}
+
 const DAYS      = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
 const PALETTE   = ['c-0','c-1','c-2','c-3','c-4','c-5','c-6','c-7','c-8','c-9'];
 let   colorMap  = {};
@@ -330,7 +337,7 @@ let monStatusMap = new Map(); // mamon → { remaining, exhausted, tongsotiet, s
 /* ── Load data cho 2 danh sách ── */
 async function loadHocKyOptions() {
   try {
-    const list = await fetch('/api/hocky').then(r => r.json());
+    const list = await fetch(apiUrl('/api/hocky')).then(r => r.json());
     const opts = list.map(h =>
       `<option value="${h.mahk}">${h.tenhocky} — ${h.namhoc}${h.trangthai === 'Đang mở' ? ' ✅' : ''}</option>`
     ).join('');
@@ -351,10 +358,10 @@ async function loadHocKyOptions() {
 async function loadGenDropdowns() {
   try {
     const [lopRes, monRes, pcRes, statusRes] = await Promise.all([
-      fetch('/api/lop').then(r => r.json()),
-      fetch('/api/monhoc').then(r => r.json()),
-      fetch('/api/phan-cong').then(r => r.json()),
-      fetch('/api/ga/mon-status').then(r => r.json()),
+      fetch(apiUrl('/api/lop')).then(r => r.json()),
+      fetch(apiUrl('/api/monhoc')).then(r => r.json()),
+      fetch(apiUrl('/api/phan-cong')).then(r => r.json()),
+      fetch(apiUrl('/api/ga/mon-status')).then(r => r.json()),
     ]);
     allLopList  = lopRes  || [];
     allMonList  = monRes  || [];
@@ -401,7 +408,7 @@ async function loadGenDropdowns() {
 
 async function reloadMonStatus() {
   try {
-    const statusRes = await fetch('/api/ga/mon-status').then(r => r.json());
+    const statusRes = await fetch(apiUrl('/api/ga/mon-status')).then(r => r.json());
     monStatusMap = new Map();
     (statusRes || []).forEach(s => {
       const cur = monStatusMap.get(s.mamon);
@@ -573,7 +580,7 @@ async function resetAndSeed() {
   document.getElementById('reset-icon').textContent = '⏳';
   document.getElementById('reset-text').textContent = 'Đang reset...';
   try {
-    const res = await fetch('/api/seed/reset', { method: 'POST' });
+    const res = await fetch(apiUrl('/api/seed/reset'), { method: 'POST' });
     const json = await res.json();
     if (!json.ok) throw new Error(json.error);
     showResult('success', '✅ ' + json.message);
@@ -615,7 +622,7 @@ async function generateTKB() {
       ...(mamons.length > 0 && { mamon: mamons }),
     };
 
-    const res  = await fetch('/api/ga/generate', {
+    const res  = await fetch(apiUrl('/api/ga/generate'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
@@ -740,7 +747,7 @@ async function loadViewData() {
   if (namhoc) url += `&namhoc=${encodeURIComponent(namhoc)}`;
 
   try {
-    const json = await fetch(url).then(r => r.json());
+    const json = await fetch(apiUrl(url)).then(r => r.json());
     if (!json.ok) throw new Error(json.error || 'API lỗi');
 
     DATA = json;
