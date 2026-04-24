@@ -139,9 +139,6 @@
           <select id="gen-hocky"
             class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
             <option value="">-- Tất cả --</option>
-            <option value="1">Học kỳ 1</option>
-            <option value="2">Học kỳ 2</option>
-            <option value="3">Học kỳ hè</option>
           </select>
         </div>
         <div>
@@ -174,12 +171,17 @@
       </div>
 
       <!-- Generate button + status -->
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-4 flex-wrap">
         <button onclick="generateTKB()" id="gen-btn"
           class="px-8 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-lg transition-all flex items-center gap-2">
           <span id="gen-btn-icon">🚀</span>
           <span id="gen-btn-text">Tạo Thời Khóa Biểu</span>
           <span id="gen-spinner" class="spinner-icon">⏳</span>
+        </button>
+        <button onclick="resetAndSeed()" id="reset-btn" title="Xóa toàn bộ TKB + phân công rồi seed lại từ đầu"
+          class="px-4 py-3 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-semibold text-sm transition-all flex items-center gap-2">
+          <span id="reset-icon">🔄</span>
+          <span id="reset-text">Reset dữ liệu</span>
         </button>
         <div id="gen-status" class="text-sm text-gray-500 italic flex-1"></div>
       </div>
@@ -200,9 +202,6 @@
       <label class="block text-xs font-semibold text-gray-500 mb-1">Học kỳ</label>
       <select id="view-hocky" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
         <option value="">-- Tất cả --</option>
-        <option value="1">Học kỳ 1</option>
-        <option value="2">Học kỳ 2</option>
-        <option value="3">Học kỳ hè</option>
       </select>
     </div>
     <div>
@@ -329,6 +328,26 @@ let currentMonDisplay = []; // môn đang hiển thị
 let monStatusMap = new Map(); // mamon → { remaining, exhausted, tongsotiet, scheduled }
 
 /* ── Load data cho 2 danh sách ── */
+async function loadHocKyOptions() {
+  try {
+    const list = await fetch('/api/hocky').then(r => r.json());
+    const opts = list.map(h =>
+      `<option value="${h.mahk}">${h.tenhocky} — ${h.namhoc}${h.trangthai === 'Đang mở' ? ' ✅' : ''}</option>`
+    ).join('');
+    const base = '<option value="">-- Tất cả --</option>' + opts;
+    document.getElementById('gen-hocky').innerHTML  = base;
+    document.getElementById('view-hocky').innerHTML = base;
+    // Tự động chọn học kỳ đang mở
+    const openHK = list.find(h => h.trangthai === 'Đang mở');
+    if (openHK) {
+      document.getElementById('gen-hocky').value  = openHK.mahk;
+      document.getElementById('view-hocky').value = openHK.mahk;
+    }
+  } catch (e) {
+    console.warn('Khong tai duoc hoc_ky:', e.message);
+  }
+}
+
 async function loadGenDropdowns() {
   try {
     const [lopRes, monRes, pcRes, statusRes] = await Promise.all([
@@ -360,11 +379,15 @@ async function loadGenDropdowns() {
       }
     });
 
-    // Map: malop → Set của mamon
+    // Map: malop → Set của mamon (cả dạng gốc và dạng không có đuôi _LT/_TH)
+    // VD: phan_cong.mamon="IT01" → cũng add "IT01_LT","IT01_TH" vào set để match mon_hoc
+    const stripSfx = (m) => String(m).replace(/_(LT|TH)$/i, '');
     lopMonMap = new Map();
     allPhanCong.forEach(pc => {
       if (!lopMonMap.has(pc.malop)) lopMonMap.set(pc.malop, new Set());
-      lopMonMap.get(pc.malop).add(pc.mamon);
+      const s = lopMonMap.get(pc.malop);
+      s.add(pc.mamon);
+      s.add(stripSfx(pc.mamon)); // thêm dạng base để match mon_hoc có đuôi _LT/_TH
     });
 
     renderLopList(allLopList);
@@ -532,8 +555,10 @@ function onLopCheckChange() {
     (lopMonMap.get(malop) || new Set()).forEach(mm => relevantMamon.add(mm));
   });
   // Nếu lopMonMap rỗng (chưa có phân công) → hiện tất cả môn
+  // Normalize mamon khi so sánh: "IT01_LT" → base "IT01" để match phan_cong
+  const stripSfxL = (m) => String(m).replace(/_(LT|TH)$/i, '');
   const filtered = relevantMamon.size > 0
-    ? allMonList.filter(m => relevantMamon.has(m.mamon))
+    ? allMonList.filter(m => relevantMamon.has(m.mamon) || relevantMamon.has(stripSfxL(m.mamon)))
     : allMonList;
   renderMonList(filtered);
   document.getElementById('mon-note').textContent =
@@ -541,9 +566,30 @@ function onLopCheckChange() {
 }
 
 /* ── Generate TKB ── */
+async function resetAndSeed() {
+  if (!confirm('Xóa toàn bộ TKB và phân công, rồi seed lại từ đầu?\n(Dùng khi test, không dùng trên production)')) return;
+  const btn = document.getElementById('reset-btn');
+  btn.disabled = true;
+  document.getElementById('reset-icon').textContent = '⏳';
+  document.getElementById('reset-text').textContent = 'Đang reset...';
+  try {
+    const res = await fetch('/api/seed/reset', { method: 'POST' });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error);
+    showResult('success', '✅ ' + json.message);
+    await Promise.all([loadViewData(), reloadMonStatus()]);
+  } catch (err) {
+    showResult('error', '❌ Reset thất bại: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    document.getElementById('reset-icon').textContent = '🔄';
+    document.getElementById('reset-text').textContent = 'Reset dữ liệu';
+  }
+}
+
 async function generateTKB() {
   const tuan    = Number(document.getElementById('gen-tuan').value) || 1;
-  const hocky   = document.getElementById('gen-hocky').value  || null;
+  const mahk    = document.getElementById('gen-hocky').value  || null;
   const namhoc  = document.getElementById('gen-namhoc').value.trim() || null;
   const malops  = getCheckedLop();
   const mamons  = getCheckedMon();
@@ -563,7 +609,7 @@ async function generateTKB() {
   try {
     const body = {
       tuanhoc: tuan, popSize, maxGen, persist: true,
-      ...(hocky          && { hocky: Number(hocky) }),
+      ...(mahk           && { mahk: Number(mahk) }),
       ...(namhoc         && { namhoc }),
       ...(malops.length > 0 && { malop: malops }),
       ...(mamons.length > 0 && { mamon: mamons }),
@@ -588,7 +634,7 @@ async function generateTKB() {
 
     // Sync view controls → reload
     document.getElementById('view-tuan').value = tuan;
-    if (hocky)  document.getElementById('view-hocky').value  = hocky;
+    if (mahk)   document.getElementById('view-hocky').value  = mahk;
     if (namhoc) document.getElementById('view-namhoc').value = namhoc;
     await Promise.all([loadViewData(), reloadMonStatus()]);
 
@@ -682,7 +728,7 @@ async function loadViewData() {
   const tuan   = Number(document.getElementById('view-tuan').value) || 1;
   currentWeek  = tuan; // đồng bộ week nav với input
   updateWeekNav();
-  const hocky  = document.getElementById('view-hocky').value;
+  const mahk   = document.getElementById('view-hocky').value;
   const namhoc = document.getElementById('view-namhoc').value.trim();
 
   document.getElementById('view-status').textContent = 'Đang tải...';
@@ -690,7 +736,7 @@ async function loadViewData() {
   document.getElementById('loading-overlay').classList.add('show');
 
   let url = `/api/tkb/viewer?tuanhoc=${tuan}`;
-  if (hocky)  url += `&hocky=${hocky}`;
+  if (mahk)   url += `&mahk=${mahk}`;
   if (namhoc) url += `&namhoc=${encodeURIComponent(namhoc)}`;
 
   try {
@@ -702,7 +748,7 @@ async function loadViewData() {
 
     // Header
     const parts = [];
-    if (hocky)  parts.push(`HK${hocky}`);
+    if (mahk)   parts.push(`HK${mahk}`);
     if (namhoc) parts.push(namhoc);
     document.getElementById('header-sub').textContent =
       `Khoa CNTT${parts.length ? ' — '+parts.join(' / ') : ''} — Tuần ${tuan}`;
@@ -986,6 +1032,7 @@ function renderSV() {
 window.onload = async () => {
   updateWeekNav();
   switchTab('ql');
+  await loadHocKyOptions(); // load trước để dropdown có data khi loadViewData chạy
   await Promise.all([
     loadGenDropdowns(),
     loadViewData(),
