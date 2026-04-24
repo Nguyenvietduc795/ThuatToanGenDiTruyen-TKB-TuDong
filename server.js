@@ -89,7 +89,7 @@ function normalizeAssignmentType(pc, subjectsById) {
   return 'LT';
 }
 
-async function getSupabaseGaInput({ hocky = null, namhoc = null } = {}) {
+async function getSupabaseGaInput({ mahk = null, namhoc = null } = {}) {
   const [gvRes, lopRes, monRes, phongRes, khungRes, pcRes] = await Promise.all([
     supabase.from('giang_vien').select('*'),
     supabase.from('lop').select('*'),
@@ -111,11 +111,14 @@ async function getSupabaseGaInput({ hocky = null, namhoc = null } = {}) {
     loaiphong: normalizeAssignmentType(pc, subjectsById),
   }));
 
-  if (hocky !== null && hocky !== undefined) {
-    assignments = assignments.filter((pc) => Number(pc.hocky) === Number(hocky));
+  // Soft filter theo mahk/namhoc: chỉ áp dụng nếu có kết quả sau lọc
+  if (mahk !== null) {
+    const filtered = assignments.filter((pc) => pc.mahk != null && Number(pc.mahk) === Number(mahk));
+    if (filtered.length > 0) assignments = filtered;
   }
   if (namhoc) {
-    assignments = assignments.filter((pc) => String(pc.namhoc) === String(namhoc));
+    const filtered = assignments.filter((pc) => pc.namhoc && String(pc.namhoc) === String(namhoc));
+    if (filtered.length > 0) assignments = filtered;
   }
 
   return {
@@ -223,6 +226,15 @@ app.get('/api/lop', async (req, res) => {
   res.json(data);
 });
 
+app.get('/api/hocky', async (req, res) => {
+  const { data, error } = await supabase
+    .from('hoc_ky')
+    .select('mahk, tenhocky, namhoc, trangthai')
+    .order('mahk', { ascending: true });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data || []);
+});
+
 app.get('/api/monhoc', async (req, res) => {
   const { data, error } = await supabase
     .from('mon_hoc')
@@ -244,7 +256,7 @@ app.get('/api/phan-cong', async (req, res) => {
     let query = supabase.from('phan_cong_giang_day').select('*');
     if (req.query.malop)  query = query.eq('malop',  String(req.query.malop));
     if (req.query.mamon)  query = query.eq('mamon',  String(req.query.mamon));
-    if (req.query.hocky)  query = query.eq('hocky',  Number(req.query.hocky));
+    if (req.query.mahk)   query = query.eq('mahk',   Number(req.query.mahk));
     if (req.query.namhoc) query = query.eq('namhoc', String(req.query.namhoc));
     const { data, error } = await query;
     if (error) return res.status(500).json({ error: error.message });
@@ -257,15 +269,15 @@ app.get('/api/phan-cong', async (req, res) => {
 app.get('/api/tkb', async (req, res) => {
   try {
     const tuanhoc = parseOptionalNumber(req.query.tuanhoc, 'tuanhoc');
-    const hocky = parseOptionalNumber(req.query.hocky, 'hocky');
+    const mahk   = parseOptionalNumber(req.query.mahk, 'mahk');
     const namhoc = req.query.namhoc ? String(req.query.namhoc) : null;
     const mapc = req.query.mapc ? String(req.query.mapc) : null;
 
     let filterMapc = null;
-    if (hocky !== null || namhoc) {
+    if (mahk !== null || namhoc) {
       let pcQuery = supabase.from('phan_cong_giang_day').select('mapc');
-      if (hocky !== null) {
-        pcQuery = pcQuery.eq('hocky', hocky);
+      if (mahk !== null) {
+        pcQuery = pcQuery.eq('mahk', mahk);
       }
       if (namhoc) {
         pcQuery = pcQuery.eq('namhoc', namhoc);
@@ -311,13 +323,13 @@ app.get('/api/tkb', async (req, res) => {
 
 app.get('/api/ga/input-summary', async (req, res) => {
   try {
-    const hocky = parseOptionalNumber(req.query.hocky, 'hocky');
+    const mahk  = parseOptionalNumber(req.query.mahk, 'mahk');
     const namhoc = req.query.namhoc ? String(req.query.namhoc) : null;
 
-    const { rawData } = await getSupabaseGaInput({ hocky, namhoc });
+    const { rawData } = await getSupabaseGaInput({ mahk, namhoc });
     return res.json({
       ok: true,
-      filters: { hocky, namhoc },
+      filters: { mahk, namhoc },
       counts: {
         giang_vien: (rawData.giang_vien || []).length,
         lop: (rawData.lop || []).length,
@@ -366,13 +378,14 @@ app.get('/api/ga/mon-status', async (req, res) => {
 app.post('/api/ga/generate', async (req, res) => {
   try {
     const {
-      hocky = null,
+      mahk   = null,   // mã học kỳ từ bảng hoc_ky
       namhoc = null,
       tuanhoc = 1,
       persist = true,
       popSize = 20,
       maxGen = 500,
     } = req.body || {};
+    const parsedMahk = mahk !== null ? Number(mahk) : null;
 
     const parsedTuanhoc = Number(tuanhoc);
     const parsedPopSize = Number(popSize);
@@ -387,7 +400,30 @@ app.post('/api/ga/generate', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'maxGen phai la so nguyen > 0' });
     }
 
-    const { rawData, khungThoiGian } = await getSupabaseGaInput({ hocky, namhoc });
+    // Auto-seed nếu bảng phan_cong rỗng (user xóa khi test)
+    {
+      const { count } = await supabase
+        .from('phan_cong_giang_day').select('*', { count: 'exact', head: true });
+      if (!count || count === 0) {
+        console.log('[GA] phan_cong_giang_day trong, dang tu dong seed lai...');
+        const seedResult = spawnSync(
+          'node',
+          [path.join(__dirname, 'scripts/bootstrap_assignments.js')],
+          { stdio: 'pipe', encoding: 'utf8', cwd: __dirname }  // cwd rõ ràng tránh path lỗi
+        );
+        const seedErr = (seedResult.stderr || '').trim() || (seedResult.stdout || '').trim();
+        if (seedResult.status !== 0) {
+          console.error('[GA] Auto-seed that bai:\n', seedErr);
+          return res.status(500).json({
+            ok: false,
+            error: `Auto-seed that bai: ${seedErr || 'exit code ' + seedResult.status}`,
+          });
+        }
+        console.log('[GA] Auto-seed thanh cong:\n', seedResult.stdout);
+      }
+    }
+
+    const { rawData, khungThoiGian } = await getSupabaseGaInput({ mahk: parsedMahk, namhoc });
 
     // ── Lọc theo malop/mamon (hỗ trợ cả string lẫn array) ───────────────
     const malops = [].concat(req.body.malop || []).map(String).filter(Boolean);
@@ -398,8 +434,12 @@ app.post('/api/ga/generate', async (req, res) => {
       );
     }
     if (mamons.length > 0) {
+      // Normalize mamon: strip "_LT"/"_TH" suffix khi so sánh
+      // VD: user chọn "IT01_LT" từ mon_hoc → vẫn match phan_cong.mamon="IT01"
+      const stripSuffix = (m) => String(m).replace(/_(LT|TH)$/i, '');
+      const mamonBases  = new Set(mamons.map(stripSuffix));
       rawData.phan_cong_giang_day = (rawData.phan_cong_giang_day || []).filter(
-        (pc) => mamons.includes(pc.mamon)
+        (pc) => mamons.includes(pc.mamon) || mamonBases.has(stripSuffix(pc.mamon))
       );
     }
 
@@ -440,10 +480,15 @@ app.post('/api/ga/generate', async (req, res) => {
     }
 
     if ((rawData.phan_cong_giang_day || []).length === 0) {
+      const hint = malops.length > 0
+        ? `Khong co phan_cong nao cho lop [${malops.join(', ')}].`
+        : mamons.length > 0
+          ? `Khong co phan_cong nao cho mon [${mamons.join(', ')}].`
+          : 'Bang phan_cong_giang_day trong hoac toan bo da het so_tuan_can_hoc.';
       return res.status(400).json({
         ok: false,
-        error: 'Khong co phan_cong_giang_day phu hop (het tongsotiet hoac khong co du lieu)',
-        filters: { hocky, namhoc, malop: malops, mamon: mamons },
+        error: `${hint} Hay bam "Reset du lieu" de seed lai du lieu.`,
+        filters: { mahk: parsedMahk, namhoc, malop: malops, mamon: mamons },
         counts: {
           giang_vien: (rawData.giang_vien || []).length,
           lop: (rawData.lop || []).length,
@@ -458,7 +503,7 @@ app.post('/api/ga/generate', async (req, res) => {
       raw_data: rawData,
       pop_size: parsedPopSize,
       max_gen: parsedMaxGen,
-      file_name: `supabase_hk${hocky ?? 'all'}_nh${namhoc ?? 'all'}.json`,
+      file_name: `supabase_hk${parsedMahk ?? 'all'}_nh${namhoc ?? 'all'}.json`,
       tuanhoc: parsedTuanhoc, // Python dùng để double-check so_tuan_can_hoc
     });
 
@@ -495,11 +540,35 @@ app.post('/api/ga/generate', async (req, res) => {
       }
     }
 
-    // ── Nhân pattern ra tất cả tuần cần thiết ───────────────────────────
+    // ── Tính tuần kết thúc LT cho từng base mamon (để TH bắt đầu sau) ──────
+    const stripSfx   = (m) => String(m).replace(/_(LT|TH)$/i, '');
+    const mapcMamon  = new Map((rawData.phan_cong_giang_day || []).map(pc => [pc.mapc, pc.mamon]));
+    const ltEndWeek  = new Map(); // baseMamon → tuần cuối LT
+    for (const [mapc, soTuan] of pcWeeksMap) {
+      const mamon = mapcMamon.get(mapc) || '';
+      if (String(mamon).toUpperCase().endsWith('_LT')) {
+        const base = stripSfx(mamon);
+        const endW = parsedTuanhoc + soTuan - 1;
+        ltEndWeek.set(base, Math.max(ltEndWeek.get(base) || 0, endW));
+      }
+    }
+
+    // ── Nhân pattern ra tất cả tuần — TH bắt đầu sau khi LT xong ───────────
     const allRows = [];
     for (const row of baseRows) {
-      const soTuan = pcWeeksMap.get(row.mapc) || 1;
-      for (let w = parsedTuanhoc; w < parsedTuanhoc + soTuan; w++) {
+      const mamon   = mapcMamon.get(row.mapc) || '';
+      const isTH    = String(mamon).toUpperCase().endsWith('_TH');
+      const soTuan  = pcWeeksMap.get(row.mapc) || 1;
+
+      // TH bắt đầu tuần ngay sau khi LT kết thúc
+      let startWeek = parsedTuanhoc;
+      if (isTH) {
+        const base   = stripSfx(mamon);
+        const ltEnd  = ltEndWeek.get(base) || 0;
+        if (ltEnd > 0) startWeek = ltEnd + 1;
+      }
+
+      for (let w = startWeek; w < startWeek + soTuan; w++) {
         allRows.push({
           matkb:   crypto.randomUUID(),
           tuanhoc: w,
@@ -537,7 +606,7 @@ app.post('/api/ga/generate', async (req, res) => {
     return res.json({
       ok: true,
       summary,
-      filters: { hocky, namhoc, tuanhoc: parsedTuanhoc, popSize: parsedPopSize, maxGen: parsedMaxGen },
+      filters: { mahk: parsedMahk, namhoc, tuanhoc: parsedTuanhoc, popSize: parsedPopSize, maxGen: parsedMaxGen },
       persisted: Boolean(persist),
       generatedRows:     allRows.length,
       generatedSessions: sessions.length,
@@ -555,7 +624,7 @@ app.post('/api/ga/generate', async (req, res) => {
 app.get('/api/tkb/viewer', async (req, res) => {
   try {
     const tuanhoc = parseOptionalNumber(req.query.tuanhoc, 'tuanhoc') ?? 1;
-    const hocky   = parseOptionalNumber(req.query.hocky, 'hocky');
+    const mahk    = parseOptionalNumber(req.query.mahk, 'mahk');
     const namhoc  = req.query.namhoc ? String(req.query.namhoc) : null;
 
     const [tkbRes, gvRes, lopRes, monRes, phongRes, pcRes, khungRes] = await Promise.all([
@@ -576,10 +645,16 @@ app.get('/api/tkb/viewer', async (req, res) => {
     const lopMap = new Map((lopRes.data || []).map((l) => [l.malop, l]));
     const monMap = new Map((monRes.data || []).map((m) => [m.mamon, m]));
 
-    // Build pc map (filter hocky/namhoc if provided)
+    // Build pc map (soft filter theo mahk/namhoc)
     let pcRows = pcRes.data || [];
-    if (hocky  !== null) pcRows = pcRows.filter((p) => Number(p.hocky) === hocky);
-    if (namhoc)          pcRows = pcRows.filter((p) => String(p.namhoc) === namhoc);
+    if (mahk !== null) {
+      const f = pcRows.filter((p) => p.mahk != null && Number(p.mahk) === mahk);
+      if (f.length > 0) pcRows = f;
+    }
+    if (namhoc) {
+      const f = pcRows.filter((p) => p.namhoc && String(p.namhoc) === namhoc);
+      if (f.length > 0) pcRows = f;
+    }
     const pcMap = new Map(pcRows.map((p) => [p.mapc, p]));
 
     // Build khung map: makhung -> { day_index, slot }
@@ -638,6 +713,30 @@ app.get('/api/tkb/viewer', async (req, res) => {
   }
 });
 
+// Reset toàn bộ dữ liệu TKB + phan_cong rồi seed lại từ đầu (dùng khi test)
+app.post('/api/seed/reset', async (req, res) => {
+  try {
+    // Xóa TKB trước (có FK tới phan_cong)
+    const { error: e1 } = await supabase.from('thoi_khoa_bieu').delete().neq('matkb', '');
+    if (e1) throw new Error(e1.message);
+
+    // Xóa phan_cong
+    const { error: e2 } = await supabase.from('phan_cong_giang_day').delete().neq('mapc', '');
+    if (e2) throw new Error(e2.message);
+
+    // Seed lại
+    const r = spawnSync('node', ['scripts/bootstrap_assignments.js'], { stdio: 'pipe', encoding: 'utf8' });
+    if (r.status !== 0) throw new Error(r.stderr || 'bootstrap_assignments that bai');
+
+    const { count } = await supabase
+      .from('phan_cong_giang_day').select('*', { count: 'exact', head: true });
+
+    return res.json({ ok: true, message: `Reset thanh cong. Da seed ${count} phan_cong.` });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 async function autoSeedIfEmpty() {
@@ -652,14 +751,25 @@ async function autoSeedIfEmpty() {
 
     if (needsKhung || needsPC) {
       console.log('[AutoSeed] Phat hien bang trong, dang seed...');
-      const { spawnSync } = require('child_process');
       if (needsKhung) {
-        spawnSync('node', ['scripts/bootstrap_time_slots.js'],  { stdio: 'inherit' });
+        const r = spawnSync('node', [path.join(__dirname, 'scripts/bootstrap_time_slots.js')],
+          { stdio: 'pipe', encoding: 'utf8', cwd: __dirname });
+        if (r.status !== 0) {
+          console.warn('[AutoSeed] bootstrap_time_slots that bai:\n', r.stderr || r.stdout);
+        } else {
+          console.log('[AutoSeed] bootstrap_time_slots OK.');
+        }
       }
       if (needsPC) {
-        spawnSync('node', ['scripts/bootstrap_assignments.js'], { stdio: 'inherit' });
+        const r = spawnSync('node', [path.join(__dirname, 'scripts/bootstrap_assignments.js')],
+          { stdio: 'pipe', encoding: 'utf8', cwd: __dirname });
+        if (r.status !== 0) {
+          console.warn('[AutoSeed] bootstrap_assignments that bai:\n', r.stderr || r.stdout);
+          console.warn('[AutoSeed] → Hay chay "npm run seed:all" thu cong, sau do thu lai.');
+        } else {
+          console.log('[AutoSeed] bootstrap_assignments OK.');
+        }
       }
-      console.log('[AutoSeed] Hoan thanh.');
     } else {
       console.log(`[AutoSeed] Du lieu OK: ${khungCount} khung, ${pcCount} phan_cong.`);
     }

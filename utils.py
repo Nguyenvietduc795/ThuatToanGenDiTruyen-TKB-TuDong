@@ -150,15 +150,21 @@ def _normalize_room_type(value):
 
 
 def _is_active(value):
-    """Tra ve True neu trang thai duoc xem la dang hoat dong."""
+    """Tra ve True neu trang thai duoc xem la dang hoat dong.
+    Logic: chi loai tru neu RO RANG la inactive — cac gia tri khac deu coi la active.
+    """
     if value is None:
         return True
 
     normalized = _strip_vn(value)
-    return normalized in {
-      'active', 'hoatdong', 'danggiangday', 'sansang', 'ranh',
-      'available', 'ready', 'true', '1',
+    if not normalized:
+        return True
+
+    INACTIVE = {
+        'inactive', 'khonghoatdong', 'nghi', 'nghiviec', 'ngungday',
+        'tamngung', 'dadung', 'false', '0', 'disabled', 'locked',
     }
+    return normalized not in INACTIVE
 
 
 def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_order,
@@ -204,11 +210,20 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
         groups[lop['malop']] = idx
         groups_empty_space[idx] = []
 
-    # ── Giang vien (chi them GV dang hoat dong) ───────────────────────────────
+    # ── Giang vien (them tat ca GV co trong phan_cong, bo qua filter active) ──
+    # Neu GV da duoc phan_cong thi van phai xep lich du trangthai la gi.
+    # Lay tap magv thuc su co trong phan_cong de khoi tao dung so luong.
+    magv_in_pc = {pc['magv'] for pc in raw.get('phan_cong_giang_day', [])
+                  if isinstance(pc, dict) and 'magv' in pc}
     for gv in raw.get('giang_vien', []):
-        if _is_active(gv.get('trangthai')):
-            teachers[gv['magv']] = len(teachers)
-            teachers_empty_space[gv['magv']] = []
+        magv = gv.get('magv')
+        if not magv:
+            continue
+        # Them tat ca GV: ca GV duoc phan_cong lan GV dang hoat dong
+        if magv in magv_in_pc or _is_active(gv.get('trangthai')):
+            if magv not in teachers:
+                teachers[magv] = len(teachers)
+                teachers_empty_space[magv] = []
 
     # ── Phan cong giang day ───────────────────────────────────────────────────
     for pc in raw.get('phan_cong_giang_day', []):
@@ -265,11 +280,12 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
             )
 
         if malop not in groups:
-            raise ValueError(f"Khong tim thay lop '{malop}' trong danh sach lop")
+            print(f"[WARN] Bo qua phan_cong {mapc}: lop '{malop}' khong ton tai")
+            continue
         if magv not in teachers:
-            raise ValueError(
-                f"Khong tim thay giang vien '{magv}' hoac GV khong hoat dong"
-            )
+            # Tu dong them GV vao teachers neu bi bo sot
+            teachers[magv] = len(teachers)
+            teachers_empty_space[magv] = []
 
         group_idx = groups[malop]
         if (mamon, group_idx) not in subjects_order:
@@ -515,7 +531,7 @@ def write_viewer_html(filled, data, filepath, raw_data=None):
                         'tenphong': p['tenphong'],
                         'loaiphong': p['loaiphong']}
                        for p in raw['phong_hoc']
-                       if p.get('trangthai') == 'active'],
+                       if _is_active(p.get('trangthai'))],
         'mon_list'  : [{'mamon': m['mamon'],
                         'sotietlythuyet': m.get('sotietlythuyet', 0),
                         'sotietthuchanh': m.get('sotietthuchanh', 0)}
