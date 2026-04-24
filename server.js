@@ -401,6 +401,8 @@ app.delete('/api/lop/:malop', async (req, res) => {
   } catch (error) {
     return sendSupabaseError(res, error);
   }
+});
+
 app.get('/api/hocky', async (req, res) => {
   const { data, error } = await supabase
     .from('hoc_ky')
