@@ -7,43 +7,66 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container" style="max-width: 1200px;">
-        <header>
-            <h1>HỆ THỐNG QUẢN LÝ LỚP</h1>
-        </header>
+    <div class="page-wrapper">
+
+        <div class="page-header">
+            <span class="page-header-icon">🎓</span>
+            <div>
+                <div class="page-title">QUẢN LÝ LỚP HỌC</div>
+                <div class="page-subtitle">Quản lý danh sách lớp học và đơn vị khoa — Khoa CNTT</div>
+            </div>
+        </div>
+
+        <div id="class-stats" class="stat-row"></div>
 
         <div id="notification" class="notification"></div>
 
-        <section class="form-section">
-            <div class="input-group">
-                <input type="text" id="maLop" value="Mã: Tự động" readonly title="Mã lớp tự sinh">
-                <input type="text" id="tenLop" placeholder="Tên Lớp (VD: CNTT-K22A)">
-                <input type="text" id="maKhoa" placeholder="Mã Khoa (VD: CNTT)">
-                <button onclick="handleClass()" class="btn-add" id="class-btn">Thêm Lớp</button>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">✏️ Thêm mới / Chỉnh sửa lớp học</span>
             </div>
-        </section>
-
-        <div class="table-responsive">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Mã Lớp</th>
-                        <th>Tên Lớp</th>
-                        <th>Mã Khoa</th>
-                        <th style="width: 150px;">Thao tác</th>
-                    </tr>
-                </thead>
-                <tbody id="class-table-body"></tbody>
-            </table>
+            <div class="form-section">
+                <div class="input-group">
+                    <input type="text" id="maLop" value="Mã: Tự động" readonly title="Mã lớp tự sinh">
+                    <input type="text" id="tenLop" placeholder="Tên Lớp (VD: CNTT-K22A)">
+                    <input type="text" id="maKhoa" placeholder="Mã Khoa (VD: CNTT)">
+                    <button onclick="handleClass()" class="btn-add" id="class-btn">+ Thêm Lớp</button>
+                </div>
+            </div>
         </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">📋 Danh sách lớp học</span>
+                <div class="table-search-wrap">
+                    <input type="text" id="class-search" class="table-search-input"
+                        placeholder="Tìm tên lớp, mã khoa..." oninput="filterTable(this.value)">
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mã Lớp</th>
+                            <th>Tên Lớp</th>
+                            <th>Mã Khoa</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="class-table-body"></tbody>
+                </table>
+            </div>
+            <div id="class-pagination"></div>
+        </div>
+
     </div>
 
     <div id="confirm-overlay" class="confirm-overlay">
         <div class="confirm-dialog">
             <div id="confirm-message" class="confirm-message"></div>
             <div class="confirm-actions">
-                <button id="confirm-ok" class="btn-add">OK</button>
-                <button id="confirm-cancel" class="btn-delete">Cancel</button>
+                <button id="confirm-ok" class="btn-add">Xác nhận</button>
+                <button id="confirm-cancel" class="btn-delete">Hủy</button>
             </div>
         </div>
     </div>
@@ -54,20 +77,94 @@
         const API = `${API_BASE}/lop`;
         let classData = [];
         let editingMa = null;
+        let currentPage = 1;
+        let searchKeyword = '';
+        const PAGE_SIZE = 10;
 
+        /* ── Pagination renderer ── */
+        function renderPagination(total, current, containerId, fnName) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            const totalPages = Math.ceil(total / PAGE_SIZE);
+            if (totalPages <= 1) { el.innerHTML = ''; return; }
+            let html = `<span class="pagination-info">Tổng ${total} mục</span>`;
+            html += `<button class="page-btn" onclick="${fnName}(${current - 1})" ${current === 1 ? 'disabled' : ''}>&#8249;</button>`;
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= current - 2 && i <= current + 2)) {
+                    html += `<button class="page-btn ${i === current ? 'active' : ''}" onclick="${fnName}(${i})">${i}</button>`;
+                } else if (i === current - 3 || i === current + 3) {
+                    html += `<span class="page-ellipsis">…</span>`;
+                }
+            }
+            html += `<button class="page-btn" onclick="${fnName}(${current + 1})" ${current === totalPages ? 'disabled' : ''}>&#8250;</button>`;
+            el.className = 'pagination';
+            el.innerHTML = html;
+        }
+
+        function goToPage(n) { currentPage = n; renderClassTable(); }
+
+        /* ── Search filter ── */
+        function filterTable(keyword) {
+            searchKeyword = keyword.toLowerCase();
+            currentPage = 1;
+            renderClassTable();
+        }
+
+        /* ── Stat cards ── */
+        function renderStats() {
+            const total  = classData.length;
+            const khoaSet = new Set(classData.map(l => l.Khoa).filter(Boolean));
+            const khoaCount = khoaSet.size;
+            const cnttCount = classData.filter(l => (l.Khoa || '').toUpperCase().includes('CNTT')).length;
+            document.getElementById('class-stats').innerHTML = [
+                { icon: '🏫', bg: 'stat-icon-blue',   val: total,      lbl: 'Tổng lớp học' },
+                { icon: '🏢', bg: 'stat-icon-purple',  val: khoaCount,  lbl: 'Số khoa/đơn vị' },
+                { icon: '💻', bg: 'stat-icon-green',   val: cnttCount,  lbl: 'Khoa CNTT' },
+                { icon: '📊', bg: 'stat-icon-amber',   val: total > 0 ? Math.ceil(total / Math.max(khoaCount, 1)) : 0, lbl: 'Lớp/Khoa (tb)' },
+            ].map(s => `
+                <div class="stat-card">
+                    <div class="stat-icon-wrap ${s.bg}">${s.icon}</div>
+                    <div>
+                        <div class="stat-value">${s.val}</div>
+                        <div class="stat-label">${s.lbl}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        /* ── Render table with filter + pagination ── */
         function renderClassTable() {
             const tableBody = document.getElementById('class-table-body');
-            tableBody.innerHTML = classData.map((lop, index) => `
+            const filtered = searchKeyword
+                ? classData.filter(lop =>
+                    `${lop.MaLop} ${lop.TenLop} ${lop.Khoa}`.toLowerCase().includes(searchKeyword))
+                : classData;
+
+            if (filtered.length === 0) {
+                tableBody.innerHTML = `
+                    <tr><td colspan="4" style="text-align:center;padding:32px;color:#9ca3af">
+                        ${searchKeyword ? '🔍 Không tìm thấy kết quả phù hợp.' : 'Không có dữ liệu lớp học.'}
+                    </td></tr>`;
+                document.getElementById('class-pagination').innerHTML = '';
+                return;
+            }
+            const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+            if (currentPage > totalPages) currentPage = totalPages;
+            const start = (currentPage - 1) * PAGE_SIZE;
+            const pageData = filtered.slice(start, start + PAGE_SIZE);
+
+            tableBody.innerHTML = pageData.map((lop) => `
                 <tr>
                     <td><strong>${lop.MaLop}</strong></td>
                     <td>${lop.TenLop}</td>
-                    <td>${lop.Khoa}</td>
+                    <td><span class="badge-info">${lop.Khoa}</span></td>
                     <td>
                         <button onclick="editClass('${lop.MaLop}')" class="btn-edit">Sửa</button>
                         <button onclick="deleteClass('${lop.MaLop}')" class="btn-delete">Xóa</button>
                     </td>
                 </tr>
             `).join('');
+            renderPagination(filtered.length, currentPage, 'class-pagination', 'goToPage');
         }
 
         async function loadClasses() {
@@ -76,90 +173,77 @@
                 const data = await res.json();
                 classData = data.map(row => ({
                     MaLop: row.malop,
-                    Khoa: row.khoa,
+                    Khoa : row.khoa,
                     TenLop: row.tenlop
                 }));
+                currentPage = 1;
                 renderClassTable();
+                renderStats();
             } catch (error) {
                 console.error('Lỗi khi tải dữ liệu lớp:', error);
             }
         }
 
         async function handleClass() {
-            const khoa = document.getElementById('maKhoa').value;
+            const khoa  = document.getElementById('maKhoa').value;
             const tenLop = document.getElementById('tenLop').value;
-
-            if (!khoa || !tenLop) return alert("Vui lòng nhập đầy đủ Khóa và Tên lớp!");
+            if (!khoa || !tenLop) return alert('Vui lòng nhập đầy đủ Khóa và Tên lớp!');
 
             const action = editingMa ? 'cập nhật' : 'thêm mới';
             if (!await confirmAction(`Bạn có chắc chắn muốn ${action} lớp học này?`)) return;
-
-            const body = {
-                Khoa: khoa,
-                TenLop: tenLop
-            };
 
             try {
                 const res = await fetch(editingMa ? `${API}/${editingMa}` : API, {
                     method : editingMa ? 'PUT' : 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body   : JSON.stringify(body),
+                    body   : JSON.stringify({ Khoa: khoa, TenLop: tenLop }),
                 });
                 if (!res.ok) {
-                    const error = await res.json().catch(() => ({}));
-                    throw new Error(error.error || `API lỗi ${res.status}`);
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || `API lỗi ${res.status}`);
                 }
-
-                const successMessage = editingMa ? 'Cập nhật lớp học thành công.' : 'Thêm lớp học thành công.';
+                const msg = editingMa ? 'Cập nhật lớp học thành công.' : 'Thêm lớp học thành công.';
                 editingMa = null;
-                document.getElementById('class-btn').innerText = "Thêm Lớp";
-                document.getElementById('class-btn').style.backgroundColor = "";
+                document.getElementById('class-btn').innerText = '+ Thêm Lớp';
+                document.getElementById('class-btn').style.backgroundColor = '';
                 resetForm();
                 await loadClasses();
-                showNotification(successMessage);
+                showNotification(msg);
             } catch (error) {
                 alert(`Không thể lưu lớp học: ${error.message}`);
             }
         }
 
         function showNotification(message, type = 'success') {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.className = `notification ${type}`;
-            notification.style.display = 'block';
-            clearTimeout(showNotification.timeout);
-            showNotification.timeout = setTimeout(() => {
-                notification.style.display = 'none';
-            }, 3000);
+            const isErr = type === 'error';
+            const n = document.getElementById('notification');
+            n.className = `notification${isErr ? ' error' : ''}`;
+            n.innerHTML = `
+                <div class="toast-inner">
+                    <div class="toast-icon ${isErr ? 'toast-icon-err' : 'toast-icon-ok'}">${isErr ? '✕' : '✓'}</div>
+                    <div class="toast-body">
+                        <div class="toast-title">${isErr ? 'Thất bại' : 'Thành công'}</div>
+                        <div class="toast-msg">${message}</div>
+                    </div>
+                    <button class="toast-close" onclick="document.getElementById('notification').style.display='none'">×</button>
+                </div>
+                <div class="toast-bar"></div>`;
+            n.style.display = 'block';
+            clearTimeout(showNotification._t);
+            showNotification._t = setTimeout(() => { n.style.display = 'none'; }, 3200);
         }
 
         function confirmAction(message) {
-            const overlay = document.getElementById('confirm-overlay');
+            const overlay   = document.getElementById('confirm-overlay');
             const messageEl = document.getElementById('confirm-message');
-            const okBtn = document.getElementById('confirm-ok');
+            const okBtn     = document.getElementById('confirm-ok');
             const cancelBtn = document.getElementById('confirm-cancel');
-
             messageEl.textContent = message;
             overlay.style.display = 'flex';
-
             return new Promise(resolve => {
-                const cleanup = () => {
-                    okBtn.removeEventListener('click', onOk);
-                    cancelBtn.removeEventListener('click', onCancel);
-                };
-
-                const onOk = () => {
-                    cleanup();
-                    overlay.style.display = 'none';
-                    resolve(true);
-                };
-
-                const onCancel = () => {
-                    cleanup();
-                    overlay.style.display = 'none';
-                    resolve(false);
-                };
-
+                const cleanup  = () => { okBtn.removeEventListener('click', onOk); cancelBtn.removeEventListener('click', onCancel); };
+                const onOk     = () => { cleanup(); overlay.style.display = 'none'; resolve(true); };
+                const onCancel = () => { cleanup(); overlay.style.display = 'none'; resolve(false); };
                 okBtn.addEventListener('click', onOk);
                 cancelBtn.addEventListener('click', onCancel);
             });
@@ -169,14 +253,12 @@
             const lop = classData.find(item => item.MaLop === ma);
             if (!lop) return alert('Không tìm thấy lớp cần sửa!');
             editingMa = ma;
-
-            document.getElementById('maLop').value = lop.MaLop;
+            document.getElementById('maLop').value  = lop.MaLop;
             document.getElementById('tenLop').value = lop.TenLop;
             document.getElementById('maKhoa').value = lop.Khoa;
-
             const btn = document.getElementById('class-btn');
-            btn.innerText = "Lưu cập nhật";
-            btn.style.backgroundColor = "#3b82f6";
+            btn.innerText = '💾 Lưu cập nhật';
+            btn.style.backgroundColor = '#2563eb';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -185,13 +267,10 @@
             try {
                 const res = await fetch(`${API}/${ma}`, { method: 'DELETE' });
                 if (!res.ok) {
-                    const error = await res.json().catch(() => ({}));
-                    throw new Error(error.error || `API lỗi ${res.status}`);
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || `API lỗi ${res.status}`);
                 }
-                if (editingMa === ma) {
-                    editingMa = null;
-                    resetForm();
-                }
+                if (editingMa === ma) { editingMa = null; resetForm(); }
                 await loadClasses();
                 showNotification('Xóa lớp học thành công.');
             } catch (error) {

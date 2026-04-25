@@ -1111,25 +1111,26 @@ app.get('/api/tkb/viewer', async (req, res) => {
   }
 });
 
-// Reset toàn bộ dữ liệu TKB + phan_cong rồi seed lại từ đầu (dùng khi test)
+// Xóa sạch 3 bảng về trạng thái trống: thoi_khoa_bieu → phan_cong_giang_day → khung_thoi_gian
+// Thứ tự xóa theo FK: thoi_khoa_bieu tham chiếu cả phan_cong và khung_thoi_gian nên phải xóa trước.
 app.post('/api/seed/reset', async (req, res) => {
   try {
-    // Xóa TKB trước (có FK tới phan_cong)
+    // 1. Xóa thoi_khoa_bieu (FK → phan_cong_giang_day.mapc, FK → khung_thoi_gian.makhung)
     const { error: e1 } = await supabase.from('thoi_khoa_bieu').delete().neq('matkb', '');
-    if (e1) throw new Error(e1.message);
+    if (e1) throw new Error('thoi_khoa_bieu: ' + e1.message);
 
-    // Xóa phan_cong
+    // 2. Xóa phan_cong_giang_day
     const { error: e2 } = await supabase.from('phan_cong_giang_day').delete().neq('mapc', '');
-    if (e2) throw new Error(e2.message);
+    if (e2) throw new Error('phan_cong_giang_day: ' + e2.message);
 
-    // Seed lại
-    const r = spawnSync('node', ['scripts/bootstrap_assignments.js'], { stdio: 'pipe', encoding: 'utf8' });
-    if (r.status !== 0) throw new Error(r.stderr || 'bootstrap_assignments that bai');
+    // 3. Xóa khung_thoi_gian (makhung là int4 PK, xóa tất cả hàng có PK > 0)
+    const { error: e3 } = await supabase.from('khung_thoi_gian').delete().gt('makhung', 0);
+    if (e3) throw new Error('khung_thoi_gian: ' + e3.message);
 
-    const { count } = await supabase
-      .from('phan_cong_giang_day').select('*', { count: 'exact', head: true });
-
-    return res.json({ ok: true, message: `Reset thanh cong. Da seed ${count} phan_cong.` });
+    return res.json({
+      ok: true,
+      message: 'Đã xóa sạch 3 bảng: thoi_khoa_bieu, phan_cong_giang_day, khung_thoi_gian. Dữ liệu về trạng thái trống.',
+    });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
   }

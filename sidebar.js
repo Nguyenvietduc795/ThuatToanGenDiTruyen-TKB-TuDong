@@ -16,38 +16,44 @@
   const style = document.createElement('style');
   style.textContent = `
     #app-sidebar {
-      position: fixed; left: 0; top: 0; bottom: 0; width: 210px;
-      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+      position: fixed; left: 0; top: 0; bottom: 0; width: 220px;
+      background: linear-gradient(180deg, #0f172a 0%, #172036 100%);
       z-index: 9000; display: flex; flex-direction: column;
-      box-shadow: 3px 0 12px rgba(0,0,0,.3); overflow: hidden;
+      box-shadow: 4px 0 18px rgba(0,0,0,.28); overflow: hidden;
     }
     #app-sidebar .sb-logo {
-      padding: 18px 16px 14px;
-      color: #f8fafc; font-size: 15px; font-weight: 800;
-      border-bottom: 1px solid #334155; letter-spacing: .4px;
-      display: flex; align-items: center; gap: 8px;
-    }
-    #app-sidebar .sb-logo span { font-size: 22px; }
-    #app-sidebar .sb-section { font-size: 10px; color: #64748b;
-      padding: 12px 16px 4px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
-    #app-sidebar a {
+      padding: 20px 18px 17px;
+      color: #f1f5f9; font-size: 15.5px; font-weight: 800;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      letter-spacing: .3px;
       display: flex; align-items: center; gap: 10px;
-      padding: 11px 16px; color: #94a3b8; text-decoration: none;
+    }
+    #app-sidebar .sb-logo span { font-size: 24px; }
+    #app-sidebar .sb-section {
+      font-size: 10px; color: #475569;
+      padding: 14px 18px 5px;
+      text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700;
+    }
+    #app-sidebar a {
+      display: flex; align-items: center; gap: 11px;
+      padding: 13px 20px; color: #94a3b8; text-decoration: none;
       font-size: 13.5px; font-weight: 500; transition: all .15s;
-      border-left: 3px solid transparent;
+      border-left: 4px solid transparent; margin: 1px 0;
     }
-    #app-sidebar a:hover { background: rgba(255,255,255,.06); color: #e2e8f0; }
+    #app-sidebar a:hover {
+      background: rgba(255,255,255,.07); color: #e2e8f0;
+    }
     #app-sidebar a.sb-active {
-      background: rgba(59,130,246,.15); color: #93c5fd;
-      border-left-color: #3b82f6; font-weight: 700;
+      background: rgba(30,58,138,.45); color: #bfdbfe;
+      border-left-color: #60a5fa; font-weight: 700;
     }
-    #app-sidebar .sb-icon { font-size: 17px; line-height: 1; }
+    #app-sidebar .sb-icon { font-size: 18px; line-height: 1; }
     #app-sidebar .sb-footer {
-      margin-top: auto; padding: 12px 16px;
-      border-top: 1px solid #334155;
+      margin-top: auto; padding: 14px 18px;
+      border-top: 1px solid rgba(255,255,255,0.06);
       font-size: 11px; color: #475569; text-align: center;
     }
-    body { margin-left: 210px !important; }
+    body { margin-left: 220px !important; }
   `;
   document.head.appendChild(style);
 
