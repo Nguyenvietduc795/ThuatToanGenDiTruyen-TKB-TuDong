@@ -191,6 +191,68 @@ input[type=number] {
     background-color: #d97706;
 }
 
+.notification {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 280px;
+    max-width: 90%;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+    font-weight: 600;
+    color: #155724;
+    background-color: #d4edda;
+    z-index: 9999;
+    text-align: center;
+}
+
+.notification.error {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+.confirm-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 9998;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.confirm-dialog {
+    width: min(460px, 100%);
+    background: white;
+    border-radius: 16px;
+    padding: 24px 22px;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+    text-align: center;
+}
+
+.confirm-message {
+    margin-bottom: 22px;
+    color: #0f172a;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.confirm-actions {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+}
+
+.confirm-actions .btn-delete {
+    min-width: 110px;
+}
+
 /* Hiệu ứng khi đang ở chế độ sửa để người dùng chú ý nút Lưu */
 .btn-add:contains("Lưu cập nhật") {
     background-color: #3b82f6; /* Đổi sang màu xanh dương khi sửa */
