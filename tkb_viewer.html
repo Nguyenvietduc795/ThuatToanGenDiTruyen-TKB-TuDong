@@ -50,7 +50,7 @@
   .lo-spinner { width:48px; height:48px; border:5px solid #e5e7eb; border-top-color:#1d4ed8; border-radius:50%; animation: spin .8s linear infinite; }
 </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="min-h-screen" style="background:#f4f7fb">
 <script src="/sidebar.js"></script>
 
 <!-- Loading overlay -->
@@ -62,7 +62,7 @@
 <div class="max-w-screen-xl mx-auto p-4">
 
   <!-- Header -->
-  <div class="bg-gradient-to-r from-blue-700 to-indigo-600 text-white rounded-2xl p-5 mb-5 shadow-lg flex items-center gap-4">
+  <div style="background:linear-gradient(135deg,#2563eb 0%,#4f46e5 100%);box-shadow:0 4px 20px rgba(37,99,235,0.22)" class="text-white rounded-2xl p-5 mb-5 flex items-center gap-4">
     <div class="text-5xl">📅</div>
     <div class="flex-1">
       <h1 class="text-2xl font-bold tracking-tight">Thời Khóa Biểu</h1>
@@ -76,7 +76,8 @@
   <div class="bg-white rounded-2xl shadow mb-5 overflow-hidden">
     <!-- Tiêu đề panel (click để toggle) -->
     <button onclick="toggleGenPanel()"
-      class="w-full flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-sm rounded-t-2xl hover:opacity-95 transition-all">
+      style="background:linear-gradient(135deg,#4f46e5 0%,#2563eb 100%)"
+      class="w-full flex items-center justify-between px-5 py-3.5 text-white font-bold text-sm rounded-t-2xl hover:opacity-95 transition-all">
       <span>🚀 Tạo Thời Khóa Biểu (Thuật Toán Di Truyền)</span>
       <span id="gen-panel-arrow" class="text-lg transition-transform">▲</span>
     </button>
@@ -173,14 +174,15 @@
       <!-- Generate button + status -->
       <div class="flex items-center gap-4 flex-wrap">
         <button onclick="generateTKB()" id="gen-btn"
-          class="px-8 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-lg transition-all flex items-center gap-2">
+          style="background:#1d4ed8" onmouseover="this.style.background='#1e3a8a'" onmouseout="this.style.background='#1d4ed8'"
+          class="px-8 py-3 rounded-xl text-white font-bold text-sm shadow-lg transition-all flex items-center gap-2">
           <span id="gen-btn-icon">🚀</span>
           <span id="gen-btn-text">Tạo Thời Khóa Biểu</span>
           <span id="gen-spinner" class="spinner-icon">⏳</span>
         </button>
-        <button onclick="resetAndSeed()" id="reset-btn" title="Xóa toàn bộ TKB + phân công rồi seed lại từ đầu"
+        <button onclick="resetAndSeed()" id="reset-btn" title="Xóa sạch 3 bảng: thoi_khoa_bieu, phan_cong_giang_day, khung_thoi_gian"
           class="px-4 py-3 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-semibold text-sm transition-all flex items-center gap-2">
-          <span id="reset-icon">🔄</span>
+          <span id="reset-icon">🗑</span>
           <span id="reset-text">Reset dữ liệu</span>
         </button>
         <div id="gen-status" class="text-sm text-gray-500 italic flex-1"></div>
@@ -210,7 +212,8 @@
         class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-blue-400">
     </div>
     <button onclick="loadViewData()"
-      class="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow transition-all">
+      style="background:#1d4ed8" onmouseover="this.style.background='#1e3a8a'" onmouseout="this.style.background='#1d4ed8'"
+      class="px-6 py-2 rounded-xl text-white font-semibold text-sm shadow transition-all">
       🔄 Tải TKB
     </button>
     <span id="view-status" class="text-xs text-gray-400 italic self-center"></span>
@@ -219,13 +222,13 @@
   <!-- Tab buttons -->
   <div class="flex gap-2 mb-4 flex-wrap">
     <button id="btn-ql" onclick="switchTab('ql')"
-      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">🏫 Quản lý</button>
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 transition-all">🏫 Quản lý</button>
     <button id="btn-gv" onclick="switchTab('gv')"
-      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">👨‍🏫 Giảng viên</button>
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 transition-all">👨‍🏫 Giảng viên</button>
     <button id="btn-sv" onclick="switchTab('sv')"
-      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">🎓 Sinh viên</button>
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 transition-all">🎓 Sinh viên</button>
     <button id="btn-ph" onclick="switchTab('ph')"
-      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">🏛 Phòng học</button>
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 transition-all">🏛 Phòng học</button>
   </div>
 
   <!-- Week nav -->
@@ -574,22 +577,37 @@ function onLopCheckChange() {
 
 /* ── Generate TKB ── */
 async function resetAndSeed() {
-  if (!confirm('Xóa toàn bộ TKB và phân công, rồi seed lại từ đầu?\n(Dùng khi test, không dùng trên production)')) return;
+  if (!confirm(
+    'Xóa sạch dữ liệu 3 bảng:\n' +
+    '  • thoi_khoa_bieu\n' +
+    '  • phan_cong_giang_day\n' +
+    '  • khung_thoi_gian\n\n' +
+    'Sau khi xóa, các bảng sẽ trống hoàn toàn.\nBạn có chắc chắn?'
+  )) return;
   const btn = document.getElementById('reset-btn');
   btn.disabled = true;
   document.getElementById('reset-icon').textContent = '⏳';
-  document.getElementById('reset-text').textContent = 'Đang reset...';
+  document.getElementById('reset-text').textContent = 'Đang xóa...';
   try {
     const res = await fetch(apiUrl('/api/seed/reset'), { method: 'POST' });
     const json = await res.json();
     if (!json.ok) throw new Error(json.error);
     showResult('success', '✅ ' + json.message);
+    // Reload lại view sau khi xóa để phản ánh bảng trống
+    DATA = null;
+    document.getElementById('grid-ql').innerHTML = '';
+    document.getElementById('grid-gv').innerHTML = '';
+    document.getElementById('grid-sv').innerHTML = '';
+    document.getElementById('grid-ph').innerHTML = '';
+    document.getElementById('stats-row').innerHTML = '';
+    document.getElementById('legend-row').innerHTML = '';
+    document.getElementById('view-status').textContent = 'Dữ liệu đã được xóa sạch.';
     await Promise.all([loadViewData(), reloadMonStatus()]);
   } catch (err) {
-    showResult('error', '❌ Reset thất bại: ' + err.message);
+    showResult('error', '❌ Xóa thất bại: ' + err.message);
   } finally {
     btn.disabled = false;
-    document.getElementById('reset-icon').textContent = '🔄';
+    document.getElementById('reset-icon').textContent = '🗑';
     document.getElementById('reset-text').textContent = 'Reset dữ liệu';
   }
 }
@@ -821,14 +839,16 @@ function switchTab(tab) {
   else if (tab==='ph') { rebuildDayBtns(); renderRoomGrid(currentDay); }
 }
 
-/* ── Session card ── */
+/* ── Session card — 2 màu: xanh lam = LT, xanh lá = TH ── */
 function card(s, showGV, showLop, compact) {
-  const badge  = `<span class="badge ${s.loai==='TH'?'bdg-th':'bdg-lt'}">${s.loai}</span>`;
+  const isTH   = s.loai === 'TH';
+  const clrCls = isTH ? 'c-1' : 'c-0';
+  const badge  = `<span class="badge ${isTH?'bdg-th':'bdg-lt'}">${s.loai}</span>`;
   const tRange = compact
     ? `<div class="sess-info" style="font-size:9px;color:#9ca3af">Tiết ${s.tiet_start}–${s.tiet_end}</div>` : '';
   const gvLine  = showGV  ? `<div class="sess-info">👤 ${s.tengv}</div>`  : '';
   const lopLine = showLop ? `<div class="sess-info">🎓 ${s.tenlop}</div>` : '';
-  return `<div class="sess-card ${clr(s.mamon)}" style="${compact?'margin-bottom:3px;':''}">
+  return `<div class="sess-card ${clrCls}" style="${compact?'margin-bottom:3px;':''}">
     <div class="sess-name">${s.tenmon}</div>
     ${badge}${tRange}${gvLine}${lopLine}
     <div class="sess-info">🏛 ${s.maphong}</div>
@@ -936,7 +956,7 @@ function buildRoomGrid(dayIdx) {
         const sp = s.tiet_end - s.tiet_start + 1;
         rowEnd[r.maphong] = t + sp;
         h += `<td rowspan="${sp}" class="sess-cell">
-          <div class="sess-card ${clr(s.mamon)}">
+          <div class="sess-card ${s.loai==='TH'?'c-1':'c-0'}">
             <div class="sess-name">${s.tenmon}</div>
             <span class="badge ${s.loai==='TH'?'bdg-th':'bdg-lt'}">${s.loai}</span>
             <div class="sess-info">🎓 ${s.tenlop}</div>
@@ -1008,12 +1028,9 @@ function buildStats() {
   </div>`).join('');
 }
 function buildLegend() {
-  const ms={};
-  DATA.lich.forEach(s=>{ ms[s.mamon]=s.tenmon; });
-  return '<span class="text-gray-400 mr-1 self-center text-xs">Màu:</span>'
-    + Object.entries(ms).map(([m,n])=>
-        `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium ${clr(m)}">${m}: ${n}</span>`
-      ).join('');
+  return '<span class="text-gray-400 mr-2 self-center text-xs font-semibold">Chú thích:</span>'
+    + '<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold c-0">📘 Lý thuyết (LT)</span>'
+    + '<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold c-1">🌿 Thực hành (TH)</span>';
 }
 
 function renderGV() {

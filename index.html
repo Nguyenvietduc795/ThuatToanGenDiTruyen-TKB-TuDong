@@ -7,59 +7,82 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container" style="max-width: 1200px;">
-        <header>
-            <h1>HỆ THỐNG GIẢNG VIÊN</h1>
-        </header>
+    <div class="page-wrapper">
+
+        <div class="page-header">
+            <span class="page-header-icon">👨‍🏫</span>
+            <div>
+                <div class="page-title">QUẢN LÝ GIẢNG VIÊN</div>
+                <div class="page-subtitle">Quản lý hồ sơ, học vị và chuyên môn giảng viên — Khoa CNTT</div>
+            </div>
+        </div>
+
+        <div id="teacher-stats" class="stat-row"></div>
 
         <div id="notification" class="notification"></div>
 
-        <section class="form-section">
-            <div class="input-group">
-                <input type="text" id="maGV" value="Mã: Tự động" readonly title="Mã số tự động cấp">
-                <input type="text" id="tenGV" placeholder="Họ và Tên">
-                <input type="email" id="email" placeholder="Email">
-                <input type="text" id="sdt" placeholder="Số điện thoại">
-                <select id="hocVi">
-                    <option value="Thạc sĩ">Thạc sĩ</option>
-                    <option value="Tiến sĩ">Tiến sĩ</option>
-                    <option value="Giáo sư - Tiến sĩ">Giáo sư - Tiến sĩ</option>
-                    <option value="Cử nhân">Cử nhân</option>
-                </select>
-                <input type="text" id="chuyenMon" placeholder="Chuyên môn">
-                <select id="trangThai">
-                    <option value="Đang giảng dạy">Đang giảng dạy</option>
-                    <option value="Tạm ngưng">Tạm ngưng</option>
-                </select>
-                <button onclick="handleTeacher()" class="btn-add" id="main-btn">Thêm mới</button>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">✏️ Thêm mới / Chỉnh sửa giảng viên</span>
             </div>
-        </section>
-
-        <div class="table-responsive">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Mã GV</th>
-                        <th>Họ và Tên</th>
-                        <th>Email</th>
-                        <th>SĐT</th>
-                        <th>Học Vị</th>
-                        <th>Chuyên Môn</th>
-                        <th>Trạng Thái</th>
-                        <th style="width: 150px;">Thao tác</th>
-                    </tr>
-                </thead>
-                <tbody id="teacher-table-body"></tbody>
-            </table>
+            <div class="form-section">
+                <div class="input-group">
+                    <input type="text" id="maGV" value="Mã: Tự động" readonly title="Mã số tự động cấp">
+                    <input type="text" id="tenGV" placeholder="Họ và Tên">
+                    <input type="email" id="email" placeholder="Email">
+                    <input type="text" id="sdt" placeholder="Số điện thoại">
+                    <select id="hocVi">
+                        <option value="Thạc sĩ">Thạc sĩ</option>
+                        <option value="Tiến sĩ">Tiến sĩ</option>
+                        <option value="Giáo sư - Tiến sĩ">Giáo sư - Tiến sĩ</option>
+                        <option value="Cử nhân">Cử nhân</option>
+                    </select>
+                    <input type="text" id="chuyenMon" placeholder="Chuyên môn">
+                    <select id="trangThai">
+                        <option value="Đang giảng dạy">Đang giảng dạy</option>
+                        <option value="Tạm ngưng">Tạm ngưng</option>
+                    </select>
+                    <button onclick="handleTeacher()" class="btn-add" id="main-btn">+ Thêm mới</button>
+                </div>
+            </div>
         </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">📋 Danh sách giảng viên</span>
+                <div class="table-search-wrap">
+                    <input type="text" id="teacher-search" class="table-search-input"
+                        placeholder="Tìm tên, mã, chuyên môn..." oninput="filterTable(this.value)">
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Mã GV</th>
+                            <th>Họ và Tên</th>
+                            <th>Email</th>
+                            <th>SĐT</th>
+                            <th>Học Vị</th>
+                            <th>Chuyên Môn</th>
+                            <th>Trạng Thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="teacher-table-body"></tbody>
+                </table>
+            </div>
+            <div id="teacher-pagination"></div>
+        </div>
+
     </div>
 
     <div id="confirm-overlay" class="confirm-overlay">
         <div class="confirm-dialog">
             <div id="confirm-message" class="confirm-message"></div>
             <div class="confirm-actions">
-                <button id="confirm-ok" class="btn-add">OK</button>
-                <button id="confirm-cancel" class="btn-delete">Cancel</button>
+                <button id="confirm-ok" class="btn-add">Xác nhận</button>
+                <button id="confirm-cancel" class="btn-delete">Hủy</button>
             </div>
         </div>
     </div>
@@ -70,27 +93,90 @@
         const API = `${API_BASE}/giangvien`;
         let teacherData = [];
         let editingMa = null;
+        let currentPage = 1;
+        let searchKeyword = '';
+        const PAGE_SIZE = 10;
 
+        /* ── Pagination renderer ── */
+        function renderPagination(total, current, containerId, fnName) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            const totalPages = Math.ceil(total / PAGE_SIZE);
+            if (totalPages <= 1) { el.innerHTML = ''; return; }
+            let html = `<span class="pagination-info">Tổng ${total} mục</span>`;
+            html += `<button class="page-btn" onclick="${fnName}(${current - 1})" ${current === 1 ? 'disabled' : ''}>&#8249;</button>`;
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= current - 2 && i <= current + 2)) {
+                    html += `<button class="page-btn ${i === current ? 'active' : ''}" onclick="${fnName}(${i})">${i}</button>`;
+                } else if (i === current - 3 || i === current + 3) {
+                    html += `<span class="page-ellipsis">…</span>`;
+                }
+            }
+            html += `<button class="page-btn" onclick="${fnName}(${current + 1})" ${current === totalPages ? 'disabled' : ''}>&#8250;</button>`;
+            el.className = 'pagination';
+            el.innerHTML = html;
+        }
+
+        function goToPage(n) { currentPage = n; renderTable(); }
+
+        /* ── Search filter ── */
+        function filterTable(keyword) {
+            searchKeyword = keyword.toLowerCase();
+            currentPage = 1;
+            renderTable();
+        }
+
+        /* ── Stat cards ── */
+        function renderStats() {
+            const total    = teacherData.length;
+            const teaching = teacherData.filter(g => g.TrangThai === 'Đang giảng dạy').length;
+            const paused   = teacherData.filter(g => g.TrangThai === 'Tạm ngưng').length;
+            const specs    = new Set(teacherData.map(g => g.ChuyenMon).filter(Boolean)).size;
+            document.getElementById('teacher-stats').innerHTML = [
+                { icon: '👨‍🏫', bg: 'stat-icon-blue',   val: total,    lbl: 'Tổng giảng viên' },
+                { icon: '✅',   bg: 'stat-icon-green',  val: teaching, lbl: 'Đang giảng dạy' },
+                { icon: '⏸️',  bg: 'stat-icon-amber',  val: paused,   lbl: 'Tạm ngưng' },
+                { icon: '🎯',   bg: 'stat-icon-purple', val: specs,    lbl: 'Chuyên môn' },
+            ].map(s => `
+                <div class="stat-card">
+                    <div class="stat-icon-wrap ${s.bg}">${s.icon}</div>
+                    <div>
+                        <div class="stat-value">${s.val}</div>
+                        <div class="stat-label">${s.lbl}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        /* ── Render table with filter + pagination ── */
         function renderTable() {
             const tableBody = document.getElementById('teacher-table-body');
-            if (teacherData.length === 0) {
+            const filtered = searchKeyword
+                ? teacherData.filter(gv =>
+                    `${gv.TenGV} ${gv.MaGV} ${gv.Email} ${gv.ChuyenMon} ${gv.TrangThai}`
+                        .toLowerCase().includes(searchKeyword))
+                : teacherData;
+
+            if (filtered.length === 0) {
                 tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="8" style="text-align:center; padding: 24px; color: #555;">
-                            Không có dữ liệu giảng viên. Hãy kiểm tra lại server hoặc database.
-                        </td>
-                    </tr>
-                `;
+                    <tr><td colspan="8" style="text-align:center;padding:32px;color:#9ca3af">
+                        ${searchKeyword ? '🔍 Không tìm thấy kết quả phù hợp.' : 'Không có dữ liệu giảng viên. Hãy kiểm tra lại server hoặc database.'}
+                    </td></tr>`;
+                document.getElementById('teacher-pagination').innerHTML = '';
                 return;
             }
+            const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+            if (currentPage > totalPages) currentPage = totalPages;
+            const start = (currentPage - 1) * PAGE_SIZE;
+            const pageData = filtered.slice(start, start + PAGE_SIZE);
 
-            tableBody.innerHTML = teacherData.map((gv, index) => `
+            tableBody.innerHTML = pageData.map((gv) => `
                 <tr>
                     <td><strong>${gv.MaGV}</strong></td>
                     <td>${gv.TenGV}</td>
                     <td>${gv.Email}</td>
                     <td>${gv.SDT}</td>
-                    <td>${gv.HocVi}</td>
+                    <td><span class="badge-info">${gv.HocVi}</span></td>
                     <td>${gv.ChuyenMon}</td>
                     <td><span class="status-tag ${gv.TrangThai === 'Đang giảng dạy' ? 'status-teaching' : 'status-paused'}">${gv.TrangThai}</span></td>
                     <td>
@@ -99,41 +185,37 @@
                     </td>
                 </tr>
             `).join('');
+            renderPagination(filtered.length, currentPage, 'teacher-pagination', 'goToPage');
         }
 
         async function loadTeachers() {
             try {
                 const res = await fetch(`${API_BASE}/giangvien`);
-                if (!res.ok) {
-                    throw new Error(`API lỗi ${res.status}`);
-                }
+                if (!res.ok) throw new Error(`API lỗi ${res.status}`);
                 const data = await res.json();
-                console.log('giangvien data:', data);
                 teacherData = data.map(row => ({
-                    MaGV: row.magv,
-                    TenGV: row.tengv,
-                    Email: row.email,
-                    SDT: row.sdt,
-                    HocVi: row.hocvi,
+                    MaGV     : row.magv,
+                    TenGV    : row.tengv,
+                    Email    : row.email,
+                    SDT      : row.sdt,
+                    HocVi    : row.hocvi,
                     ChuyenMon: row.chuyenmon,
                     TrangThai: row.trangthai
                 }));
+                currentPage = 1;
                 renderTable();
+                renderStats();
             } catch (error) {
                 console.error('Lỗi khi tải dữ liệu giảng viên:', error);
-                const tableBody = document.getElementById('teacher-table-body');
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="8" style="text-align:center; padding: 24px; color: #d00;">
-                            Lỗi tải dữ liệu giảng viên: ${error.message}
-                        </td>
-                    </tr>
-                `;
+                document.getElementById('teacher-table-body').innerHTML = `
+                    <tr><td colspan="8" style="text-align:center;padding:24px;color:#dc2626">
+                        Lỗi tải dữ liệu: ${error.message}
+                    </td></tr>`;
             }
         }
 
         async function handleTeacher() {
-            const ten = document.getElementById('tenGV').value;
+            const ten   = document.getElementById('tenGV').value;
             const email = document.getElementById('email').value;
             if (!ten || !email) return alert('Vui lòng nhập ít nhất Họ tên và Email!');
 
@@ -156,60 +238,54 @@
                     body   : JSON.stringify(body),
                 });
                 if (!res.ok) {
-                    const error = await res.json().catch(() => ({}));
-                    throw new Error(error.error || `API lỗi ${res.status}`);
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || `API lỗi ${res.status}`);
                 }
-
-                const successMessage = editingMa ? 'Cập nhật giảng viên thành công.' : 'Thêm giảng viên thành công.';
+                const msg = editingMa ? 'Cập nhật giảng viên thành công.' : 'Thêm giảng viên thành công.';
                 editingMa = null;
-                document.getElementById('main-btn').innerText = "Thêm mới";
-                document.getElementById('main-btn').style.backgroundColor = "";
+                document.getElementById('main-btn').innerText = '+ Thêm mới';
+                document.getElementById('main-btn').style.backgroundColor = '';
                 resetForm();
                 await loadTeachers();
-                showNotification(successMessage);
+                showNotification(msg);
             } catch (error) {
                 alert(`Không thể lưu giảng viên: ${error.message}`);
             }
         }
 
         function showNotification(message, type = 'success') {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.className = `notification ${type}`;
-            notification.style.display = 'block';
-            clearTimeout(showNotification.timeout);
-            showNotification.timeout = setTimeout(() => {
-                notification.style.display = 'none';
-            }, 3000);
+            const isErr = type === 'error';
+            const n = document.getElementById('notification');
+            n.className = `notification${isErr ? ' error' : ''}`;
+            n.innerHTML = `
+                <div class="toast-inner">
+                    <div class="toast-icon ${isErr ? 'toast-icon-err' : 'toast-icon-ok'}">${isErr ? '✕' : '✓'}</div>
+                    <div class="toast-body">
+                        <div class="toast-title">${isErr ? 'Thất bại' : 'Thành công'}</div>
+                        <div class="toast-msg">${message}</div>
+                    </div>
+                    <button class="toast-close" onclick="document.getElementById('notification').style.display='none'">×</button>
+                </div>
+                <div class="toast-bar"></div>`;
+            n.style.display = 'block';
+            clearTimeout(showNotification._t);
+            showNotification._t = setTimeout(() => { n.style.display = 'none'; }, 3200);
         }
 
         function confirmAction(message) {
-            const overlay = document.getElementById('confirm-overlay');
-            const messageEl = document.getElementById('confirm-message');
-            const okBtn = document.getElementById('confirm-ok');
-            const cancelBtn = document.getElementById('confirm-cancel');
-
+            const overlay    = document.getElementById('confirm-overlay');
+            const messageEl  = document.getElementById('confirm-message');
+            const okBtn      = document.getElementById('confirm-ok');
+            const cancelBtn  = document.getElementById('confirm-cancel');
             messageEl.textContent = message;
             overlay.style.display = 'flex';
-
             return new Promise(resolve => {
                 const cleanup = () => {
                     okBtn.removeEventListener('click', onOk);
                     cancelBtn.removeEventListener('click', onCancel);
                 };
-
-                const onOk = () => {
-                    cleanup();
-                    overlay.style.display = 'none';
-                    resolve(true);
-                };
-
-                const onCancel = () => {
-                    cleanup();
-                    overlay.style.display = 'none';
-                    resolve(false);
-                };
-
+                const onOk = () => { cleanup(); overlay.style.display = 'none'; resolve(true); };
+                const onCancel = () => { cleanup(); overlay.style.display = 'none'; resolve(false); };
                 okBtn.addEventListener('click', onOk);
                 cancelBtn.addEventListener('click', onCancel);
             });
@@ -219,18 +295,16 @@
             const gv = teacherData.find(item => item.MaGV === ma);
             if (!gv) return alert('Không tìm thấy giảng viên cần sửa!');
             editingMa = ma;
-
-            document.getElementById('maGV').value = gv.MaGV;
-            document.getElementById('tenGV').value = gv.TenGV;
-            document.getElementById('email').value = gv.Email;
-            document.getElementById('sdt').value = gv.SDT;
-            document.getElementById('hocVi').value = gv.HocVi;
+            document.getElementById('maGV').value      = gv.MaGV;
+            document.getElementById('tenGV').value     = gv.TenGV;
+            document.getElementById('email').value     = gv.Email;
+            document.getElementById('sdt').value       = gv.SDT;
+            document.getElementById('hocVi').value     = gv.HocVi;
             document.getElementById('chuyenMon').value = gv.ChuyenMon;
             document.getElementById('trangThai').value = gv.TrangThai;
-
             const btn = document.getElementById('main-btn');
-            btn.innerText = "Lưu cập nhật";
-            btn.style.backgroundColor = "#3b82f6";
+            btn.innerText = '💾 Lưu cập nhật';
+            btn.style.backgroundColor = '#2563eb';
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -239,13 +313,10 @@
             try {
                 const res = await fetch(`${API}/${ma}`, { method: 'DELETE' });
                 if (!res.ok) {
-                    const error = await res.json().catch(() => ({}));
-                    throw new Error(error.error || `API lỗi ${res.status}`);
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || `API lỗi ${res.status}`);
                 }
-                if (editingMa === ma) {
-                    editingMa = null;
-                    resetForm();
-                }
+                if (editingMa === ma) { editingMa = null; resetForm(); }
                 await loadTeachers();
                 showNotification('Xóa giảng viên thành công.');
             } catch (error) {
@@ -254,10 +325,10 @@
         }
 
         function resetForm() {
-            document.getElementById('maGV').value = 'Mã: Tự động';
-            document.getElementById('tenGV').value = '';
-            document.getElementById('email').value = '';
-            document.getElementById('sdt').value = '';
+            document.getElementById('maGV').value      = 'Mã: Tự động';
+            document.getElementById('tenGV').value     = '';
+            document.getElementById('email').value     = '';
+            document.getElementById('sdt').value       = '';
             document.getElementById('chuyenMon').value = '';
         }
 
