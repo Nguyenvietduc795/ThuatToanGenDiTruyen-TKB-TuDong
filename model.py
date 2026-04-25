@@ -42,8 +42,11 @@ class Classroom:
 
 class Data:
 
-    def __init__(self, groups, teachers, classes, classrooms):
+    def __init__(self, groups, teachers, classes, classrooms,
+                 teacher_specializations=None, subject_names=None):
         self.groups     = groups      # dict: malop -> index
         self.teachers   = teachers    # dict: magv  -> index
         self.classes    = classes     # dict: index -> Class
         self.classrooms = classrooms  # dict: index -> Classroom
+        self.teacher_specializations = teacher_specializations or {}  # dict: magv -> chuyenmon
+        self.subject_names           = subject_names or {}            # dict: mamon -> tenmon

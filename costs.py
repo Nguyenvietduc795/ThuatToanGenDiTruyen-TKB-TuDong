@@ -186,6 +186,52 @@ def calculate_hard_constraints(matrix, data):
 # SOFT CONSTRAINTS
 # ============================================================
 
+def _normalize_vn(text):
+    """Chuan hoa chuoi tieng Viet de so sanh: bo dau, viet thuong, bo khoang trang."""
+    if not text:
+        return ''
+    text = str(text).strip().lower().replace('đ', 'd')
+    table = str.maketrans(
+        'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ',
+        'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyy'
+    )
+    return text.translate(table).replace(' ', '').replace('-', '').replace('_', '')
+
+
+def _penalty_specialization_mismatch(matrix, data):
+    """
+    SOFT - Penalty khi GV day mon khong dung chuyen mon cua minh.
+    So sanh data.teacher_specializations[magv] (chuyenmon) voi data.subject_names[mamon] (tenmon).
+    Penalty: +1 moi cap (magv, mamon) bi xep sai chuyen mon.
+    Cap dung chuyen mon hoac GV/mon khong co du lieu: khong phat.
+    """
+    if not data.teacher_specializations or not data.subject_names:
+        return 0
+
+    penalty = 0
+    seen_pairs = set()
+
+    for row in range(len(matrix)):
+        for col in range(len(matrix[row])):
+            idx = matrix[row][col]
+            if idx is None:
+                continue
+            cls = data.classes[idx]
+            pair = (cls.teacher, cls.subject)
+            if pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
+
+            chuyenmon = data.teacher_specializations.get(cls.teacher, '')
+            tenmon    = data.subject_names.get(cls.subject, '')
+
+            if chuyenmon and tenmon:
+                if _normalize_vn(chuyenmon) != _normalize_vn(tenmon):
+                    penalty += 1
+
+    return penalty
+
+
 def _penalty_empty_slots_groups(groups_empty_space):
     """
     SOFT - Penalty cho so tiet trong GIUA cac buoi hoc cua lop trong cung 1 ngay.
@@ -370,14 +416,17 @@ def calculate_soft_constraints(matrix, data, groups_empty_space, teachers_empty_
     # Penalty 4: cung mon hoc nhieu lan cung ngay cung lop
     same_subj = _penalty_same_subject_same_day(matrix, data)
 
-    # Tong hop (co the dieu chinh trong so o day)
-    total = eg + et + frag + same_subj
+    # Penalty 5: GV day sai chuyen mon (uu tien GV dung chuyen mon)
+    spec_mismatch = _penalty_specialization_mismatch(matrix, data)
+
+    total = eg + et + frag + same_subj + spec_mismatch
 
     details = {
-        'empty_groups':          eg,
-        'empty_teachers':        et,
-        'fragmentation':         frag,
-        'same_subject_same_day': same_subj,
+        'empty_groups':            eg,
+        'empty_teachers':          et,
+        'fragmentation':           frag,
+        'same_subject_same_day':   same_subj,
+        'specialization_mismatch': spec_mismatch,
     }
     return total, details
 
@@ -424,7 +473,8 @@ def log_fitness(hard_cost, soft_cost, hard_details, soft_details, prefix=''):
     print(f'{prefix}  Soft breakdown: empty_groups={soft_details["empty_groups"]} | '
           f'empty_teachers={soft_details["empty_teachers"]} | '
           f'fragmentation={soft_details["fragmentation"]} | '
-          f'same_subj_day={soft_details["same_subject_same_day"]}')
+          f'same_subj_day={soft_details["same_subject_same_day"]} | '
+          f'spec_mismatch={soft_details.get("specialization_mismatch", 0)}')
 
 
 def free_hour(matrix):
