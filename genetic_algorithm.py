@@ -49,6 +49,7 @@ Hàm thích nghi (Fitness Function):
 
 import random
 import copy
+import time
 from utils import (
     load_data, load_data_from_raw, show_timetable, set_up, show_statistics,
     write_solution_to_file, SLOTS_PER_DAY, MORNING_SLOTS, TOTAL_SLOTS,
@@ -405,6 +406,8 @@ def genetic_algorithm(data, n_rooms, file,
     print(f'\n[Gen 0] Fitness tốt nhất: {best.get_fitness(data)}')
     _, hard0, soft0, hd0, sd0 = best.evaluate(data)
     log_fitness(hard0, soft0, hd0, sd0, prefix='  ')
+    history = [{'generation': 0, 'best_cost': best.get_fitness(data)}]
+    last_generation = 0
 
     # ----------------------------------------------------------
     # Bước 3: Vòng lặp tiến hóa
@@ -454,6 +457,9 @@ def genetic_algorithm(data, n_rooms, file,
         if gen_best.get_fitness(data) < best.get_fitness(data):
             best = gen_best.clone()
 
+        last_generation = gen
+        history.append({'generation': gen, 'best_cost': best.get_fitness(data)})
+
         # --- Log mỗi 10 thế hệ ---
         if gen % 10 == 0:
             _, hard, soft, hd, sd = best.evaluate(data)
@@ -482,6 +488,9 @@ def genetic_algorithm(data, n_rooms, file,
         raw_data=raw_data,
     )
 
+    best.ga_history = history
+    best.ga_generation = last_generation
+
     return best
 
 
@@ -497,6 +506,7 @@ def run_ga_with_raw(raw_data, file='supabase_runtime.json',
     """
     data = load_data_from_raw(raw_data, {}, {}, {}, tuanhoc=tuanhoc)
     n_rooms = len(data.classrooms)
+    started_at = time.perf_counter()
     best = genetic_algorithm(
         data,
         n_rooms,
@@ -505,6 +515,7 @@ def run_ga_with_raw(raw_data, file='supabase_runtime.json',
         max_gen=max_gen,
         raw_data=raw_data,
     )
+    runtime_seconds = time.perf_counter() - started_at
 
     sessions = []
     for class_idx, fields in best.filled.items():
@@ -530,6 +541,20 @@ def run_ga_with_raw(raw_data, file='supabase_runtime.json',
             'slot_numbers': list(range(start_slot, end_slot + 1)),
         })
 
+    total_cost, hard_cost, soft_cost, hard_details, soft_details = best.evaluate(data)
+    breakdown = {
+        'teacher_conflicts': hard_details.get('teacher_conflicts', 0),
+        'class_conflicts': hard_details.get('group_conflicts', 0),
+        'room_type_conflicts': hard_details.get('classroom_mismatches', 0),
+        'same_assignment_same_day': hard_details.get('same_assignment_day', 0),
+        'student_gaps': soft_details.get('empty_groups', 0),
+        'teacher_gaps': soft_details.get('empty_teachers', 0),
+        'fragmentation': soft_details.get('fragmentation', 0),
+        'same_subject_same_day': soft_details.get('same_subject_same_day', 0),
+        'specialization_mismatch': soft_details.get('specialization_mismatch', 0),
+        'total_soft_penalty': soft_cost,
+    }
+
     return {
         'summary': {
             'classes': len(data.classes),
@@ -537,8 +562,17 @@ def run_ga_with_raw(raw_data, file='supabase_runtime.json',
             'groups': len(data.groups),
             'teachers': len(data.teachers),
             'sessions': len(sessions),
-            'fitness': best.get_fitness(data),
+            'fitness': total_cost,
+            'total_cost': total_cost,
+            'hard_cost': hard_cost,
+            'soft_cost': soft_cost,
+            'generation': getattr(best, 'ga_generation', max_gen),
+            'max_generation': max_gen,
+            'runtime_seconds': round(runtime_seconds, 3),
+            'is_valid': hard_cost == 0,
         },
+        'history': getattr(best, 'ga_history', []),
+        'breakdown': breakdown,
         'sessions': sessions,
     }
 

@@ -48,6 +48,108 @@
   }
   #loading-overlay.show { display:flex; }
   .lo-spinner { width:48px; height:48px; border:5px solid #e5e7eb; border-top-color:#1d4ed8; border-radius:50%; animation: spin .8s linear infinite; }
+  .ga-panel { margin-bottom:20px; }
+  .ga-empty {
+    background:#fff;
+    border:1px dashed #cbd5e1;
+    border-radius:16px;
+    padding:18px 20px;
+    color:#64748b;
+    font-size:14px;
+    text-align:center;
+    box-shadow:0 1px 3px rgba(15,23,42,.04);
+  }
+  .ga-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; }
+  .ga-card {
+    background:#fff;
+    border:1px solid #e5e7eb;
+    border-radius:16px;
+    box-shadow:0 1px 3px rgba(15,23,42,.06), 0 8px 20px rgba(15,23,42,.04);
+    padding:18px;
+    min-width:0;
+  }
+  .ga-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:14px; }
+  .ga-card-title { font-size:15px; font-weight:800; color:#0f172a; margin:0; }
+  .ga-card-desc { font-size:12px; color:#64748b; line-height:1.5; margin:4px 0 0; }
+  .ga-badge { display:inline-flex; align-items:center; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:800; white-space:nowrap; }
+  .ga-badge-ok { background:#dcfce7; color:#166534; }
+  .ga-badge-bad { background:#ffedd5; color:#c2410c; }
+  .ga-badge-idle { background:#f1f5f9; color:#64748b; }
+  .ga-badge-run { background:#dbeafe; color:#1d4ed8; }
+  .ga-metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .ga-metric { background:#f8fafc; border:1px solid #eef2f7; border-radius:12px; padding:11px 12px; }
+  .ga-metric-label { color:#64748b; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+  .ga-metric-value { color:#111827; font-size:19px; font-weight:800; margin-top:4px; line-height:1.15; }
+  .ga-detail-btn {
+    border:1px solid #bfdbfe;
+    background:#eff6ff;
+    color:#1d4ed8;
+    border-radius:10px;
+    padding:8px 12px;
+    font-size:13px;
+    font-weight:800;
+    cursor:pointer;
+    margin-top:14px;
+  }
+  .ga-detail-btn:hover { background:#dbeafe; }
+  .ga-breakdown { margin-top:12px; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+  .ga-breakdown-row { display:flex; justify-content:space-between; gap:12px; padding:9px 12px; font-size:13px; border-top:1px solid #f1f5f9; }
+  .ga-breakdown-row:first-child { border-top:0; }
+  .ga-breakdown-name { color:#374151; }
+  .ga-breakdown-value { color:#111827; font-weight:800; }
+  .ga-breakdown-total { background:#f8fafc; border-top:1px solid #dbeafe; font-weight:900; }
+  .ga-breakdown-total .ga-breakdown-name { color:#1d4ed8; }
+  .ga-breakdown-total .ga-breakdown-value { color:#1d4ed8; }
+  .ga-chart-wrap { width:100%; overflow:hidden; }
+  .ga-chart-card { min-height:380px; display:flex; flex-direction:column; }
+  .ga-chart-body { flex:1; display:flex; flex-direction:column; min-height:300px; }
+  .ga-chart-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:12px; }
+  .ga-chart-stat { background:#f8fafc; border:1px solid #eef2f7; border-radius:10px; padding:9px 10px; min-width:0; }
+  .ga-chart-stat-label { color:#64748b; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+  .ga-chart-stat-value { color:#0f172a; font-size:17px; font-weight:900; margin-top:3px; line-height:1.15; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ga-chart-controls { display:inline-flex; border:1px solid #dbeafe; background:#eff6ff; border-radius:10px; padding:3px; gap:3px; flex-shrink:0; }
+  .ga-chart-mode {
+    border:0;
+    background:transparent;
+    color:#475569;
+    border-radius:8px;
+    padding:6px 10px;
+    font-size:12px;
+    font-weight:800;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .ga-chart-mode.active { background:#4f46e5; color:#fff; box-shadow:0 2px 8px rgba(79,70,229,.22); }
+  .ga-chart-mode:hover:not(.active) { background:#dbeafe; color:#1d4ed8; }
+  .ga-chart-tooltip {
+    position:fixed;
+    display:none;
+    pointer-events:none;
+    z-index:30;
+    background:#0f172a;
+    color:#fff;
+    border-radius:9px;
+    padding:8px 10px;
+    box-shadow:0 10px 24px rgba(15,23,42,.24);
+    font-size:12px;
+    line-height:1.45;
+  }
+  .ga-chart-tooltip strong { display:block; font-size:12px; color:#bfdbfe; margin-bottom:2px; }
+  .ga-chart { width:100%; height:300px; display:block; flex:1; min-height:280px; }
+  .ga-axis { stroke:#cbd5e1; stroke-width:1; }
+  .ga-grid-line { stroke:#eef2f7; stroke-width:1; }
+  .ga-line { fill:none; stroke:#2563eb; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+  .ga-area { fill:rgba(37,99,235,.09); }
+  .ga-point { fill:#2563eb; stroke:#fff; stroke-width:2; }
+  .ga-label { fill:#64748b; font-size:11px; font-weight:600; }
+  .ga-axis-title { fill:#334155; font-size:12px; font-weight:800; }
+  .ga-hit { fill:transparent; cursor:crosshair; }
+  .ga-loading { display:flex; align-items:center; justify-content:center; gap:10px; min-height:144px; color:#1d4ed8; font-weight:800; }
+  @media (max-width: 900px) {
+    .ga-grid { grid-template-columns:1fr; }
+    .ga-chart-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .ga-chart { height:280px; }
+  }
 </style>
 </head>
 <body class="min-h-screen" style="background:#f4f7fb">
@@ -219,6 +321,53 @@
     <span id="view-status" class="text-xs text-gray-400 italic self-center"></span>
   </div>
 
+  <!-- GA result panel -->
+  <section id="ga-panel" class="ga-panel">
+    <div id="ga-empty" class="ga-empty">
+      Chưa có dữ liệu phân tích. Hãy bấm Tạo Thời Khóa Biểu để xem kết quả.
+    </div>
+
+    <div id="ga-running" class="ga-card hidden">
+      <div class="ga-loading">
+        <span class="spinner-icon">⏳</span>
+        <span>Đang chạy thuật toán di truyền...</span>
+      </div>
+    </div>
+
+    <div id="ga-content" class="ga-grid hidden">
+      <div class="ga-card">
+        <div class="ga-card-head">
+          <div>
+            <h2 class="ga-card-title">Tổng quan kết quả GA</h2>
+            <p class="ga-card-desc">Tổng quan chi phí và trạng thái nghiệm tốt nhất hiện tại.</p>
+          </div>
+          <span id="ga-valid-badge" class="ga-badge ga-badge-idle">Chưa có dữ liệu</span>
+        </div>
+        <div id="ga-summary" class="ga-metrics"></div>
+        <button id="ga-detail-btn" type="button" class="ga-detail-btn" onclick="toggleGABreakdown()">Xem chi tiết đánh giá</button>
+        <div id="ga-breakdown" class="ga-breakdown hidden"></div>
+      </div>
+
+      <div class="ga-card ga-chart-card">
+        <div class="ga-card-head">
+          <div>
+            <h2 class="ga-card-title">Biểu đồ hội tụ GA</h2>
+            <p class="ga-card-desc">Cost giảm dần qua từng thế hệ, thể hiện quá trình thuật toán cải thiện thời khóa biểu.</p>
+          </div>
+          <div class="ga-chart-controls" aria-label="Chế độ xem biểu đồ">
+            <button id="ga-mode-all" type="button" class="ga-chart-mode active" onclick="setGAChartMode('all')">Toàn bộ</button>
+            <button id="ga-mode-first50" type="button" class="ga-chart-mode" onclick="setGAChartMode('first50')">50 thế hệ đầu</button>
+          </div>
+        </div>
+        <div class="ga-chart-body">
+          <div id="ga-chart-stats" class="ga-chart-stats"></div>
+          <div id="ga-chart" class="ga-chart-wrap"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <div id="ga-chart-tooltip" class="ga-chart-tooltip"></div>
+
   <!-- Tab buttons -->
   <div class="flex gap-2 mb-4 flex-wrap">
     <button id="btn-ql" onclick="switchTab('ql')"
@@ -313,6 +462,296 @@ function assignColors(list) {
   list.forEach((m, i) => { colorMap[m.mamon] = PALETTE[i % PALETTE.length]; });
 }
 function clr(mamon) { return colorMap[mamon] || 'c-def'; }
+
+let gaBreakdownOpen = false;
+let gaChartMode = 'all';
+let gaChartHistory = [];
+const GA_RESULT_STORAGE_PREFIX = 'tkb_ga_result_v1';
+
+function setGAState(state) {
+  document.getElementById('ga-empty').classList.toggle('hidden', state !== 'empty');
+  document.getElementById('ga-running').classList.toggle('hidden', state !== 'running');
+  document.getElementById('ga-content').classList.toggle('hidden', state !== 'ready');
+}
+
+function normalizeGAResult(json) {
+  const source = json || {};
+  const summary = source.summary || source.ga_summary || {};
+  return {
+    summary,
+    history: source.history || source.ga_history || source.convergence || [],
+    breakdown: source.breakdown || source.ga_breakdown || {},
+  };
+}
+
+function gaStorageKey(tuan, mahk, namhoc) {
+  return [
+    GA_RESULT_STORAGE_PREFIX,
+    `tuan=${Number(tuan) || 1}`,
+    `mahk=${mahk || 'all'}`,
+    `namhoc=${namhoc || 'all'}`,
+  ].join('|');
+}
+
+function currentGAStorageKey() {
+  return gaStorageKey(
+    document.getElementById('view-tuan').value,
+    document.getElementById('view-hocky').value,
+    document.getElementById('view-namhoc').value.trim(),
+  );
+}
+
+function saveGAResult(result, tuan, mahk, namhoc) {
+  try {
+    const ga = normalizeGAResult(result);
+    localStorage.setItem(gaStorageKey(tuan, mahk, namhoc), JSON.stringify({
+      saved_at: new Date().toISOString(),
+      summary: ga.summary,
+      history: ga.history,
+      breakdown: ga.breakdown,
+    }));
+  } catch (err) {
+    console.warn('Khong luu duoc ket qua GA:', err.message);
+  }
+}
+
+function loadStoredGAResult() {
+  try {
+    const raw = localStorage.getItem(currentGAStorageKey());
+    if (!raw) {
+      setGAState('empty');
+      return;
+    }
+    renderGAResult(JSON.parse(raw));
+  } catch (err) {
+    console.warn('Khong doc duoc ket qua GA da luu:', err.message);
+    setGAState('empty');
+  }
+}
+
+function fmtCost(value) {
+  return Number.isFinite(Number(value)) ? Number(value).toLocaleString('vi-VN') : '-';
+}
+
+function fmtRuntime(seconds) {
+  const n = Number(seconds);
+  return Number.isFinite(n) ? `${n.toFixed(n >= 10 ? 0 : 1)} giây` : '-';
+}
+
+function pctChange(start, end) {
+  const a = Number(start);
+  const b = Number(end);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a === 0) return '-';
+  return `${(((a - b) / a) * 100).toFixed(1)}%`;
+}
+
+function renderGASummary(summary) {
+  const hardCost = Number(summary?.hard_cost);
+  const hasHardCost = Number.isFinite(hardCost);
+  const isValid = summary?.is_valid ?? (hasHardCost && hardCost === 0);
+  const badge = document.getElementById('ga-valid-badge');
+  badge.textContent = hasHardCost ? (isValid ? 'Lịch hợp lệ' : 'Lịch chưa hợp lệ') : 'Chưa có dữ liệu đánh giá';
+  badge.className = `ga-badge ${hasHardCost ? (isValid ? 'ga-badge-ok' : 'ga-badge-bad') : 'ga-badge-idle'}`;
+
+  const metrics = [
+    ['Trạng thái chạy thuật toán', 'Đã hoàn tất'],
+    ['Total cost / Fitness', fmtCost(summary?.total_cost ?? summary?.fitness)],
+    ['Hard cost', fmtCost(summary?.hard_cost)],
+    ['Soft cost', fmtCost(summary?.soft_cost)],
+    ['Thế hệ', `${fmtCost(summary?.generation)} / ${fmtCost(summary?.max_generation)}`],
+    ['Thời gian chạy', fmtRuntime(summary?.runtime_seconds)],
+  ];
+  document.getElementById('ga-summary').innerHTML = metrics.map(([label, value]) => `
+    <div class="ga-metric">
+      <div class="ga-metric-label">${label}</div>
+      <div class="ga-metric-value">${value}</div>
+    </div>
+  `).join('');
+}
+
+function renderGABreakdown(breakdown) {
+  const labels = [
+    ['teacher_conflicts', 'Trùng giảng viên'],
+    ['class_conflicts', 'Trùng lớp'],
+    ['room_type_conflicts', 'Sai loại phòng'],
+    ['same_assignment_same_day', 'Một phân công học nhiều buổi cùng ngày'],
+    ['student_gaps', 'Tiết trống lớp'],
+    ['teacher_gaps', 'Tiết trống giảng viên'],
+    ['same_subject_same_day', 'Cùng lớp học cùng môn nhiều buổi trong ngày'],
+  ];
+  const hasValue = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+  document.getElementById('ga-breakdown').innerHTML = labels.map(([key, label]) => `
+    <div class="ga-breakdown-row">
+      <span class="ga-breakdown-name">${label}</span>
+      <span class="ga-breakdown-value">${hasValue(breakdown, key) ? fmtCost(breakdown[key]) : '-'}</span>
+    </div>
+  `).join('');
+}
+
+function renderGABreakdown(breakdown) {
+  const hardLabels = [
+    ['teacher_conflicts', 'Trùng giảng viên'],
+    ['class_conflicts', 'Trùng lớp'],
+    ['room_type_conflicts', 'Sai loại phòng'],
+    ['same_assignment_same_day', 'Một phân công học nhiều buổi cùng ngày'],
+  ];
+  const softLabels = [
+    ['student_gaps', 'Tiết trống lớp'],
+    ['teacher_gaps', 'Tiết trống giảng viên'],
+    ['fragmentation', 'Lớp học cả sáng và chiều trong ngày'],
+    ['same_subject_same_day', 'Cùng lớp học cùng môn nhiều buổi trong ngày'],
+    ['specialization_mismatch', 'Giảng viên dạy không đúng chuyên môn'],
+  ];
+  const hasValue = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+  const rows = [...hardLabels, ...softLabels].map(([key, label]) => `
+    <div class="ga-breakdown-row">
+      <span class="ga-breakdown-name">${label}</span>
+      <span class="ga-breakdown-value">${hasValue(breakdown, key) ? fmtCost(breakdown[key]) : '-'}</span>
+    </div>
+  `);
+  const softTotal = hasValue(breakdown, 'total_soft_penalty')
+    ? Number(breakdown.total_soft_penalty)
+    : softLabels.reduce((sum, [key]) => sum + (Number(breakdown?.[key]) || 0), 0);
+  rows.push(`
+    <div class="ga-breakdown-row ga-breakdown-total">
+      <span class="ga-breakdown-name">Tổng soft penalty</span>
+      <span class="ga-breakdown-value">${fmtCost(softTotal)}</span>
+    </div>
+  `);
+  document.getElementById('ga-breakdown').innerHTML = rows.join('');
+}
+
+function normalizeGAHistory(history) {
+  return (history || []).filter(p =>
+    Number.isFinite(Number(p.generation)) && Number.isFinite(Number(p.best_cost))
+  ).map(p => ({
+    generation: Number(p.generation),
+    best_cost: Number(p.best_cost),
+  })).sort((a, b) => a.generation - b.generation);
+}
+
+function sampleGAHistory(points) {
+  if (gaChartMode === 'first50') {
+    return points.filter(p => p.generation <= 50);
+  }
+  if (points.length <= 90) return points;
+  const maxGeneration = points[points.length - 1]?.generation || points.length;
+  const step = maxGeneration > 500 ? 10 : 5;
+  const sampled = points.filter((p, i) => i === 0 || i === points.length - 1 || p.generation % step === 0);
+  const last = points[points.length - 1];
+  if (sampled[sampled.length - 1] !== last) sampled.push(last);
+  return sampled;
+}
+
+function renderGAChartStats(points) {
+  const first = points[0];
+  const best = points.reduce((min, p) => p.best_cost < min.best_cost ? p : min, points[0]);
+  const initialCost = first?.best_cost;
+  const bestCost = best?.best_cost;
+  const reduction = Number(initialCost) - Number(bestCost);
+  const stats = [
+    ['Cost ban đầu', fmtCost(initialCost)],
+    ['Cost tốt nhất', fmtCost(bestCost)],
+    ['Mức giảm cost', Number.isFinite(reduction) ? fmtCost(reduction) : '-'],
+    ['Tỷ lệ giảm', pctChange(initialCost, bestCost)],
+  ];
+  document.getElementById('ga-chart-stats').innerHTML = stats.map(([label, value]) => `
+    <div class="ga-chart-stat">
+      <div class="ga-chart-stat-label">${label}</div>
+      <div class="ga-chart-stat-value">${value}</div>
+    </div>
+  `).join('');
+}
+
+function setGAChartMode(mode) {
+  gaChartMode = mode;
+  document.getElementById('ga-mode-all').classList.toggle('active', mode === 'all');
+  document.getElementById('ga-mode-first50').classList.toggle('active', mode === 'first50');
+  renderGAChart(gaChartHistory);
+}
+
+function showGAChartTooltip(evt, generation, bestCost) {
+  const tooltip = document.getElementById('ga-chart-tooltip');
+  tooltip.innerHTML = `<strong>Generation ${fmtCost(generation)}</strong>Best cost: ${fmtCost(bestCost)}`;
+  tooltip.style.left = `${evt.clientX + 12}px`;
+  tooltip.style.top = `${evt.clientY + 12}px`;
+  tooltip.style.display = 'block';
+}
+
+function hideGAChartTooltip() {
+  document.getElementById('ga-chart-tooltip').style.display = 'none';
+}
+
+function renderGAChart(history) {
+  gaChartHistory = normalizeGAHistory(history);
+  const allPoints = gaChartHistory;
+  const points = sampleGAHistory(allPoints);
+  if (!allPoints.length) {
+    document.getElementById('ga-chart-stats').innerHTML = '';
+    document.getElementById('ga-chart').innerHTML = '<div class="ga-empty">Chưa có dữ liệu biểu đồ hội tụ.</div>';
+    return;
+  }
+  renderGAChartStats(allPoints);
+  if (!points.length) {
+    document.getElementById('ga-chart').innerHTML = '<div class="ga-empty">Không có dữ liệu trong phạm vi 50 thế hệ đầu.</div>';
+    return;
+  }
+
+  const w = 720, h = 320, left = 62, right = 24, top = 18, bottom = 50;
+  const xs = points.map(p => p.generation);
+  const ys = points.map(p => p.best_cost);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const rawMinY = Math.min(...ys), rawMaxY = Math.max(...ys);
+  const rawYRange = Math.max(1, rawMaxY - rawMinY);
+  const minY = Math.max(0, rawMinY - rawYRange * 0.08);
+  const maxY = rawMaxY + rawYRange * 0.06;
+  const xRange = Math.max(1, maxX - minX);
+  const yRange = Math.max(1, maxY - minY);
+  const x = v => left + ((v - minX) / xRange) * (w - left - right);
+  const y = v => top + ((maxY - v) / yRange) * (h - top - bottom);
+  const line = points.map(p => `${x(p.generation).toFixed(1)},${y(p.best_cost).toFixed(1)}`).join(' ');
+  const area = `${left},${h-bottom} ${line} ${w-right},${h-bottom}`;
+  const yTicks = [maxY, Math.round((maxY + minY) / 2), minY];
+  const xMid = Math.round((minX + maxX) / 2);
+
+  document.getElementById('ga-chart').innerHTML = `
+    <svg class="ga-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Biểu đồ best_cost theo generation" preserveAspectRatio="none">
+      ${yTicks.map(t => `<line class="ga-grid-line" x1="${left}" y1="${y(t)}" x2="${w-right}" y2="${y(t)}"></line>`).join('')}
+      <line class="ga-axis" x1="${left}" y1="${top}" x2="${left}" y2="${h-bottom}"></line>
+      <line class="ga-axis" x1="${left}" y1="${h-bottom}" x2="${w-right}" y2="${h-bottom}"></line>
+      <polygon class="ga-area" points="${area}"></polygon>
+      <polyline class="ga-line" points="${line}"></polyline>
+      ${points.map(p => `<circle class="ga-point" cx="${x(p.generation)}" cy="${y(p.best_cost)}" r="4"></circle>`).join('')}
+      ${points.map(p => `<circle class="ga-hit" cx="${x(p.generation)}" cy="${y(p.best_cost)}" r="12" onmousemove="showGAChartTooltip(event, ${p.generation}, ${p.best_cost})" onmouseleave="hideGAChartTooltip()"></circle>`).join('')}
+      ${yTicks.map(t => `<text class="ga-label" x="8" y="${y(t)+4}">${fmtCost(t)}</text>`).join('')}
+      <text class="ga-label" x="${left}" y="${h-10}">Gen ${fmtCost(minX)}</text>
+      <text class="ga-label" x="${x(xMid)-24}" y="${h-10}">Gen ${fmtCost(xMid)}</text>
+      <text class="ga-label" x="${w-right-72}" y="${h-10}">Gen ${fmtCost(maxX)}</text>
+      <text class="ga-axis-title" x="${w/2-28}" y="${h-28}">Thế hệ</text>
+      <text class="ga-axis-title" x="14" y="${top+14}" transform="rotate(-90 14 ${top+14})">Cost</text>
+    </svg>
+  `;
+}
+
+function renderGAResult(result) {
+  const ga = normalizeGAResult(result);
+  gaBreakdownOpen = false;
+  gaChartMode = 'all';
+  document.getElementById('ga-mode-all').classList.add('active');
+  document.getElementById('ga-mode-first50').classList.remove('active');
+  document.getElementById('ga-breakdown').classList.add('hidden');
+  document.getElementById('ga-detail-btn').textContent = 'Xem chi tiết đánh giá';
+  renderGASummary(ga.summary);
+  renderGABreakdown(ga.breakdown);
+  renderGAChart(ga.history);
+  setGAState('ready');
+}
+
+function toggleGABreakdown() {
+  gaBreakdownOpen = !gaBreakdownOpen;
+  document.getElementById('ga-breakdown').classList.toggle('hidden', !gaBreakdownOpen);
+  document.getElementById('ga-detail-btn').textContent = gaBreakdownOpen ? 'Ẩn chi tiết đánh giá' : 'Xem chi tiết đánh giá';
+}
 
 /* ════════════════════════════════════════════════════════════════
    PANEL TẠO TKB
@@ -628,6 +1067,7 @@ async function generateTKB() {
   document.getElementById('gen-spinner').classList.add('running');
   document.getElementById('gen-status').textContent = '⏳ Thuật toán đang chạy, vui lòng chờ...';
   showResult('', '');
+  setGAState('running');
   document.getElementById('loading-msg').textContent = 'Thuật toán di truyền đang chạy...';
   document.getElementById('loading-overlay').classList.add('show');
 
@@ -661,6 +1101,8 @@ async function generateTKB() {
     document.getElementById('view-tuan').value = tuan;
     if (mahk)   document.getElementById('view-hocky').value  = mahk;
     if (namhoc) document.getElementById('view-namhoc').value = namhoc;
+    saveGAResult(json, tuan, mahk, namhoc);
+    renderGAResult(json);
     await Promise.all([loadViewData(), reloadMonStatus()]);
 
     // Auto-switch tab
@@ -670,6 +1112,7 @@ async function generateTKB() {
       switchTab('sv');
     }
   } catch (err) {
+    setGAState('empty');
     showResult('error', '❌ ' + err.message);
     document.getElementById('gen-status').textContent = '';
   } finally {
@@ -805,8 +1248,10 @@ async function loadViewData() {
 
     document.getElementById('view-status').textContent =
       `✅ ${DATA.lich.length} buổi học — tuần ${tuan}`;
+    loadStoredGAResult();
   } catch (err) {
     document.getElementById('view-status').textContent = '❌ ' + err.message;
+    setGAState('empty');
   } finally {
     document.getElementById('loading-overlay').classList.remove('show');
   }
