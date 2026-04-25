@@ -12,6 +12,8 @@
             <h1>HỆ THỐNG QUẢN LÝ PHÒNG HỌC</h1>
         </header>
 
+        <div id="notification" class="notification"></div>
+
         <section class="form-section">
             <div class="input-group">
                 <input type="text" id="maPhong" value="Mã: Tự động" readonly title="Mã phòng tự sinh">
@@ -42,6 +44,16 @@
                 </thead>
                 <tbody id="room-table-body"></tbody>
             </table>
+        </div>
+    </div>
+
+    <div id="confirm-overlay" class="confirm-overlay">
+        <div class="confirm-dialog">
+            <div id="confirm-message" class="confirm-message"></div>
+            <div class="confirm-actions">
+                <button id="confirm-ok" class="btn-add">OK</button>
+                <button id="confirm-cancel" class="btn-delete">Cancel</button>
+            </div>
         </div>
     </div>
 
@@ -96,6 +108,9 @@
             const ten = document.getElementById('tenPhong').value;
             if (!ten) return alert('Vui lòng nhập tên phòng!');
 
+            const action = editingMa ? 'cập nhật' : 'thêm mới';
+            if (!await confirmAction(`Bạn có chắc chắn muốn ${action} phòng học này?`)) return;
+
             const body = {
                 TenPhong : ten,
                 LoaiPhong: document.getElementById('loaiPhong').value,
@@ -113,14 +128,59 @@
                     throw new Error(error.error || `API lỗi ${res.status}`);
                 }
 
+                const successMessage = editingMa ? 'Cập nhật phòng học thành công.' : 'Thêm phòng học thành công.';
                 editingMa = null;
                 document.getElementById('room-btn').innerText = 'Thêm Phòng';
                 document.getElementById('room-btn').style.backgroundColor = '';
                 resetForm();
                 await loadRooms();
+                showNotification(successMessage);
             } catch (error) {
                 alert(`Không thể lưu phòng học: ${error.message}`);
             }
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            clearTimeout(showNotification.timeout);
+            showNotification.timeout = setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        function confirmAction(message) {
+            const overlay = document.getElementById('confirm-overlay');
+            const messageEl = document.getElementById('confirm-message');
+            const okBtn = document.getElementById('confirm-ok');
+            const cancelBtn = document.getElementById('confirm-cancel');
+
+            messageEl.textContent = message;
+            overlay.style.display = 'flex';
+
+            return new Promise(resolve => {
+                const cleanup = () => {
+                    okBtn.removeEventListener('click', onOk);
+                    cancelBtn.removeEventListener('click', onCancel);
+                };
+
+                const onOk = () => {
+                    cleanup();
+                    overlay.style.display = 'none';
+                    resolve(true);
+                };
+
+                const onCancel = () => {
+                    cleanup();
+                    overlay.style.display = 'none';
+                    resolve(false);
+                };
+
+                okBtn.addEventListener('click', onOk);
+                cancelBtn.addEventListener('click', onCancel);
+            });
         }
 
         function editRoom(ma) {
@@ -139,7 +199,7 @@
         }
 
         async function deleteRoom(ma) {
-            if (!confirm('Bạn có chắc chắn muốn xóa phòng này?')) return;
+            if (!await confirmAction('Bạn có chắc chắn muốn xóa phòng này?')) return;
             try {
                 const res = await fetch(`${API}/${ma}`, { method: 'DELETE' });
                 if (!res.ok) {
@@ -151,6 +211,7 @@
                     resetForm();
                 }
                 await loadRooms();
+                showNotification('Xóa phòng học thành công.');
             } catch (error) {
                 alert(`Không thể xóa phòng học: ${error.message}`);
             }
