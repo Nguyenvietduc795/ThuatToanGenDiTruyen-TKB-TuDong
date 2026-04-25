@@ -894,6 +894,8 @@ app.post('/api/ga/generate', async (req, res) => {
 
     const sessions = gaResult.sessions || [];
     const summary = gaResult.summary || {};
+    const history = gaResult.history || [];
+    const breakdown = gaResult.breakdown || {};
     const khungMap = buildKhungMap(khungThoiGian);
 
     // ── Tính số tuần cần học cho từng mapc ───────────────────────────────
@@ -1004,6 +1006,8 @@ app.post('/api/ga/generate', async (req, res) => {
     return res.json({
       ok: true,
       summary,
+      history,
+      breakdown,
       filters: { mahk: parsedMahk, namhoc, tuanhoc: parsedTuanhoc, popSize: parsedPopSize, maxGen: parsedMaxGen },
       persisted: Boolean(persist),
       generatedRows:     allRows.length,
