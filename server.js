@@ -31,10 +31,16 @@ function stripVietnamese(input) {
   return String(input)
     .trim()
     .toLowerCase()
+    .replace(/[đĐ]/g, 'd')
     .replace(/đ/g, 'd')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[\s_]+/g, '');
+}
+
+function subjectBaseKey(name) {
+  const key = stripVietnamese(name).replace(/[-–—]+/g, '');
+  return key.endsWith('thuchanh') ? key.slice(0, -'thuchanh'.length) : key;
 }
 
 function normalizeRoomType(value) {
@@ -68,24 +74,27 @@ function normalizeStatus(row) {
 }
 
 function normalizeAssignmentType(pc, subjectsById) {
+  // Ưu tiên 1: loaiphong đã được ghi trực tiếp trong phan_cong_giang_day
   if (pc.loaiphong) {
     return normalizeRoomType(pc.loaiphong);
   }
 
+  // Ưu tiên 2: suffix của mamon (_TH → thực hành, _LT → lý thuyết)
+  // Đây là cách đáng tin nhất vì bootstrap luôn tạo mamon theo quy tắc này.
+  const mamonUpper = String(pc.mamon || '').toUpperCase();
+  if (mamonUpper.endsWith('_TH')) return 'TH';
+  if (mamonUpper.endsWith('_LT')) return 'LT';
+
+  // Ưu tiên 3: số tiết trong mon_hoc
   const mon = subjectsById.get(pc.mamon);
-  if (!mon) {
-    return 'LT';
+  if (mon) {
+    const lt = Number(mon.sotietlythuyet || 0);
+    const th = Number(mon.sotietthuchanh || 0);
+    if (lt === 0 && th > 0) return 'TH';
+    if (th === 0 && lt > 0) return 'LT';
+    if (mon.loaiphong) return normalizeRoomType(mon.loaiphong);
   }
 
-  if (Number(mon.sotietlythuyet || 0) === 0 && Number(mon.sotietthuchanh || 0) > 0) {
-    return 'TH';
-  }
-  if (Number(mon.sotietthuchanh || 0) === 0 && Number(mon.sotietlythuyet || 0) > 0) {
-    return 'LT';
-  }
-  if (mon.loaiphong) {
-    return normalizeRoomType(mon.loaiphong);
-  }
   return 'LT';
 }
 
@@ -740,34 +749,114 @@ app.post('/api/ga/generate', async (req, res) => {
     }
 
     // ── Enforce session rules + loại bỏ phân công đã hoàn thành ──────────
-    // Dùng week-based check thay vì đếm DB rows:
-    //   so_tuan_can_hoc = ceil(tongsotiet / (sobuoimoituan * sotietmoibuoi))
-    //   Nếu parsedTuanhoc > so_tuan_can_hoc → học phần đã xong, bỏ qua.
-    // Ưu điểm: O(n), không cần query DB, deterministic.
     const monMap = new Map((rawData.mon_hoc || []).map((m) => [m.mamon, m]));
-    console.log(`[GA] mon_hoc keys: ${[...monMap.keys()].join(', ')}`);
-    console.log(`[GA] phan_cong mamons: ${[...new Set((rawData.phan_cong_giang_day||[]).map(p=>p.mamon))].join(', ')}`);
 
-    // Bước 1: enforce session rules (sotietmoibuoi=5 → sobuoimoituan=1)
+    // Build thToLtMamon: mamon_TH → mamon_LT, dựa trên tenmon.
+    // TH tenmon = LT tenmon + "-Thực hành" (quy tắc đặt tên trong DB này).
+    // Đây là cách link duy nhất đúng vì mamon là dãy số, không có suffix _LT/_TH.
+    const tenmonToLtMamon = new Map();
+    for (const mon of rawData.mon_hoc || []) {
+      const isLT = Number(mon.sotietlythuyet || 0) > 0
+                && Number(mon.sotietthuchanh || 0) === 0;
+      if (isLT) tenmonToLtMamon.set(subjectBaseKey(mon.tenmon), mon.mamon);
+    }
+    // Suffix TH trong tenmon: "-Thực hành" hoặc "-Thực Hành" (cả 2 cách viết)
+    const TH_SUFFIXES = ['-Thực hành', '-Thực Hành', '-thực hành', '-THỰC HÀNH'];
+    const thToLtMamon = new Map(); // mamon_TH → mamon_LT
+    for (const mon of rawData.mon_hoc || []) {
+      const isTH = Number(mon.sotietthuchanh || 0) > 0
+                && Number(mon.sotietlythuyet  || 0) === 0;
+      if (!isTH) continue;
+      const ltMamon = tenmonToLtMamon.get(subjectBaseKey(mon.tenmon));
+      if (ltMamon) {
+        thToLtMamon.set(mon.mamon, ltMamon);
+        console.log(`[GA] Link TH->LT: ${mon.mamon} -> ${ltMamon}`);
+      }
+    }
+    const ltMamonsWithTH = new Set(thToLtMamon.values()); // LT mamon nào có TH kèm theo
+
+    // Môn đặc biệt cần 5 tiết/buổi (LT-only, không có TH) — cấu hình qua SPECIAL_5TIET_MAMONS
+    // VD trong .env.local: SPECIAL_5TIET_MAMONS=TTNT,AI,...
+    const special5TietMamons = new Set(
+      (process.env.SPECIAL_5TIET_MAMONS || '')
+        .split(',').map((s) => s.trim().toUpperCase()).filter(Boolean)
+    );
+    if (special5TietMamons.size > 0) {
+      console.log(`[GA] Mon dac biet 5 tiet/buoi (LT-only): ${[...special5TietMamons].join(', ')}`);
+    }
+
+    console.log(`[GA] === DEBUG DATA ===`);
+    console.log(`[GA] mon_hoc keys: ${[...monMap.keys()].join(', ')}`);
+    (rawData.phan_cong_giang_day || []).forEach((p) => {
+      console.log(`[GA] pc: mamon=${p.mamon} loaiphong=${p.loaiphong} sotiet=${p.sotietmoibuoi} sobuoi=${p.sobuoimoituan}`);
+    });
+
+    // Bước 1: enforce session rules
+    //   sotietmoibuoi=5 → sobuoimoituan=1
+    //   Môn trong SPECIAL_5TIET_MAMONS → bắt buộc 5 tiết dù DB đang là 3
     rawData.phan_cong_giang_day = (rawData.phan_cong_giang_day || []).map((pc) => {
-      const sotietmoibuoi = Number(pc.sotietmoibuoi) || 3;
+      const isSpecial = special5TietMamons.has(String(pc.mamon).toUpperCase());
+      const sotietmoibuoi = isSpecial ? 5 : (Number(pc.sotietmoibuoi) || 3);
       const sobuoimoituan = sotietmoibuoi === 5
         ? 1
         : Math.min(2, Math.max(1, Number(pc.sobuoimoituan) || 1));
+      if (isSpecial) console.log(`[GA] Override 5 tiet cho mon dac biet: ${pc.mamon}`);
       return { ...pc, sobuoimoituan, sotietmoibuoi };
     });
 
-    // Bước 2: lọc theo week-based stopping point
+    // Bước 1b: LT của môn có học phần TH → bắt buộc sotietmoibuoi=5, sobuoimoituan=1.
+    // Link LT↔TH qua thToLtMamon (tenmon-based), KHÔNG dùng mamon suffix vì mamon là số.
+    rawData.phan_cong_giang_day = (rawData.phan_cong_giang_day || []).map((pc) => {
+      if (normalizeRoomType(pc.loaiphong) !== 'LT') return pc;
+      if (ltMamonsWithTH.has(pc.mamon)) {
+        console.log(`[GA] Enforce 5t/buoi cho LT co TH: ${pc.mamon}`);
+        return { ...pc, sotietmoibuoi: 5, sobuoimoituan: 1 };
+      }
+      return pc;
+    });
+
+    // Bước 2a: build ltWeeksMap keyed by (lt_mamon, malop).
+    // Dùng sotietlythuyet làm fallback nếu tongsotiet = 0.
+    const ltWeeksMap = new Map();
+    for (const pc of rawData.phan_cong_giang_day || []) {
+      if (normalizeRoomType(pc.loaiphong) !== 'LT') continue;
+      const mon = monMap.get(pc.mamon);
+      const tong = Number(mon?.tongsotiet || 0) || Number(mon?.sotietlythuyet || 0);
+      if (tong <= 0) continue;
+      const tpw = pc.sobuoimoituan * pc.sotietmoibuoi;
+      if (tpw <= 0) continue;
+      const ltWeeks = Math.ceil(tong / tpw);
+      ltWeeksMap.set(`${pc.mamon}|${pc.malop}`, ltWeeks);
+      console.log(`[GA] ltWeeksMap: ${pc.mamon}|${pc.malop} = ${ltWeeks} tuan (tong=${tong}, tpw=${tpw})`);
+    }
+
+    // Bước 2b: lọc theo week-based stopping point (với offset cho TH)
     const before = (rawData.phan_cong_giang_day || []).length;
     rawData.phan_cong_giang_day = (rawData.phan_cong_giang_day || []).filter((pc) => {
       const mon = monMap.get(pc.mamon);
-      const tongsotiet = Number(mon?.tongsotiet || 0);
+      const isLT = normalizeRoomType(pc.loaiphong) === 'LT';
+      const isTH = normalizeRoomType(pc.loaiphong) === 'TH';
+      // Fallback tongsotiet theo loại phòng nếu tongsotiet chưa được điền
+      const tongsotiet = Number(mon?.tongsotiet || 0)
+                      || (isLT ? Number(mon?.sotietlythuyet || 0) : 0)
+                      || (isTH ? Number(mon?.sotietthuchanh || 0) : 0);
       if (tongsotiet <= 0) return true; // không giới hạn → luôn xếp
 
       const tietsPerWeek = pc.sobuoimoituan * pc.sotietmoibuoi;
       if (tietsPerWeek <= 0) return true;
 
       const soTuanCanHoc = Math.ceil(tongsotiet / tietsPerWeek);
+
+      if (isTH) {
+        // TH bắt đầu sau khi LT hoàn thành → offset week range.
+        // Tìm lt_mamon qua thToLtMamon (link bằng tenmon, không phải mamon suffix).
+        const ltMamon = thToLtMamon.get(pc.mamon);
+        const ltWeeks = ltMamon ? (ltWeeksMap.get(`${ltMamon}|${pc.malop}`) || 0) : 0;
+        const effectiveTuan = parsedTuanhoc - ltWeeks;
+        console.log(`[GA] TH check: ${pc.mamon}→LT:${ltMamon}|${pc.malop} tuanhoc=${parsedTuanhoc} ltWeeks=${ltWeeks} eff=${effectiveTuan} soTuan=${soTuanCanHoc}`);
+        return effectiveTuan <= soTuanCanHoc;
+      }
+
       return parsedTuanhoc <= soTuanCanHoc;
     });
     const exhausted = before - (rawData.phan_cong_giang_day || []).length;
@@ -814,7 +903,11 @@ app.post('/api/ga/generate', async (req, res) => {
     for (const pc of rawData.phan_cong_giang_day || []) {
       const mon = monMap.get(pc.mamon);
       // Ưu tiên tongsotiet từ pc (nếu có denormalized), rồi mới tra monMap
-      const tongsotiet    = Number(pc.tongsotiet || mon?.tongsotiet || 0);
+      const loai = normalizeRoomType(pc.loaiphong);
+      const tongsotiet    = Number(pc.tongsotiet || mon?.tongsotiet || 0)
+                          || (loai === 'TH'
+                            ? Number(mon?.sotietthuchanh || 0)
+                            : Number(mon?.sotietlythuyet || 0));
       const tietsPerWeek  = Number(pc.sobuoimoituan) * Number(pc.sotietmoibuoi);
       const soTuanCanHoc  = (tongsotiet > 0 && tietsPerWeek > 0)
         ? Math.ceil(tongsotiet / tietsPerWeek)
@@ -838,29 +931,38 @@ app.post('/api/ga/generate', async (req, res) => {
 
     // ── Tính tuần kết thúc LT cho từng base mamon (để TH bắt đầu sau) ──────
     const stripSfx   = (m) => String(m).replace(/_(LT|TH)$/i, '');
+    const pcsByMapc  = new Map((rawData.phan_cong_giang_day || []).map(pc => [pc.mapc, pc]));
     const mapcMamon  = new Map((rawData.phan_cong_giang_day || []).map(pc => [pc.mapc, pc.mamon]));
     const ltEndWeek  = new Map(); // baseMamon → tuần cuối LT
     for (const [mapc, soTuan] of pcWeeksMap) {
+      const pc = pcsByMapc.get(mapc);
+      if (!pc || normalizeRoomType(pc.loaiphong) !== 'LT') continue;
       const mamon = mapcMamon.get(mapc) || '';
       if (String(mamon).toUpperCase().endsWith('_LT')) {
         const base = stripSfx(mamon);
         const endW = parsedTuanhoc + soTuan - 1;
         ltEndWeek.set(base, Math.max(ltEndWeek.get(base) || 0, endW));
       }
+      const base = stripSfx(mamon);
+      const endW = parsedTuanhoc + soTuan - 1;
+      ltEndWeek.set(mamon, Math.max(ltEndWeek.get(mamon) || 0, endW));
+      ltEndWeek.set(base, Math.max(ltEndWeek.get(base) || 0, endW));
     }
 
     // ── Nhân pattern ra tất cả tuần — TH bắt đầu sau khi LT xong ───────────
     const allRows = [];
     for (const row of baseRows) {
-      const mamon   = mapcMamon.get(row.mapc) || '';
-      const isTH    = String(mamon).toUpperCase().endsWith('_TH');
+      const pc      = pcsByMapc.get(row.mapc);
+      const mamon   = pc?.mamon || mapcMamon.get(row.mapc) || '';
+      const isTH    = pc ? normalizeRoomType(pc.loaiphong) === 'TH' : String(mamon).toUpperCase().endsWith('_TH');
       const soTuan  = pcWeeksMap.get(row.mapc) || 1;
 
       // TH bắt đầu tuần ngay sau khi LT kết thúc
       let startWeek = parsedTuanhoc;
       if (isTH) {
-        const base   = stripSfx(mamon);
-        const ltEnd  = ltEndWeek.get(base) || 0;
+        const ltMamon = thToLtMamon.get(mamon);
+        const base    = stripSfx(mamon);
+        const ltEnd   = (ltMamon ? ltEndWeek.get(ltMamon) : 0) || ltEndWeek.get(base) || 0;
         if (ltEnd > 0) startWeek = ltEnd + 1;
       }
 
