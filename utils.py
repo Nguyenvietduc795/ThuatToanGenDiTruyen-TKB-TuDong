@@ -2,6 +2,7 @@ import json
 import math
 import os
 import random
+import unicodedata
 from datetime import date, timedelta
 from costs import (
     check_hard_constraints,
@@ -132,11 +133,26 @@ def _strip_vn(text):
   if text is None:
     return ''
   normalized = str(text).strip().lower()
+  normalized = normalized.replace('đ', 'd').replace('Đ', 'd')
+  normalized = unicodedata.normalize('NFD', normalized)
+  normalized = ''.join(ch for ch in normalized if unicodedata.category(ch) != 'Mn')
   normalized = normalized.replace('đ', 'd')
   table = str.maketrans('àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ',
               'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyy')
   normalized = normalized.translate(table)
   return normalized.replace(' ', '').replace('_', '')
+
+
+def _subject_base_key(name):
+    key = _strip_vn(name).replace('-', '').replace('–', '').replace('—', '')
+    suffix = 'thuchanh'
+    return key[:-len(suffix)] if key.endswith(suffix) else key
+
+
+def _strip_mamon_suffix(mamon):
+    """Lay base mamon bang cach bo _LT hoac _TH o cuoi. Vi du: 'IT01_TH' -> 'IT01'."""
+    import re
+    return re.sub(r'_(LT|TH)$', '', str(mamon), flags=re.IGNORECASE)
 
 
 def _normalize_room_type(value):
@@ -194,6 +210,35 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
         if isinstance(m, dict) and 'mamon' in m
     }
 
+    # Build subject_names: mamon -> tenmon (dung cho soft constraint chuyen mon)
+    subject_names = {
+        m['mamon']: m.get('tenmon', m['mamon'])
+        for m in raw.get('mon_hoc', [])
+        if isinstance(m, dict) and 'mamon' in m
+    }
+
+    # Build th_to_lt_map: mamon_TH -> mamon_LT dua theo tenmon.
+    # mamon la day so, khong co suffix _LT/_TH => phai link bang ten mon:
+    #   tenmon_TH = tenmon_LT + "-Thực hành"
+    import re as _re
+    _tenmon_to_lt = {}   # tenmon_LT -> mamon_LT
+    for m in raw.get('mon_hoc', []):
+        if not isinstance(m, dict): continue
+        lt_p = int(m.get('sotietlythuyet', 0))
+        th_p = int(m.get('sotietthuchanh', 0))
+        if lt_p > 0 and th_p == 0:
+            _tenmon_to_lt[_subject_base_key(m.get('tenmon', ''))] = m['mamon']
+    _TH_SUFFIXES = ['-Thực hành', '-Thực Hành', '-thực hành', '-THỰC HÀNH']
+    th_to_lt_map = {}    # mamon_TH -> mamon_LT
+    for m in raw.get('mon_hoc', []):
+        if not isinstance(m, dict): continue
+        if int(m.get('sotietthuchanh', 0)) <= 0: continue
+        if int(m.get('sotietlythuyet', 0)) > 0:  continue
+        lt_mamon = _tenmon_to_lt.get(_subject_base_key(m.get('tenmon', '')))
+        if lt_mamon:
+            th_to_lt_map[m['mamon']] = lt_mamon
+    lt_mamons_with_th = set(th_to_lt_map.values())
+
     # ── Phong hoc (chi them phong dang hoat dong) ─────────────────────────────
     # BUG FIX: indent cu sai khien phong khong active van duoc them vao classrooms.
     for room in raw.get('phong_hoc', []):
@@ -215,15 +260,53 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
     # Lay tap magv thuc su co trong phan_cong de khoi tao dung so luong.
     magv_in_pc = {pc['magv'] for pc in raw.get('phan_cong_giang_day', [])
                   if isinstance(pc, dict) and 'magv' in pc}
+    teacher_specializations = {}
     for gv in raw.get('giang_vien', []):
         magv = gv.get('magv')
         if not magv:
             continue
+        # Luu chuyen mon cua tung GV (dung cho soft constraint)
+        chuyenmon = gv.get('chuyenmon', '')
+        if chuyenmon:
+            teacher_specializations[magv] = chuyenmon
         # Them tat ca GV: ca GV duoc phan_cong lan GV dang hoat dong
         if magv in magv_in_pc or _is_active(gv.get('trangthai')):
             if magv not in teachers:
                 teachers[magv] = len(teachers)
                 teachers_empty_space[magv] = []
+
+    # ── Tinh so tuan can thiet cho tung hoc phan LT (de block TH) ────────────
+    # Muc tieu: hoc phan TH chi duoc xep sau khi LT tuong ung da hoan thanh het.
+    # Xac dinh LT/TH bang loaiphong (da duoc server.js tinh san trong pc.loaiphong),
+    # khong phu thuoc vao naming convention cua mamon.
+    # Luu theo 2 key:
+    #   (mamon, malop)      - cho truong hop cung mamon, khac loaiphong
+    #   (base_mamon, malop) - cho truong hop mamon co suffix _LT/_TH
+    lt_weeks_map = {}
+    if tuanhoc is not None:
+        for pc_lt in raw.get('phan_cong_giang_day', []):
+            if not isinstance(pc_lt, dict) or 'mapc' not in pc_lt:
+                continue
+            mamon_lt = pc_lt.get('mamon', '')
+            mi_lt    = mon_hoc_map.get(mamon_lt, {})
+            lp_lt    = _normalize_room_type(
+                pc_lt.get('loaiphong') or mi_lt.get('loaiphong') or 'LT'
+            )
+            if lp_lt != 'LT':
+                continue
+            malop_lt = pc_lt.get('malop', '')
+            # Fallback: dung sotietlythuyet neu tongsotiet = 0
+            tongsotiet_lt = (int(mi_lt.get('tongsotiet', 0))
+                             or int(mi_lt.get('sotietlythuyet', 0)))
+            if tongsotiet_lt <= 0:
+                continue
+            sobuoi_lt = enforce_session_rules(
+                int(pc_lt.get('sobuoimoituan', 1)),
+                int(pc_lt.get('sotietmoibuoi', 3))
+            )
+            sotiet_lt = int(pc_lt.get('sotietmoibuoi', 3))
+            lt_w = calculate_weeks_needed(tongsotiet_lt, sobuoi_lt, sotiet_lt)
+            lt_weeks_map[(mamon_lt, malop_lt)] = lt_w
 
     # ── Phan cong giang day ───────────────────────────────────────────────────
     for pc in raw.get('phan_cong_giang_day', []):
@@ -235,10 +318,11 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
         magv  = pc['magv']
         mapc  = pc['mapc']
 
-        # BUG FIX: loaiphong phai lay tu mon_hoc (phan_cong khong co truong nay).
         mon_info  = mon_hoc_map.get(mamon, {})
+        # server.js da tinh pc.loaiphong chinh xac cho tung ban ghi (LT hoac TH).
+        # Uu tien pc.loaiphong; neu khong co moi dung mon_hoc.loaiphong lam fallback.
         loaiphong = _normalize_room_type(
-            mon_info.get('loaiphong') or pc.get('loaiphong') or 'LT'
+            pc.get('loaiphong') or mon_info.get('loaiphong') or 'LT'
         )
 
         sotietmoibuoi_raw = int(pc.get('sotietmoibuoi', 3))
@@ -260,14 +344,34 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
         # Luu y: tuan 8 xep 6 tiet (tong = 48, du 3 tiet so voi 45).
         # Chap nhan du tiet o tuan cuoi, KHONG cat buoi giua chung.
         if tuanhoc is not None:
+            # Fallback tongsotiet theo loai phong neu truong bi de trong
             tongsotiet = int(mon_info.get('tongsotiet', 0))
-            if tongsotiet > 0:
-                so_tuan_can_hoc = calculate_weeks_needed(
-                    tongsotiet, sobuoimoituan, sotietmoibuoi
-                )
-                if tuanhoc > so_tuan_can_hoc:
-                    # Hoc phan nay da hoan thanh — khong xep lich cho tuan nay nua.
-                    continue
+            if tongsotiet <= 0:
+                if loaiphong == 'TH':
+                    tongsotiet = int(mon_info.get('sotietthuchanh', 0))
+                else:
+                    tongsotiet = int(mon_info.get('sotietlythuyet', 0))
+
+            if loaiphong == 'TH':
+                # TH chi duoc xep sau khi LT cua cung mon + cung lop hoan thanh.
+                # Link TH->LT qua th_to_lt_map (theo tenmon, vi mamon la day so).
+                lt_mamon = th_to_lt_map.get(mamon)
+                lt_weeks = lt_weeks_map.get((lt_mamon, malop), 0) if lt_mamon else 0
+
+                effective_tuan = tuanhoc - lt_weeks
+                if tongsotiet > 0:
+                    so_tuan_th = calculate_weeks_needed(
+                        tongsotiet, sobuoimoituan, sotietmoibuoi
+                    )
+                    if effective_tuan > so_tuan_th:
+                        continue  # TH da hoan thanh
+            else:
+                if tongsotiet > 0:
+                    so_tuan_can_hoc = calculate_weeks_needed(
+                        tongsotiet, sobuoimoituan, sotietmoibuoi
+                    )
+                    if tuanhoc > so_tuan_can_hoc:
+                        continue
 
         compatible_rooms = [
             idx for idx, room in classrooms.items()
@@ -310,7 +414,9 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
     for cls in class_list:
         classes[len(classes)] = cls
 
-    return Data(groups, teachers, classes, classrooms)
+    return Data(groups, teachers, classes, classrooms,
+                teacher_specializations=teacher_specializations,
+                subject_names=subject_names)
 
 
 def load_data(file_path, teachers_empty_space, groups_empty_space, subjects_order):
