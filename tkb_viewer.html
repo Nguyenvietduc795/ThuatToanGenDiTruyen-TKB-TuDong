@@ -8,18 +8,63 @@
 <style>
   body { font-family: 'Segoe UI', sans-serif; }
   .timetable { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  .schedule-scroll { overflow:auto; max-height:72vh; }
+  .schedule-scroll .timetable { min-width:860px; }
+  .schedule-scroll thead th { position:sticky; top:0; z-index:3; }
   .timetable th { border:1px solid #d1d5db; background:#f3f4f6; padding:8px 4px; text-align:center; font-size:13px; font-weight:600; }
   .timetable td { border:1px solid #e5e7eb; }
   .tiet-lbl  { width:40px; text-align:center; font-size:11px; color:#6b7280; background:#f9fafb; padding:2px; }
   .empty-td  { background:#fafafa; height:30px; }
   .free-td   { background:#f0fdf4 !important; text-align:center; vertical-align:middle; color:#16a34a; font-size:11px; font-weight:600; height:30px; }
   .sess-cell { vertical-align:top; padding:3px; }
-  .sess-card { border-radius:7px; padding:5px 7px; height:100%; }
+  .sess-card { border-radius:7px; padding:5px 7px; height:100%; position:relative; overflow:hidden; }
   .sess-name { font-weight:700; font-size:12px; line-height:1.3; margin-bottom:3px; }
   .sess-info { color:#374151; font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px; }
   .badge     { display:inline-block; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-bottom:3px; }
   .bdg-lt { background:#dbeafe; color:#1d4ed8; }
   .bdg-th { background:#dcfce7; color:#15803d; }
+  .bdg-stop { background:#fee2e2; color:#b91c1c; }
+  .bdg-makeup { background:#fef3c7; color:#92400e; }
+  .sess-card.is-paused { background:#fff1f2; border-left-color:#dc2626; opacity:.92; }
+  .sess-card.is-makeup { background:#fffbeb; border-left-color:#f59e0b; }
+  .sess-card.is-paused::before {
+    content:"Tạm ngưng";
+    position:absolute;
+    top:8px;
+    left:-28px;
+    width:100px;
+    transform:rotate(-45deg);
+    background:#dc2626;
+    color:#fff;
+    text-align:center;
+    font-size:9px;
+    font-weight:900;
+    line-height:18px;
+    box-shadow:0 1px 4px rgba(220,38,38,.28);
+  }
+  .sess-card.is-paused .sess-name { padding-left:14px; color:#991b1b; }
+  .sess-action { margin-top:5px; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; border-radius:6px; padding:3px 6px; font-size:10px; font-weight:800; cursor:pointer; }
+  .sess-action:hover { background:#dbeafe; }
+  .sess-action.warn { border-color:#fed7aa; background:#fff7ed; color:#c2410c; }
+  .modal-backdrop { position:fixed; inset:0; background:rgba(15,23,42,.45); display:none; align-items:center; justify-content:center; z-index:10000; padding:20px; }
+  .modal-backdrop.show { display:flex; }
+  .modal-panel { width:min(760px,100%); max-height:92vh; overflow:auto; background:#fff; border-radius:16px; box-shadow:0 20px 60px rgba(15,23,42,.25); padding:20px; }
+  .modal-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .modal-field label { display:block; color:#64748b; font-size:12px; font-weight:700; margin-bottom:5px; }
+  .modal-field input, .modal-field select, .modal-field textarea { width:100%; border:1px solid #cbd5e1; border-radius:9px; padding:9px 10px; font-size:14px; outline:none; }
+  .modal-field textarea { min-height:72px; resize:vertical; }
+  .modal-status { border-radius:10px; padding:10px 12px; font-size:13px; font-weight:700; display:none; }
+  .modal-status.ok { display:block; background:#dcfce7; color:#166534; border:1px solid #bbf7d0; }
+  .modal-status.bad { display:block; background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
+  .slot-table-wrap { border:1px solid #e5e7eb; border-radius:12px; overflow:auto; max-height:280px; }
+  .slot-table { width:100%; border-collapse:collapse; min-width:760px; font-size:12px; }
+  .slot-table th { position:sticky; top:0; background:#f8fafc; z-index:1; color:#475569; font-weight:800; border-bottom:1px solid #e5e7eb; padding:8px; text-align:left; }
+  .slot-table td { border-top:1px solid #eef2f7; padding:8px; vertical-align:top; }
+  .slot-table tr.selected { background:#eff6ff; }
+  .slot-ok { color:#15803d; font-weight:800; }
+  .slot-bad { color:#b91c1c; font-weight:800; }
+  .slot-pick { border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; border-radius:8px; padding:5px 8px; font-weight:800; }
+  .slot-pick:disabled { opacity:.4; cursor:not-allowed; }
   .sang-hd td  { background:#fffbeb; text-align:center; font-size:11px; font-weight:700; color:#92400e; padding:5px; }
   .chieu-hd td { background:#eff6ff; text-align:center; font-size:11px; font-weight:700; color:#1e40af; padding:5px; }
   .c-0{background:#eff6ff;border-left:3px solid #3b82f6}
@@ -299,7 +344,7 @@
   <div class="bg-white rounded-2xl shadow px-5 py-4 mb-5 flex flex-wrap items-end gap-4">
     <div>
       <label class="block text-xs font-semibold text-gray-500 mb-1">Tuần xem</label>
-      <input id="view-tuan" type="number" min="1" value="1"
+      <input id="view-tuan" type="number" min="0" value="1"
         class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-20 focus:outline-none focus:ring-2 focus:ring-blue-400">
     </div>
     <div>
@@ -381,7 +426,7 @@
   </div>
 
   <!-- Week nav -->
-  <div class="bg-white rounded-2xl shadow px-4 py-3 mb-5 flex items-center justify-between gap-4">
+  <div class="bg-white rounded-2xl shadow px-4 py-3 mb-5 flex flex-wrap items-center justify-between gap-4">
     <button onclick="prevWeek()" id="btn-prev"
       class="week-nav-btn px-4 py-2 rounded-xl font-semibold text-sm border border-gray-200 text-gray-700 transition-all">← Tuần trước</button>
     <div class="text-center flex-1">
@@ -390,13 +435,22 @@
     </div>
     <button onclick="nextWeek()" id="btn-next"
       class="week-nav-btn px-4 py-2 rounded-xl font-semibold text-sm border border-gray-200 text-gray-700 transition-all">Tuần sau →</button>
+    <div class="w-full border-t border-gray-100 pt-3 flex flex-wrap items-end gap-3">
+      <label class="text-xs text-gray-500 font-medium">
+        Ngày
+        <input id="calendar-date" type="date" onchange="selectCalendarDate(this.value)"
+          class="block mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+      </label>
+      <button type="button" onclick="selectToday()"
+        class="px-4 py-2 rounded-xl font-semibold text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all">📅 Hôm nay</button>
+    </div>
   </div>
 
   <!-- TAB: Quản lý -->
   <div id="tab-ql" class="tab-pane">
     <div id="stats-row" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"></div>
     <div id="legend-row" class="flex flex-wrap gap-2 mb-4 bg-white rounded-xl p-3 shadow text-xs items-center"></div>
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+    <div class="bg-white rounded-2xl shadow p-4 schedule-scroll">
       <p class="text-xs text-gray-400 mb-3">Tất cả buổi học trong tuần. Nhiều thẻ cùng ô = song song.</p>
       <div id="grid-ql"></div>
     </div>
@@ -410,7 +464,7 @@
         class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-52 bg-white"></select>
       <span id="gv-info" class="text-xs text-gray-400 italic"></span>
     </div>
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto"><div id="grid-gv"></div></div>
+    <div class="bg-white rounded-2xl shadow p-4 schedule-scroll"><div id="grid-gv"></div></div>
   </div>
 
   <!-- TAB: Sinh viên -->
@@ -420,7 +474,7 @@
       <select id="sel-lop" onchange="renderSV()"
         class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-52 bg-white"></select>
     </div>
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto"><div id="grid-sv"></div></div>
+    <div class="bg-white rounded-2xl shadow p-4 schedule-scroll"><div id="grid-sv"></div></div>
   </div>
 
   <!-- TAB: Phòng học -->
@@ -435,9 +489,56 @@
       <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-green-50 border border-green-200 text-green-700 font-semibold">🟢 TRỐNG</span>
       <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-semibold">📘 Có lịch</span>
     </div>
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto"><div id="grid-ph"></div></div>
+    <div class="bg-white rounded-2xl shadow p-4 schedule-scroll"><div id="grid-ph"></div></div>
   </div>
 
+</div>
+
+<div id="makeup-modal" class="modal-backdrop">
+  <div class="modal-panel">
+    <div class="flex items-start justify-between gap-3 mb-4">
+      <div>
+        <h2 id="makeup-title" class="text-lg font-bold text-gray-900">Tạm ngưng / Tạo học bù</h2>
+        <div id="makeup-original" class="text-sm text-gray-500 mt-1"></div>
+      </div>
+      <button type="button" onclick="closeMakeupModal()" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 font-bold">Đóng</button>
+    </div>
+    <input type="hidden" id="makeup-mode">
+    <input type="hidden" id="makeup-matkb">
+    <input type="hidden" id="makeup-makhung">
+    <div class="modal-grid">
+      <div class="modal-field">
+        <label>Tuần học bù</label>
+        <input id="makeup-week" type="number" min="0" onchange="loadAvailableMakeupSlots()">
+      </div>
+      <div class="modal-field">
+        <label>Ngày học bù</label>
+        <input id="makeup-date" type="date" onchange="loadAvailableMakeupSlots()">
+      </div>
+      <div class="modal-field">
+        <label>Phòng trống phù hợp</label>
+        <select id="makeup-room"></select>
+      </div>
+      <div class="modal-field" style="grid-column:1/-1">
+        <label>Lý do</label>
+        <textarea id="makeup-reason" placeholder="VD: Giảng viên bận đột xuất"></textarea>
+      </div>
+    </div>
+    <div class="mt-4">
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <div class="text-sm font-bold text-gray-700">Slot học bù khả dụng</div>
+        <button type="button" onclick="loadAvailableMakeupSlots()" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 font-bold text-sm">Tải slot</button>
+      </div>
+      <div id="makeup-slot-table" class="slot-table-wrap">
+        <div class="p-4 text-sm text-gray-400">Chọn tuần/ngày để tải slot khả dụng.</div>
+      </div>
+    </div>
+    <div id="makeup-status" class="modal-status mt-4"></div>
+    <div class="flex flex-wrap justify-end gap-2 mt-5">
+      <button type="button" onclick="checkMakeupSlot()" class="px-4 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 font-bold">Kiểm tra trùng lịch</button>
+      <button id="makeup-submit" type="button" onclick="submitMakeup()" class="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold">Tạo học bù</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -445,6 +546,9 @@
    DATA & STATE
 ════════════════════════════════════════════════════════════════ */
 let DATA = null;
+let sessionByMatkb = new Map();
+let availableMakeupSlots = [];
+let selectedMakeupSlot = null;
 
 const API_ORIGIN = (
   window.location.origin && /^https?:\/\/localhost:3000$/i.test(window.location.origin)
@@ -453,7 +557,7 @@ function apiUrl(path) {
   return `${API_ORIGIN}${path}`;
 }
 
-const DAYS      = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+const DAYS      = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','CN'];
 const PALETTE   = ['c-0','c-1','c-2','c-3','c-4','c-5','c-6','c-7','c-8','c-9'];
 let   colorMap  = {};
 
@@ -1147,9 +1251,10 @@ const START_DATE = (() => {
   return d;
 })();
 let currentWeek = 1;
+let selectedCalendarDate = null;
 
 function getWeekDates(w) {
-  return Array.from({length:6}, (_,i) => {
+  return Array.from({length:DAYS.length}, (_,i) => {
     const d = new Date(START_DATE);
     d.setDate(d.getDate() + (w-1)*7 + i);
     return d;
@@ -1158,15 +1263,73 @@ function getWeekDates(w) {
 function fmt(d) {
   return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}`;
 }
+function fmtDateValue(value) {
+  if (!value) return '';
+  const d = new Date(`${String(value).slice(0,10)}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? String(value) : fmt(d);
+}
+function isoDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function parseLocalDate(value) {
+  if (!value) return null;
+  const parts = value.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+  return new Date(parts[0], parts[1]-1, parts[2]);
+}
+function weekFromDate(date) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  const diffDays = Math.floor((d - START_DATE) / 86400000);
+  return Math.max(0, Math.floor(diffDays / DAYS.length) + 1);
+}
+function dayIndexFromDate(date) {
+  const jsDay = date.getDay();
+  return jsDay === 0 ? 6 : jsDay - 1;
+}
+function deriveDateDayIndex(value) {
+  const d = parseLocalDate(value);
+  return d ? dayIndexFromDate(d) : null;
+}
+function syncCalendarControls(dates) {
+  const start = dates[0];
+  const end = dates[dates.length-1];
+  if (!selectedCalendarDate || selectedCalendarDate < start || selectedCalendarDate > end) {
+    selectedCalendarDate = new Date(start);
+  }
+  const dateEl = document.getElementById('calendar-date');
+  if (dateEl) dateEl.value = isoDate(selectedCalendarDate);
+}
 function updateWeekNav() {
   const dates = getWeekDates(currentWeek);
   document.getElementById('week-label').textContent = `Tuần ${currentWeek}`;
-  document.getElementById('week-range').textContent  = `${fmt(dates[0])} – ${fmt(dates[5])}`;
-  document.getElementById('btn-prev').disabled = currentWeek <= 1;
+  document.getElementById('week-range').textContent  = `${fmt(dates[0])} – ${fmt(dates[dates.length-1])}`;
+  document.getElementById('btn-prev').disabled = currentWeek <= 0;
+  syncCalendarControls(dates);
+}
+async function goToCalendarDate(date) {
+  if (!date) return;
+  date.setHours(0,0,0,0);
+  selectedCalendarDate = date;
+  currentWeek = weekFromDate(date);
+  currentDay = dayIndexFromDate(date);
+  document.getElementById('view-tuan').value = currentWeek;
+  updateWeekNav();
+  await loadViewData();
+}
+function selectCalendarDate(value) {
+  goToCalendarDate(parseLocalDate(value));
+}
+function selectToday() {
+  goToCalendarDate(new Date());
 }
 function prevWeek() {
-  if (currentWeek > 1) {
+  if (currentWeek > 0) {
     currentWeek--;
+    selectedCalendarDate = getWeekDates(currentWeek)[0];
     updateWeekNav();
     document.getElementById('view-tuan').value = currentWeek;
     loadViewData();
@@ -1174,6 +1337,7 @@ function prevWeek() {
 }
 function nextWeek() {
   currentWeek++;
+  selectedCalendarDate = getWeekDates(currentWeek)[0];
   updateWeekNav();
   document.getElementById('view-tuan').value = currentWeek;
   loadViewData();
@@ -1193,8 +1357,10 @@ function refreshActiveTab() {
    LOAD VIEW DATA
 ════════════════════════════════════════════════════════════════ */
 async function loadViewData() {
-  const tuan   = Number(document.getElementById('view-tuan').value) || 1;
+  const rawTuan = Number(document.getElementById('view-tuan').value);
+  const tuan   = Number.isFinite(rawTuan) ? Math.max(0, rawTuan) : 1;
   currentWeek  = tuan; // đồng bộ week nav với input
+  document.getElementById('view-tuan').value = tuan;
   updateWeekNav();
   const mahk   = document.getElementById('view-hocky').value;
   const namhoc = document.getElementById('view-namhoc').value.trim();
@@ -1213,6 +1379,7 @@ async function loadViewData() {
 
     DATA = json;
     assignColors(DATA.mon_list || []);
+    sessionByMatkb = new Map((DATA.lich || []).filter(s => s.matkb).map(s => [s.matkb, s]));
 
     // Header
     const parts = [];
@@ -1288,15 +1455,37 @@ function switchTab(tab) {
 function card(s, showGV, showLop, compact) {
   const isTH   = s.loai === 'TH';
   const clrCls = isTH ? 'c-1' : 'c-0';
+  const status = s.trangthai || 'DANG_HOC';
+  const statusCls = status === 'TAM_NGUNG' ? 'is-paused' : status === 'HOC_BU' ? 'is-makeup' : '';
   const badge  = `<span class="badge ${isTH?'bdg-th':'bdg-lt'}">${s.loai}</span>`;
+  const statusBadge = status === 'TAM_NGUNG'
+    ? '<span class="badge bdg-stop">Tạm ngưng</span>'
+    : status === 'HOC_BU'
+      ? '<span class="badge bdg-makeup">Học bù</span>'
+      : '';
   const tRange = compact
     ? `<div class="sess-info" style="font-size:9px;color:#9ca3af">Tiết ${s.tiet_start}–${s.tiet_end}</div>` : '';
   const gvLine  = showGV  ? `<div class="sess-info">👤 ${s.tengv}</div>`  : '';
   const lopLine = showLop ? `<div class="sess-info">🎓 ${s.tenlop}</div>` : '';
-  return `<div class="sess-card ${clrCls}" style="${compact?'margin-bottom:3px;':''}">
+  const reasonLine = s.lydo ? `<div class="sess-info" style="white-space:normal;color:#b91c1c">Lý do: ${s.lydo}</div>` : '';
+  const makeupLine = s.hoc_bu
+    ? `<div class="sess-info" style="white-space:normal;color:#92400e">Đã có học bù: tuần ${s.hoc_bu.tuanhoc}, ngày ${fmtDateValue(s.hoc_bu.ngayhoc)}, tiết ${s.hoc_bu.tiet_start}-${s.hoc_bu.tiet_end}, phòng ${s.hoc_bu.maphong}</div>`
+    : '';
+  const originalLine = s.bu_cho
+    ? `<div class="sess-info" style="white-space:normal;color:#92400e">Bù cho: tuần ${s.bu_cho.tuanhoc}${s.bu_cho.ngayhoc ? ', ngày '+fmtDateValue(s.bu_cho.ngayhoc) : ''}</div>`
+    : '';
+  const action = status === 'DANG_HOC'
+    ? `<button type="button" class="sess-action" onclick="pauseSession('${s.matkb}')">Tạm ngưng</button>`
+    : status === 'TAM_NGUNG' && !s.hoc_bu
+      ? `<button type="button" class="sess-action" onclick="openMakeupModal('${s.matkb}','create')">Học bù</button>`
+    : status === 'HOC_BU'
+      ? `<button type="button" class="sess-action warn" onclick="openMakeupModal('${s.matkb}','edit')">Chỉnh học bù</button>`
+      : '';
+  return `<div class="sess-card ${clrCls} ${statusCls}" style="${compact?'margin-bottom:3px;':''}">
     <div class="sess-name">${s.tenmon}</div>
-    ${badge}${tRange}${gvLine}${lopLine}
+    ${statusBadge}${badge}${tRange}${gvLine}${lopLine}
     <div class="sess-info">🏛 ${s.maphong}</div>
+    ${reasonLine}${makeupLine}${originalLine}${action}
   </div>`;
 }
 
@@ -1307,13 +1496,14 @@ function buildGrid(sessions, showGV, showLop) {
     if (!g[s.thu_idx]) g[s.thu_idx] = {};
     g[s.thu_idx][s.tiet_start] = s;
   });
-  const rowEnd = new Array(6).fill(0);
+  const dayCount = DAYS.length;
+  const rowEnd = new Array(dayCount).fill(0);
   let h = `<table class="timetable"><thead><tr><th style="width:40px">Tiết</th>${dayHeaders()}</tr></thead><tbody>`;
   for (let t=1; t<=12; t++) {
-    if (t===1) h += '<tr class="sang-hd"><td colspan="7">☀️ BUỔI SÁNG (Tiết 1–6)</td></tr>';
-    if (t===7) h += '<tr class="chieu-hd"><td colspan="7">🌙 BUỔI CHIỀU (Tiết 7–12)</td></tr>';
+    if (t===1) h += `<tr class="sang-hd"><td colspan="${dayCount+1}">☀️ BUỔI SÁNG (Tiết 1–6)</td></tr>`;
+    if (t===7) h += `<tr class="chieu-hd"><td colspan="${dayCount+1}">🌙 BUỔI CHIỀU (Tiết 7–12)</td></tr>`;
     h += `<tr><td class="tiet-lbl">${t}</td>`;
-    for (let d=0; d<6; d++) {
+    for (let d=0; d<dayCount; d++) {
       if (rowEnd[d] > t) continue;
       const s = g[d] && g[d][t];
       if (s) {
@@ -1335,7 +1525,10 @@ function buildGridAll(sessions) {
     if (!g[s.thu_idx][s.tiet_start]) g[s.thu_idx][s.tiet_start] = [];
     g[s.thu_idx][s.tiet_start].push(s);
   });
-  const tiets = [...new Set(sessions.map(s=>s.tiet_start))].sort((a,b)=>a-b);
+  const dayCount = DAYS.length;
+  const tiets = sessions.length
+    ? [...new Set(sessions.map(s=>s.tiet_start))].sort((a,b)=>a-b)
+    : Array.from({length:12}, (_,i)=>i+1);
   let h = `<table class="timetable"><thead><tr><th style="width:55px">Tiết BĐ</th>${dayHeaders()}</tr></thead><tbody>`;
   let prev = null;
   tiets.forEach(t => {
@@ -1343,11 +1536,11 @@ function buildGridAll(sessions) {
     if (buoi!==prev) {
       prev=buoi;
       h += buoi==='sang'
-        ? '<tr class="sang-hd"><td colspan="7">☀️ BUỔI SÁNG</td></tr>'
-        : '<tr class="chieu-hd"><td colspan="7">🌙 BUỔI CHIỀU</td></tr>';
+        ? `<tr class="sang-hd"><td colspan="${dayCount+1}">☀️ BUỔI SÁNG</td></tr>`
+        : `<tr class="chieu-hd"><td colspan="${dayCount+1}">🌙 BUỔI CHIỀU</td></tr>`;
     }
     h += `<tr><td class="tiet-lbl" style="font-size:10px">Tiết<br><b>${t}</b></td>`;
-    for (let d=0; d<6; d++) {
+    for (let d=0; d<dayCount; d++) {
       const list = (g[d]&&g[d][t])||[];
       if (!list.length) { h += '<td class="empty-td"></td>'; continue; }
       h += '<td class="sess-cell" style="min-width:140px">';
@@ -1373,7 +1566,7 @@ function buildRoomGrid(dayIdx) {
     const occ = new Set();
     DATA.lich.filter(s => s.thu_idx===dayIdx && s.maphong===r.maphong)
              .forEach(s => { for(let t=s.tiet_start; t<=s.tiet_end; t++) occ.add(t); });
-    freeCount[r.maphong] = 10 - occ.size;
+    freeCount[r.maphong] = 12 - occ.size;
   });
 
   const rowEnd = {};
@@ -1400,13 +1593,7 @@ function buildRoomGrid(dayIdx) {
       if (s) {
         const sp = s.tiet_end - s.tiet_start + 1;
         rowEnd[r.maphong] = t + sp;
-        h += `<td rowspan="${sp}" class="sess-cell">
-          <div class="sess-card ${s.loai==='TH'?'c-1':'c-0'}">
-            <div class="sess-name">${s.tenmon}</div>
-            <span class="badge ${s.loai==='TH'?'bdg-th':'bdg-lt'}">${s.loai}</span>
-            <div class="sess-info">🎓 ${s.tenlop}</div>
-            <div class="sess-info">👤 ${s.tengv}</div>
-          </div></td>`;
+        h += `<td rowspan="${sp}" class="sess-cell">${card(s,true,true,false)}</td>`;
       } else { h += '<td class="free-td">🟢<br>TRỐNG</td>'; }
     });
     h += '</tr>';
@@ -1421,9 +1608,9 @@ function buildRoomStats(dayIdx) {
     const s = new Set();
     DATA.lich.filter(x => x.thu_idx===dayIdx && x.maphong===r.maphong)
              .forEach(x => { for(let t=x.tiet_start; t<=x.tiet_end; t++) s.add(t); });
-    occ += s.size; free += 10-s.size;
+    occ += s.size; free += 12-s.size;
   });
-  const tot=rooms.length*10; const pFree=Math.round(free/tot*100);
+  const tot=rooms.length*12; const pFree=Math.round(free/tot*100);
   return [
     {icon:'🏛',val:rooms.length,   lbl:'Tổng phòng',         bg:'bg-blue-50', bd:'border-blue-200', tx:'text-blue-700'},
     {icon:'🟢',val:`${free} tiết`, lbl:`Trống (${pFree}%)`,  bg:'bg-green-50',bd:'border-green-200',tx:'text-green-700'},
@@ -1461,11 +1648,15 @@ function renderRoomGrid(i) {
 
 function buildStats() {
   const L = DATA.lich;
+  const paused = L.filter(s => s.trangthai === 'TAM_NGUNG').length;
+  const makeup = L.filter(s => s.trangthai === 'HOC_BU').length;
+  const real = L.filter(s => ['DANG_HOC','HOC_BU'].includes(s.trangthai || 'DANG_HOC')).length;
+  const missing = Math.max(0, paused - makeup);
   return [
-    {icon:'📅',val:L.length,                          lbl:'Tổng buổi học', bg:'bg-blue-50',  bd:'border-blue-200',  tx:'text-blue-700'},
-    {icon:'👨‍🏫',val:new Set(L.map(s=>s.magv)).size,   lbl:'Giảng viên',    bg:'bg-green-50', bd:'border-green-200', tx:'text-green-700'},
-    {icon:'🎓',val:new Set(L.map(s=>s.malop)).size,   lbl:'Lớp học',       bg:'bg-purple-50',bd:'border-purple-200',tx:'text-purple-700'},
-    {icon:'🏛',val:new Set(L.map(s=>s.maphong)).size, lbl:'Phòng dùng',    bg:'bg-orange-50',bd:'border-orange-200',tx:'text-orange-700'},
+    {icon:'📅',val:real,    lbl:'Buổi thực học', bg:'bg-blue-50',  bd:'border-blue-200',  tx:'text-blue-700'},
+    {icon:'⏸',val:paused,  lbl:'Tạm ngưng',     bg:'bg-red-50',   bd:'border-red-200',   tx:'text-red-700'},
+    {icon:'🟡',val:makeup,  lbl:'Học bù',        bg:'bg-amber-50', bd:'border-amber-200', tx:'text-amber-700'},
+    {icon:'⚠',val:missing, lbl:'Còn thiếu',     bg:'bg-orange-50',bd:'border-orange-200',tx:'text-orange-700'},
   ].map(i=>`<div class="rounded-2xl shadow border p-4 ${i.bg} ${i.bd}">
     <div class="text-3xl">${i.icon}</div>
     <div class="text-3xl font-bold ${i.tx} mt-1">${i.val}</div>
@@ -1483,16 +1674,201 @@ function renderGV() {
   const gv = (DATA.gv_list||[]).find(g=>g.magv===id)||{};
   document.getElementById('gv-info').textContent = gv.hocvi||'';
   const ses = DATA.lich.filter(s=>s.magv===id);
-  document.getElementById('grid-gv').innerHTML = ses.length
-    ? buildGrid(ses,false,true)
-    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch dạy.</p>';
+  document.getElementById('grid-gv').innerHTML = buildGrid(ses,false,true);
 }
 function renderSV() {
   const id  = document.getElementById('sel-lop').value;
   const ses = DATA.lich.filter(s=>s.malop===id);
-  document.getElementById('grid-sv').innerHTML = ses.length
-    ? buildGrid(ses,true,false)
-    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch học.</p>';
+  document.getElementById('grid-sv').innerHTML = buildGrid(ses,true,false);
+}
+
+async function pauseSession(matkb) {
+  const s = sessionByMatkb.get(matkb);
+  if (!s) return;
+  const lydo = window.prompt(`Lý do tạm ngưng buổi học "${s.tenmon}"?`, s.lydo || '');
+  if (lydo === null) return;
+  const res = await fetch(apiUrl(`/api/tkb/${encodeURIComponent(matkb)}/tam-ngung`), {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ lydo: lydo.trim(), nguoithuchien:'admin' }),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    alert(json.message || 'Không thể tạm ngưng buổi học.');
+    return;
+  }
+  await loadViewData();
+}
+
+function selectedSessionForModal() {
+  return sessionByMatkb.get(document.getElementById('makeup-matkb').value);
+}
+function showMakeupStatus(ok, message) {
+  const el = document.getElementById('makeup-status');
+  el.className = `modal-status mt-4 ${ok ? 'ok' : 'bad'}`;
+  el.textContent = message;
+}
+function populateMakeupRooms(rooms, selectedRoom) {
+  const sel = document.getElementById('makeup-room');
+  const list = rooms || [];
+  sel.innerHTML = list.length
+    ? list
+    .map(r => `<option value="${r.maphong}">${r.maphong} - ${r.tenphong || ''} (${r.loaiphong || ''})</option>`)
+    .join('')
+    : '<option value="">Không có phòng trống phù hợp</option>';
+  if (selectedRoom) sel.value = selectedRoom;
+}
+function renderMakeupSlotTable() {
+  const wrap = document.getElementById('makeup-slot-table');
+  if (!availableMakeupSlots.length) {
+    wrap.innerHTML = '<div class="p-4 text-sm text-gray-400">Không có slot trong ngày đã chọn.</div>';
+    populateMakeupRooms([]);
+    document.getElementById('makeup-makhung').value = '';
+    selectedMakeupSlot = null;
+    return;
+  }
+  wrap.innerHTML = `<table class="slot-table">
+    <thead><tr>
+      <th>Khung tiết</th><th>Lịch giảng viên</th><th>Lịch lớp bị hoãn</th><th>Phòng trống phù hợp</th><th>Trạng thái</th><th>Nút chọn</th>
+    </tr></thead>
+    <tbody>${availableMakeupSlots.map((slot, idx) => {
+      const roomText = slot.rooms.available_rooms.length
+        ? slot.rooms.available_rooms.map(r => r.maphong).join(', ')
+        : 'Không có phòng';
+      const selected = selectedMakeupSlot && selectedMakeupSlot.makhung === slot.makhung;
+      return `<tr class="${selected ? 'selected' : ''}">
+        <td><b>${slot.label}</b></td>
+        <td class="${slot.teacher.available ? 'slot-ok' : 'slot-bad'}">${slot.teacher.message}</td>
+        <td class="${slot.class.available ? 'slot-ok' : 'slot-bad'}">${slot.class.message}</td>
+        <td>${roomText}</td>
+        <td class="${slot.selectable ? 'slot-ok' : 'slot-bad'}">${slot.selectable ? 'Chọn được' : 'Không được'}${slot.reason && !slot.selectable ? `<br><span style="font-weight:600">${slot.reason}</span>` : ''}</td>
+        <td><button type="button" class="slot-pick" ${slot.selectable ? '' : 'disabled'} onclick="selectMakeupSlot(${idx})">Chọn</button></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+function selectMakeupSlot(index) {
+  const slot = availableMakeupSlots[index];
+  if (!slot || !slot.selectable) return;
+  selectedMakeupSlot = slot;
+  document.getElementById('makeup-makhung').value = slot.makhung;
+  populateMakeupRooms(slot.rooms.available_rooms, slot.rooms.available_rooms[0]?.maphong || '');
+  renderMakeupSlotTable();
+  showMakeupStatus(true, `Đã chọn ${slot.label}. Chọn phòng cụ thể rồi tạo học bù.`);
+}
+async function loadAvailableMakeupSlots() {
+  const s = selectedSessionForModal();
+  if (!s) return;
+  const mode = document.getElementById('makeup-mode').value;
+  const body = {
+    tuanhoc: Number(document.getElementById('makeup-week').value),
+    ngayhoc: document.getElementById('makeup-date').value,
+  };
+  if (mode === 'edit') body.exclude_matkb = s.matkb_list || [s.matkb];
+  const matkb = mode === 'edit' ? s.tkb_goc_id : s.matkb;
+  document.getElementById('makeup-slot-table').innerHTML = '<div class="p-4 text-sm text-gray-400">Đang tải slot...</div>';
+  selectedMakeupSlot = null;
+  document.getElementById('makeup-makhung').value = '';
+  populateMakeupRooms([]);
+  const res = await fetch(apiUrl(`/api/tkb/${encodeURIComponent(matkb)}/available-makeup-slots`), {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok || json.ok === false) {
+    availableMakeupSlots = [];
+    renderMakeupSlotTable();
+    showMakeupStatus(false, json.message || 'Không tải được slot học bù.');
+    return;
+  }
+  availableMakeupSlots = json.slots || [];
+  renderMakeupSlotTable();
+}
+function openMakeupModal(matkb, mode) {
+  const s = sessionByMatkb.get(matkb);
+  if (!s) return;
+  document.getElementById('makeup-mode').value = mode;
+  document.getElementById('makeup-matkb').value = matkb;
+  document.getElementById('makeup-title').textContent = mode === 'edit' ? 'Chỉnh lịch học bù' : 'Tạm ngưng / Tạo học bù';
+  document.getElementById('makeup-submit').textContent = mode === 'edit' ? 'Lưu chỉnh sửa' : 'Tạo học bù';
+  document.getElementById('makeup-original').textContent =
+    `${s.tenmon} | ${s.tenlop} | ${s.tengv} | Tuần ${s.tuanhoc} | Tiết ${s.tiet_start}-${s.tiet_end} | Phòng ${s.maphong}`;
+  document.getElementById('makeup-week').value = mode === 'edit' ? s.tuanhoc : currentWeek;
+  document.getElementById('makeup-date').value = (mode === 'edit' && s.ngayhoc)
+    ? String(s.ngayhoc).slice(0,10)
+    : isoDate(getWeekDates(currentWeek)[Math.max(0, Math.min(currentDay, DAYS.length-1))]);
+  document.getElementById('makeup-reason').value = s.lydo || '';
+  availableMakeupSlots = [];
+  selectedMakeupSlot = null;
+  document.getElementById('makeup-makhung').value = '';
+  populateMakeupRooms([]);
+  renderMakeupSlotTable();
+  document.getElementById('makeup-status').className = 'modal-status mt-4';
+  document.getElementById('makeup-modal').classList.add('show');
+  loadAvailableMakeupSlots();
+}
+function closeMakeupModal() {
+  document.getElementById('makeup-modal').classList.remove('show');
+}
+function makeupPayload() {
+  return {
+    tuanhoc: Number(document.getElementById('makeup-week').value),
+    ngayhoc: document.getElementById('makeup-date').value,
+    maphong: document.getElementById('makeup-room').value,
+    makhung: Number(document.getElementById('makeup-makhung').value),
+    lydo: document.getElementById('makeup-reason').value.trim(),
+    nguoithuchien: 'admin',
+  };
+}
+async function checkMakeupSlot() {
+  const s = selectedSessionForModal();
+  if (!s) return;
+  if (!document.getElementById('makeup-makhung').value || !document.getElementById('makeup-room').value) {
+    showMakeupStatus(false, 'Hãy chọn một slot hợp lệ và một phòng trống phù hợp trước.');
+    return false;
+  }
+  const mode = document.getElementById('makeup-mode').value;
+  const payload = makeupPayload();
+  const body = {
+    matkb_goc: mode === 'edit' ? s.tkb_goc_id : s.matkb,
+    ...payload,
+  };
+  if (mode === 'edit') body.exclude_matkb = s.matkb_list || [s.matkb];
+  const res = await fetch(apiUrl('/api/tkb/check-slot'), {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body),
+  });
+  const json = await res.json();
+  showMakeupStatus(Boolean(json.available), json.message || (json.available ? 'Slot hợp lệ' : 'Slot không hợp lệ'));
+  return Boolean(json.available);
+}
+async function submitMakeup() {
+  const s = selectedSessionForModal();
+  if (!s) return;
+  if (!document.getElementById('makeup-makhung').value || !document.getElementById('makeup-room').value) {
+    showMakeupStatus(false, 'Hãy chọn một slot hợp lệ và một phòng cụ thể trước khi tạo học bù.');
+    return;
+  }
+  const mode = document.getElementById('makeup-mode').value;
+  const payload = makeupPayload();
+  const url = mode === 'edit'
+    ? `/api/tkb/${encodeURIComponent(s.matkb)}`
+    : `/api/tkb/${encodeURIComponent(s.matkb)}/tao-hoc-bu`;
+  const res = await fetch(apiUrl(url), {
+    method: mode === 'edit' ? 'PUT' : 'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    showMakeupStatus(false, json.message || json.error || 'Không thể lưu lịch học bù.');
+    return;
+  }
+  showMakeupStatus(true, json.message || 'Thành công');
+  await loadViewData();
+  closeMakeupModal();
 }
 
 /* ════════════════════════════════════════════════════════════════

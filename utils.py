@@ -165,6 +165,36 @@ def _normalize_room_type(value):
   return str(value).strip().upper()
 
 
+# ── Danh sach mon dac biet duoc phep dung phong may du chi co LT ─────────────
+# Them ten mon (da strip dau tieng Viet + bo khoang trang) vao day.
+# Cac mon nay se duoc xep vao phong TH hoac LT tuy theo tinh kha dung.
+# Vi du: "Tri tue nhan tao" -> _strip_vn -> "trituenhantao"
+SPECIAL_TH_SUBJECTS: set = {
+    'trituenhantao',          # Trí tuệ nhân tạo
+    'hocmaythongminh',        # Học máy thông minh / Machine Learning
+    'hocmay',                 # Học máy
+    'thigiacmaytinhvaxulyanh', # Thị giác máy tính / Computer Vision
+    'thigiacmaytinh',
+    # Bo sung them neu can, tat ca dung _strip_vn(tenmon) de so sanh
+}
+
+
+def _is_special_th_subject(tenmon: str) -> bool:
+    """Kiem tra mon co duoc phep dung phong may du loaiphong la LT hay khong.
+
+    Tra ve True neu ten mon (sau chuan hoa) khop chinh xac hoac la chuoi con
+    cua mot phan tu trong SPECIAL_TH_SUBJECTS.
+    """
+    normalized = _strip_vn(tenmon)
+    if not normalized:
+        return False
+    # Kiem tra khop chinh xac truoc
+    if normalized in SPECIAL_TH_SUBJECTS:
+        return True
+    # Kiem tra chuoi con de bat nhung ten co them chu phia sau (vi du: "...nang cao")
+    return any(key in normalized for key in SPECIAL_TH_SUBJECTS)
+
+
 def _is_active(value):
     """Tra ve True neu trang thai duoc xem la dang hoat dong.
     Logic: chi loai tru neu RO RANG la inactive — cac gia tri khac deu coi la active.
@@ -373,14 +403,60 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
                     if tuanhoc > so_tuan_can_hoc:
                         continue
 
-        compatible_rooms = [
-            idx for idx, room in classrooms.items()
-            if room.type == loaiphong
-        ]
+        # ── Phan phong theo logic moi ──────────────────────────────────────────
+        #
+        # Quy tac:
+        #   1. Buoi THUC HANH (loaiphong == 'TH'):
+        #      → BAT BUOC dung phong TH (phong may / phong thuc hanh)
+        #
+        #   2. Buoi LY THUYET (loaiphong == 'LT') cua mon CO phan thuc hanh:
+        #      → CO THE dung phong LT hoac phong TH (linh hoat)
+        #      → "Co phan TH" = mon co sotietthuchanh > 0 hoac co ban TH tuong ung
+        #
+        #   3. Buoi LY THUYET cua mon KHONG CO thuc hanh:
+        #      → Chi dung phong LT
+        #      → TRU cac mon dac biet (xem SPECIAL_TH_SUBJECTS) duoc phep
+        #        dung phong TH (vi du: Tri tue nhan tao).
+        #
+        # Muc tieu: dam bao buoi TH luon co phong may, buoi LT co themdua chon.
+
+        if loaiphong == 'TH':
+            # Truong hop 1: thuc hanh bat buoc phai dung phong TH
+            compatible_rooms = [
+                idx for idx, room in classrooms.items()
+                if room.type == 'TH'
+            ]
+        else:
+            # Truong hop 2 & 3: ly thuyet
+            # Kiem tra mon co phan thuc hanh di kem hay khong
+            mon_has_th_part = (
+                mamon in lt_mamons_with_th                         # co ban TH tuong ung (link qua tenmon)
+                or int(mon_info.get('sotietthuchanh', 0)) > 0     # ban than mon co tiet TH
+            )
+            # Kiem tra mon dac biet (cho phep dung phong TH du khong co TH)
+            is_special_th = _is_special_th_subject(mon_info.get('tenmon', ''))
+
+            if mon_has_th_part or is_special_th:
+                # Truong hop 2: LT cua mon co TH hoac mon dac biet
+                # → duoc dung phong LT va phong TH (uu tien theo availability)
+                compatible_rooms = [
+                    idx for idx, room in classrooms.items()
+                    if room.type in ('LT', 'TH')
+                ]
+            else:
+                # Truong hop 3: mon thuan ly thuyet → chi phong LT
+                compatible_rooms = [
+                    idx for idx, room in classrooms.items()
+                    if room.type == 'LT'
+                ]
+
         if not compatible_rooms:
+            room_types_avail = list({r.type for r in classrooms.values()})
             raise ValueError(
-                f"Khong tim duoc phong loai '{loaiphong}' cho phan cong {mapc} "
-                f"(mon {mamon}). Kiem tra lai bang phong_hoc."
+                f"Khong tim duoc phong phu hop cho phan cong {mapc} "
+                f"(mon {mamon}, loai={loaiphong}). "
+                f"Phong hien co: {room_types_avail}. "
+                f"Kiem tra lai bang phong_hoc."
             )
 
         if malop not in groups:
@@ -672,6 +748,9 @@ def _build_viewer_html_OLD(data_js: str) -> str:
 <style>
   body { font-family: 'Segoe UI', sans-serif; }
   .timetable { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  .schedule-scroll { overflow:auto; max-height:72vh; }
+  .schedule-scroll .timetable { min-width:860px; }
+  .schedule-scroll thead th { position:sticky; top:0; z-index:3; }
   .timetable th { border: 1px solid #d1d5db; background: #f3f4f6; padding: 8px 4px;
                   text-align: center; font-size: 13px; font-weight: 600; }
   .timetable td { border: 1px solid #e5e7eb; }
@@ -735,7 +814,7 @@ def _build_viewer_html_OLD(data_js: str) -> str:
   <div id="tab-ql" class="tab-pane">
     <div id="stats-row" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"></div>
     <div id="legend-row" class="flex flex-wrap gap-2 mb-4 bg-white rounded-xl p-3 shadow text-xs"></div>
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+    <div class="bg-white rounded-2xl shadow p-4 schedule-scroll">
       <p class="text-xs text-gray-400 mb-3">
         Mỗi ô hiển thị buổi học tại tiết bắt đầu. Tiết kết thúc ghi trong thẻ.
         Nhiều buổi cùng slot = các lớp khác nhau học song song.
@@ -753,7 +832,7 @@ def _build_viewer_html_OLD(data_js: str) -> str:
       </select>
       <span id="gv-info" class="text-xs text-gray-500 italic"></span>
     </div>
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+    <div class="bg-white rounded-2xl shadow p-4 schedule-scroll">
       <div id="grid-gv"></div>
     </div>
   </div>
@@ -766,7 +845,7 @@ def _build_viewer_html_OLD(data_js: str) -> str:
         class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-52">
       </select>
     </div>
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+    <div class="bg-white rounded-2xl shadow p-4 schedule-scroll">
       <div id="grid-sv"></div>
     </div>
   </div>
@@ -775,7 +854,7 @@ def _build_viewer_html_OLD(data_js: str) -> str:
 
 <script>
 const DATA = __DATA_PLACEHOLDER__;
-const DAYS = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+const DAYS = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','CN'];
 const CLR  = {M01:'c-M01',M02:'c-M02',M03:'c-M03',M04:'c-M04',
                M05:'c-M05',M06:'c-M06',M07:'c-M07',M08:'c-M08'};
 
@@ -816,16 +895,17 @@ function buildGrid(sessions, showGV, showLop){
     if(!g[s.thu_idx]) g[s.thu_idx]={};
     g[s.thu_idx][s.tiet_start] = s;
   });
-  const rowEnd = new Array(6).fill(0);
+  const dayCount = DAYS.length;
+  const rowEnd = new Array(dayCount).fill(0);
   let h = '<table class="timetable"><thead><tr><th style="width:38px">Tiết</th>';
   DAYS.forEach(d=> h+=`<th>${d}</th>`);
   h += '</tr></thead><tbody>';
   for(let t=1;t<=12;t++){
-    if(t===1) h+='<tr class="sang-hd"><td colspan="7">☀️ BUỔI SÁNG &nbsp;(Tiết 1 – 6)</td></tr>';
-    if(t===7) h+='<tr class="chieu-hd"><td colspan="7">🌙 BUỔI CHIỀU &nbsp;(Tiết 7 – 12)</td></tr>';
+    if(t===1) h+=`<tr class="sang-hd"><td colspan="${dayCount+1}">☀️ BUỔI SÁNG &nbsp;(Tiết 1 – 6)</td></tr>`;
+    if(t===7) h+=`<tr class="chieu-hd"><td colspan="${dayCount+1}">🌙 BUỔI CHIỀU &nbsp;(Tiết 7 – 12)</td></tr>`;
     h+='<tr>';
     h+=`<td class="tiet-lbl">${t}</td>`;
-    for(let d=0;d<6;d++){
+    for(let d=0;d<dayCount;d++){
       if(rowEnd[d]>t) continue;
       const s = g[d]&&g[d][t];
       if(s){
@@ -849,7 +929,10 @@ function buildGridAll(sessions){
     if(!g[s.thu_idx][s.tiet_start]) g[s.thu_idx][s.tiet_start]=[];
     g[s.thu_idx][s.tiet_start].push(s);
   });
-  const tiets = [...new Set(sessions.map(s=>s.tiet_start))].sort((a,b)=>a-b);
+  const dayCount = DAYS.length;
+  const tiets = sessions.length
+    ? [...new Set(sessions.map(s=>s.tiet_start))].sort((a,b)=>a-b)
+    : Array.from({length:12}, (_,i)=>i+1);
   let h='<table class="timetable"><thead><tr><th style="width:55px">Tiết BĐ</th>';
   DAYS.forEach(d=> h+=`<th>${d}</th>`);
   h+='</tr></thead><tbody>';
@@ -859,12 +942,12 @@ function buildGridAll(sessions){
     if(buoi!==prev){
       prev=buoi;
       h += buoi==='sang'
-        ? '<tr class="sang-hd"><td colspan="7">☀️ BUỔI SÁNG</td></tr>'
-        : '<tr class="chieu-hd"><td colspan="7">🌙 BUỔI CHIỀU</td></tr>';
+        ? `<tr class="sang-hd"><td colspan="${dayCount+1}">☀️ BUỔI SÁNG</td></tr>`
+        : `<tr class="chieu-hd"><td colspan="${dayCount+1}">🌙 BUỔI CHIỀU</td></tr>`;
     }
     h+='<tr>';
     h+=`<td class="tiet-lbl" style="font-size:10px">Tiết<br><b>${t}</b></td>`;
-    for(let d=0;d<6;d++){
+    for(let d=0;d<dayCount;d++){
       const list=(g[d]&&g[d][t])||[];
       if(!list.length){ h+='<td class="empty-td"></td>'; continue; }
       h+='<td class="sess-cell" style="min-width:140px">';
@@ -929,17 +1012,13 @@ function renderGV(){
   const gv = DATA.gv_list.find(g=>g.magv===id)||{};
   document.getElementById('gv-info').textContent = gv.hocvi||'';
   const ses = DATA.lich.filter(s=>s.magv===id);
-  document.getElementById('grid-gv').innerHTML = ses.length
-    ? buildGrid(ses, false, true)
-    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch dạy trong tuần này.</p>';
+  document.getElementById('grid-gv').innerHTML = buildGrid(ses, false, true);
 }
 
 function renderSV(){
   const id = document.getElementById('sel-lop').value;
   const ses = DATA.lich.filter(s=>s.malop===id);
-  document.getElementById('grid-sv').innerHTML = ses.length
-    ? buildGrid(ses, true, false)
-    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch học trong tuần này.</p>';
+  document.getElementById('grid-sv').innerHTML = buildGrid(ses, true, false);
 }
 
 window.onload = init;
