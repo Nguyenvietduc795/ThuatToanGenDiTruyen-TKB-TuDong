@@ -79,6 +79,14 @@
   .c-9{background:#f0f9ff;border-left:3px solid #0ea5e9}
   .c-def{background:#f9fafb;border-left:3px solid #9ca3af}
   .tab-on { background:#1d4ed8 !important; color:#fff !important; }
+  /* Nút quick-select theo khóa */
+  .khoa-btn {
+    font-size:11px; padding:3px 9px; border-radius:6px;
+    background:#e2e8f0; color:#475569; border:1px solid #cbd5e1;
+    cursor:pointer; font-weight:700; transition:all .15s; white-space:nowrap;
+  }
+  .khoa-btn:hover { background:#bfdbfe; color:#1d4ed8; border-color:#93c5fd; }
+  .khoa-btn-active { background:#1d4ed8 !important; color:#fff !important; border-color:#1d4ed8 !important; }
   .day-btn-on { background:#0f766e !important; color:#fff !important; }
   .week-nav-btn:hover { background:#e0e7ff; }
   .week-nav-btn:disabled { opacity:.35; cursor:default; }
@@ -246,7 +254,14 @@
                 class="text-xs px-2 py-0.5 rounded-md bg-gray-200 text-gray-600 hover:bg-gray-300 font-medium">Bỏ</button>
             </div>
           </div>
-          <input id="lop-search" type="text" placeholder="🔍 Tìm lớp..." oninput="filterLopList()"
+          <!-- Quick-select theo khóa học -->
+          <div id="khoa-btns" class="flex flex-wrap gap-1 mb-2">
+            <button onclick="selectKhoa('DH22')" data-prefix="DH22" class="khoa-btn">K10 · DH22</button>
+            <button onclick="selectKhoa('DH23')" data-prefix="DH23" class="khoa-btn">K11 · DH23</button>
+            <button onclick="selectKhoa('DH24')" data-prefix="DH24" class="khoa-btn">K12 · DH24</button>
+            <button onclick="selectKhoa('DH25')" data-prefix="DH25" class="khoa-btn">K13 · DH25</button>
+          </div>
+          <input id="lop-search" type="text" placeholder="🔍 Tìm lớp..." oninput="filterLopList(); clearKhoaActive();"
             class="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs mb-2 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white">
           <div id="lop-list" class="overflow-y-auto max-h-44 space-y-0.5">
             <p class="text-xs text-gray-400 px-2 py-2 text-center">⏳ Đang tải...</p>
@@ -878,7 +893,10 @@ let allMonList  = [];
 let allPhanCong = [];
 let lopMonMap   = new Map(); // malop → Set<mamon>
 let currentMonDisplay = []; // môn đang hiển thị
-let monStatusMap = new Map(); // mamon → { remaining, exhausted, tongsotiet, scheduled }
+// mapc → { mapc, malop, mamon, tongsotiet, scheduled, remaining, exhausted }
+// KEY là mapc (per assignment), KHÔNG phải mamon.
+// Dùng getStatusForMamon(mamon) để tra trạng thái đúng theo lớp đang chọn.
+let monStatusMap = new Map();
 
 /* ── Load data cho 2 danh sách ── */
 async function loadHocKyOptions() {
@@ -890,6 +908,7 @@ async function loadHocKyOptions() {
     const base = '<option value="">-- Tất cả --</option>' + opts;
     document.getElementById('gen-hocky').innerHTML  = base;
     document.getElementById('view-hocky').innerHTML = base;
+    document.getElementById('gen-hocky').onchange = onLopCheckChange;
     // Tự động chọn học kỳ đang mở
     const openHK = list.find(h => h.trangthai === 'Đang mở');
     if (openHK) {
@@ -913,23 +932,19 @@ async function loadGenDropdowns() {
     allMonList  = monRes  || [];
     allPhanCong = pcRes   || [];
 
-    // Build monStatusMap: mamon → aggregate remaining across all mapc for that mamon
+    // Build monStatusMap keyed by MAPC — mỗi phân công là 1 entry riêng.
+    // KHÔNG aggregate theo mamon để tránh PC01(DH23-xong) làm PC02(DH24-chưa xong) bị disabled.
     monStatusMap = new Map();
     (statusRes || []).forEach(s => {
-      const cur = monStatusMap.get(s.mamon);
-      if (!cur) {
-        monStatusMap.set(s.mamon, {
-          tongsotiet: s.tongsotiet,
-          scheduled: s.scheduled,
-          remaining: s.remaining,
-          exhausted: s.exhausted,
-        });
-      } else {
-        // accumulate across multiple phan_cong for same mon
-        cur.scheduled += s.scheduled;
-        cur.remaining  = Math.max(0, cur.tongsotiet - cur.scheduled);
-        cur.exhausted  = cur.tongsotiet > 0 && cur.remaining === 0;
-      }
+      monStatusMap.set(s.mapc, {
+        mapc      : s.mapc,
+        malop     : s.malop,
+        mamon     : s.mamon,
+        tongsotiet: s.tongsotiet,
+        scheduled : s.scheduled,
+        remaining : s.remaining,
+        exhausted : s.exhausted,
+      });
     });
 
     // Map: malop → Set của mamon (cả dạng gốc và dạng không có đuôi _LT/_TH)
@@ -954,23 +969,71 @@ async function loadGenDropdowns() {
 
 async function reloadMonStatus() {
   try {
-    const statusRes = await fetch(apiUrl('/api/ga/mon-status')).then(r => r.json());
+    // Lọc theo mahk đang chọn để chỉ tính tiến độ trong học kỳ hiện tại
+    const mahk = document.getElementById('gen-hocky')?.value;
+    const qs = mahk ? `?mahk=${encodeURIComponent(mahk)}` : '';
+    const statusRes = await fetch(apiUrl(`/api/ga/mon-status${qs}`)).then(r => r.json());
+
+    // Rebuild per-MAPC (giống loadGenDropdowns — không aggregate theo mamon)
     monStatusMap = new Map();
     (statusRes || []).forEach(s => {
-      const cur = monStatusMap.get(s.mamon);
-      if (!cur) {
-        monStatusMap.set(s.mamon, {
-          tongsotiet: s.tongsotiet, scheduled: s.scheduled,
-          remaining: s.remaining, exhausted: s.exhausted,
-        });
-      } else {
-        cur.scheduled += s.scheduled;
-        cur.remaining  = Math.max(0, cur.tongsotiet - cur.scheduled);
-        cur.exhausted  = cur.tongsotiet > 0 && cur.remaining === 0;
-      }
+      monStatusMap.set(s.mapc, {
+        mapc      : s.mapc,
+        malop     : s.malop,
+        mamon     : s.mamon,
+        tongsotiet: s.tongsotiet,
+        scheduled : s.scheduled,
+        remaining : s.remaining,
+        exhausted : s.exhausted,
+      });
     });
     renderMonList(currentMonDisplay);
   } catch (e) { console.error('Loi reload mon-status:', e); }
+}
+
+// ── Tính trạng thái một môn dựa trên các mapc liên quan đến lớp đang chọn ──
+// Quy tắc:
+//   - Nếu có lớp chọn  → chỉ check mapc của (mamon + lớp đó)
+//   - Nếu không có lớp → check TẤT CẢ mapc của mamon
+//   - exhausted = true chỉ khi TẤT CẢ mapc liên quan đều exhausted
+//
+// Điều này đảm bảo: DH23-PC01(xong) KHÔNG làm DH24-PC02(chưa xong) bị disabled.
+function getStatusForMamon(mamon) {
+  const selectedLops = getCheckedLop();
+
+  // Tìm các mapc liên quan trong allPhanCong
+  const relevantPcs = allPhanCong.filter(pc => {
+    if (pc.mamon !== mamon) return false;
+    return selectedLops.length === 0 || selectedLops.includes(pc.malop);
+  });
+
+  if (relevantPcs.length === 0) return null;
+
+  let totalScheduled  = 0;
+  let totalCapacity   = 0;
+  let allExhausted    = true;
+  let hasData         = false;
+
+  for (const pc of relevantPcs) {
+    const s = monStatusMap.get(pc.mapc);
+    if (!s) {
+      allExhausted = false; // không có status = chưa xong
+      continue;
+    }
+    hasData = true;
+    totalScheduled += s.scheduled;
+    totalCapacity  += s.tongsotiet;
+    if (!s.exhausted) allExhausted = false;
+  }
+
+  if (!hasData) return null;
+
+  return {
+    tongsotiet: totalCapacity,
+    scheduled : totalScheduled,
+    remaining : Math.max(0, totalCapacity - totalScheduled),
+    exhausted : allExhausted,
+  };
 }
 
 /* ── Render lớp checkboxes ── */
@@ -1003,46 +1066,51 @@ function renderMonList(mons) {
     updateMonCount(); return;
   }
   const prev = new Set(getCheckedMon());
-  container.innerHTML = mons.map(m => {
+
+  const html = mons.map(m => {
+    // Tính trạng thái dựa theo mapc của các lớp đang chọn (không aggregate toàn hệ thống)
+    const status = getStatusForMamon(m.mamon);
+
+    // Ẩn hẳn môn đã được xếp lịch cho TẤT CẢ lớp đang chọn — không cần hiện disabled
+    if (status && status.exhausted) return '';
+
     const isTH = Number(m.sotietthuchanh||0) > 0 && Number(m.sotietlythuyet||0) === 0;
     const typeBadge = isTH
       ? '<span class="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-bold shrink-0">TH</span>'
       : '<span class="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-bold shrink-0">LT</span>';
 
-    const status = monStatusMap.get(m.mamon);
-    const tongsotiet = Number(m.tongsotiet || 0);
-    let statusBadge = '';
-    let remainInfo  = `${tongsotiet} tiết`;
-    let isExhausted = false;
-    let disabledAttr = '';
-    let itemClass = 'mon-item flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white cursor-pointer transition-colors select-none';
+    // Tính mẫu số hiển thị: dùng status.tongsotiet (aggregate lớp) để tránh "còn 45/15"
+    const perSubjectTiet = Number(m.tongsotiet || 0);
+    const displayCap = (status && status.tongsotiet > 0) ? status.tongsotiet : perSubjectTiet;
+    let remainInfo = `${perSubjectTiet} tiết`;
 
-    if (status) {
-      if (status.exhausted) {
-        isExhausted = true;
-        disabledAttr = 'disabled';
-        statusBadge = '<span class="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded font-bold shrink-0 ml-1">✅ Đã xong</span>';
-        remainInfo  = `${status.remaining}/${tongsotiet} tiết`;
-        itemClass   = 'mon-item flex items-center gap-2 px-2 py-1.5 rounded-lg select-none opacity-50 cursor-not-allowed';
-      } else if (tongsotiet > 0) {
-        const pct = Math.round((status.remaining / tongsotiet) * 100);
-        const color = pct <= 30 ? 'text-orange-500' : 'text-green-600';
-        remainInfo  = `<span class="${color} font-semibold">còn ${status.remaining}</span>/${tongsotiet} tiết`;
-      }
+    if (status && displayCap > 0) {
+      const pct   = Math.round((status.remaining / displayCap) * 100);
+      const color = pct <= 30 ? 'text-orange-500' : 'text-green-600';
+      remainInfo  = `<span class="${color} font-semibold">còn ${status.remaining}</span>/${displayCap} tiết`;
     }
 
     return `
-      <label class="${itemClass}"
+      <label class="mon-item flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white cursor-pointer transition-colors select-none"
         data-value="${m.mamon}" data-search="${(m.mamon+' '+m.tenmon).toLowerCase()}">
-        <input type="checkbox" value="${m.mamon}" class="mon-cb w-3.5 h-3.5 accent-blue-600 ${isExhausted?'cursor-not-allowed':'cursor-pointer'}"
-          ${prev.has(m.mamon) && !isExhausted ? 'checked' : ''} ${disabledAttr} onchange="updateMonCount()">
+        <input type="checkbox" value="${m.mamon}" class="mon-cb w-3.5 h-3.5 accent-blue-600 cursor-pointer"
+          ${prev.has(m.mamon) ? 'checked' : ''} onchange="updateMonCount()">
         <div class="flex-1 min-w-0">
-          <div class="text-xs font-semibold ${isExhausted?'text-gray-400':'text-gray-700'} truncate">${m.tenmon}</div>
+          <div class="text-xs font-semibold text-gray-700 truncate">${m.tenmon}</div>
           <div class="text-xs text-gray-400">${m.mamon} · ${remainInfo}</div>
         </div>
-        ${typeBadge}${statusBadge}
+        ${typeBadge}
       </label>`;
   }).join('');
+
+  // Nếu tất cả môn đã được xếp → hiện thông báo thay vì danh sách rỗng
+  if (!html.trim()) {
+    container.innerHTML = '<p class="text-xs text-green-600 px-2 py-3 text-center font-semibold">✅ Tất cả môn của các lớp đã chọn đã được xếp lịch.</p>';
+    updateMonCount();
+    return;
+  }
+
+  container.innerHTML = html;
   updateMonCount();
 }
 
@@ -1050,11 +1118,84 @@ function renderMonList(mons) {
 function getCheckedLop() { return [...document.querySelectorAll('.lop-cb:checked')].map(cb=>cb.value); }
 function getCheckedMon() { return [...document.querySelectorAll('.mon-cb:checked')].map(cb=>cb.value); }
 
+async function loadAssignedMonsForSelectedLops(selectedLops) {
+  const mahk = document.getElementById('gen-hocky')?.value || null;
+  const res = await fetch(apiUrl('/api/phan-cong/by-lops'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ malops: selectedLops, mahk }),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) throw new Error(json.message || 'Khong tai duoc phan cong theo lop');
+
+  const pcs = json.data || [];
+
+  // Build monStatusMap per-MAPC từ da_xep của từng phân công.
+  // da_xep (boolean từ backend) = mapc này đã có ít nhất 1 dòng trong thoi_khoa_bieu.
+  monStatusMap = new Map();
+  for (const pc of pcs) {
+    // Lấy tongsotiet từ allMonList (nguồn chuẩn) thay vì sotietmoibuoi
+    const monInfo    = allMonList.find(m => m.mamon === pc.mamon) || {};
+    const tongsotiet = Number(monInfo.tongsotiet || 0);
+    monStatusMap.set(pc.mapc, {
+      mapc      : pc.mapc,
+      malop     : pc.malop,
+      mamon     : pc.mamon,
+      tongsotiet,
+      // da_xep=true nghĩa là đã xếp → exhausted=true cho mục đích disable checkbox
+      scheduled : pc.da_xep ? tongsotiet : 0,
+      remaining : pc.da_xep ? 0 : tongsotiet,
+      exhausted : pc.da_xep,
+    });
+  }
+
+  // Trả về danh sách môn có trong phân công, dùng dữ liệu đầy đủ từ allMonList
+  // (bao gồm sotietlythuyet, sotietthuchanh đúng — không hardcode)
+  const mamonSet = new Set(pcs.map(pc => pc.mamon));
+  return allMonList.filter(m => mamonSet.has(m.mamon));
+}
+
+/* ── Xóa highlight trên các nút khóa ── */
+function clearKhoaActive() {
+  document.querySelectorAll('.khoa-btn').forEach(b => b.classList.remove('khoa-btn-active'));
+}
+
+/* ── Chọn nhanh tất cả lớp của một khóa (DH22/23/24/25) ── */
+function selectKhoa(prefix) {
+  const pLow = prefix.toLowerCase();
+
+  // Bỏ chọn tất cả trước
+  document.querySelectorAll('.lop-cb').forEach(cb => { cb.checked = false; });
+
+  // Tick các lớp khớp với prefix.
+  // data-value = malop (có thể là "L02"), data-search = "malop tenlop khoa" (lowercase).
+  // Ví dụ: data-search="l02 dh23tin02 cntt" → split → ["l02","dh23tin02","cntt"]
+  // → "dh23tin02".startsWith("dh23") = true → tick ✓
+  document.querySelectorAll('.lop-item').forEach(el => {
+    const val    = (el.dataset.value  || '').toLowerCase();
+    const search = (el.dataset.search || '');
+    const match  = val.startsWith(pLow)                                  // malop bắt đầu bằng prefix
+                || search.split(' ').some(word => word.startsWith(pLow)); // tenlop/khoa bắt đầu bằng prefix
+    if (match) {
+      const cb = el.querySelector('.lop-cb');
+      if (cb) cb.checked = true;
+    }
+  });
+
+  // Highlight nút đang active
+  clearKhoaActive();
+  const btn = document.querySelector(`.khoa-btn[data-prefix="${prefix}"]`);
+  if (btn) btn.classList.add('khoa-btn-active');
+
+  onLopCheckChange();
+}
+
 /* ── Select all / deselect all ── */
 function selectAllLop(check) {
   document.querySelectorAll('.lop-item').forEach(el => {
     if (el.style.display !== 'none') el.querySelector('.lop-cb').checked = check;
   });
+  clearKhoaActive(); // bỏ highlight khóa khi chọn Tất cả / Bỏ
   onLopCheckChange();
 }
 function selectAllMon(check) {
@@ -1094,15 +1235,25 @@ function filterMonList() {
 }
 
 /* ── Khi lớp thay đổi → cập nhật danh sách môn ── */
-function onLopCheckChange() {
+async function onLopCheckChange() {
   updateLopCount();
   const selectedLops = getCheckedLop();
   if (selectedLops.length === 0) {
+    monStatusMap = new Map();
     renderMonList(allMonList);
     document.getElementById('mon-note').textContent = 'Không chọn = tất cả môn';
     return;
   }
   // Tập hợp mamon có trong phan_cong của các lớp đã chọn
+  try {
+    const assignedMons = await loadAssignedMonsForSelectedLops(selectedLops);
+    renderMonList(assignedMons);
+    document.getElementById('mon-note').textContent =
+      `${assignedMons.length} mon cua ${selectedLops.length} lop da chon`;
+    return;
+  } catch (err) {
+    console.error('Loi tai phan cong theo lop:', err);
+  }
   const relevantMamon = new Set();
   selectedLops.forEach(malop => {
     (lopMonMap.get(malop) || new Set()).forEach(mm => relevantMamon.add(mm));

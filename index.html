@@ -39,8 +39,8 @@
                     </select>
                     <input type="text" id="chuyenMon" placeholder="Chuyên môn">
                     <select id="trangThai">
-                        <option value="Đang giảng dạy">Đang giảng dạy</option>
-                        <option value="Tạm ngưng">Tạm ngưng</option>
+                        <option value="HOAT_DONG">Hoạt động</option>
+                        <option value="TAM_NGUNG">Tạm ngưng</option>
                     </select>
                     <button onclick="handleTeacher()" class="btn-add" id="main-btn">+ Thêm mới</button>
                 </div>
@@ -97,6 +97,22 @@
         let searchKeyword = '';
         const PAGE_SIZE = 10;
 
+        function normalizeTeacherStatus(value) {
+            const text = String(value || 'HOAT_DONG')
+                .trim()
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/đ/g, 'd')
+                .replace(/[\s_]+/g, '');
+            if (['tamngung', 'inactive', 'ngung', 'pause', 'paused'].includes(text)) return 'TAM_NGUNG';
+            return 'HOAT_DONG';
+        }
+
+        function teacherStatusLabel(value) {
+            return normalizeTeacherStatus(value) === 'TAM_NGUNG' ? 'Tạm ngưng' : 'Hoạt động';
+        }
+
         /* ── Pagination renderer ── */
         function renderPagination(total, current, containerId, fnName) {
             const el = document.getElementById(containerId);
@@ -129,12 +145,12 @@
         /* ── Stat cards ── */
         function renderStats() {
             const total    = teacherData.length;
-            const teaching = teacherData.filter(g => g.TrangThai === 'Đang giảng dạy').length;
-            const paused   = teacherData.filter(g => g.TrangThai === 'Tạm ngưng').length;
+            const teaching = teacherData.filter(g => normalizeTeacherStatus(g.TrangThai) === 'HOAT_DONG').length;
+            const paused   = teacherData.filter(g => normalizeTeacherStatus(g.TrangThai) === 'TAM_NGUNG').length;
             const specs    = new Set(teacherData.map(g => g.ChuyenMon).filter(Boolean)).size;
             document.getElementById('teacher-stats').innerHTML = [
                 { icon: '👨‍🏫', bg: 'stat-icon-blue',   val: total,    lbl: 'Tổng giảng viên' },
-                { icon: '✅',   bg: 'stat-icon-green',  val: teaching, lbl: 'Đang giảng dạy' },
+                { icon: '✅',   bg: 'stat-icon-green',  val: teaching, lbl: 'Hoạt động' },
                 { icon: '⏸️',  bg: 'stat-icon-amber',  val: paused,   lbl: 'Tạm ngưng' },
                 { icon: '🎯',   bg: 'stat-icon-purple', val: specs,    lbl: 'Chuyên môn' },
             ].map(s => `
@@ -170,21 +186,28 @@
             const start = (currentPage - 1) * PAGE_SIZE;
             const pageData = filtered.slice(start, start + PAGE_SIZE);
 
-            tableBody.innerHTML = pageData.map((gv) => `
-                <tr>
-                    <td><strong>${gv.MaGV}</strong></td>
-                    <td>${gv.TenGV}</td>
-                    <td>${gv.Email}</td>
-                    <td>${gv.SDT}</td>
-                    <td><span class="badge-info">${gv.HocVi}</span></td>
-                    <td>${gv.ChuyenMon}</td>
-                    <td><span class="status-tag ${gv.TrangThai === 'Đang giảng dạy' ? 'status-teaching' : 'status-paused'}">${gv.TrangThai}</span></td>
-                    <td>
-                        <button onclick="editTeacher('${gv.MaGV}')" class="btn-edit">Sửa</button>
-                        <button onclick="deleteTeacher('${gv.MaGV}')" class="btn-delete">Xóa</button>
-                    </td>
-                </tr>
-            `).join('');
+            tableBody.innerHTML = pageData.map((gv) => {
+                const status = normalizeTeacherStatus(gv.TrangThai);
+                const isPaused = status === 'TAM_NGUNG';
+                const nextStatus = isPaused ? 'HOAT_DONG' : 'TAM_NGUNG';
+                const toggleText = isPaused ? 'Kích hoạt' : 'Tạm ngưng';
+                return `
+                    <tr>
+                        <td><strong>${gv.MaGV}</strong></td>
+                        <td>${gv.TenGV}</td>
+                        <td>${gv.Email}</td>
+                        <td>${gv.SDT}</td>
+                        <td><span class="badge-info">${gv.HocVi}</span></td>
+                        <td>${gv.ChuyenMon}</td>
+                        <td><span class="status-tag ${isPaused ? 'status-paused' : 'status-teaching'}">${teacherStatusLabel(status)}</span></td>
+                        <td>
+                            <button onclick="editTeacher('${gv.MaGV}')" class="btn-edit">Sửa</button>
+                            <button onclick="toggleTeacherStatus('${gv.MaGV}', '${nextStatus}')" class="${isPaused ? 'btn-edit' : 'btn-delete'}">${toggleText}</button>
+                            <button onclick="deleteTeacher('${gv.MaGV}')" class="btn-delete">Xóa</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
             renderPagination(filtered.length, currentPage, 'teacher-pagination', 'goToPage');
         }
 
@@ -200,7 +223,7 @@
                     SDT      : row.sdt,
                     HocVi    : row.hocvi,
                     ChuyenMon: row.chuyenmon,
-                    TrangThai: row.trangthai
+                    TrangThai: normalizeTeacherStatus(row.trangthai)
                 }));
                 currentPage = 1;
                 renderTable();
@@ -301,7 +324,7 @@
             document.getElementById('sdt').value       = gv.SDT;
             document.getElementById('hocVi').value     = gv.HocVi;
             document.getElementById('chuyenMon').value = gv.ChuyenMon;
-            document.getElementById('trangThai').value = gv.TrangThai;
+            document.getElementById('trangThai').value = normalizeTeacherStatus(gv.TrangThai);
             const btn = document.getElementById('main-btn');
             btn.innerText = '💾 Lưu cập nhật';
             btn.style.backgroundColor = '#2563eb';
@@ -320,7 +343,29 @@
                 await loadTeachers();
                 showNotification('Xóa giảng viên thành công.');
             } catch (error) {
-                alert(`Không thể xóa giảng viên: ${error.message}`);
+                showNotification(`Không thể xóa giảng viên: ${error.message}`, 'error');
+            }
+        }
+
+        async function toggleTeacherStatus(ma, status) {
+            const label = teacherStatusLabel(status).toLowerCase();
+            if (!await confirmAction(`Bạn có chắc chắn muốn chuyển giảng viên này sang trạng thái ${label}?`)) return;
+            try {
+                const res = await fetch(`${API_BASE}/giang-vien/${ma}/trang-thai`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ trangthai: status }),
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || `API lỗi ${res.status}`);
+                }
+                if (editingMa === ma) editingMa = null;
+                resetForm();
+                await loadTeachers();
+                showNotification(`Đã cập nhật trạng thái giảng viên: ${teacherStatusLabel(status)}.`);
+            } catch (error) {
+                showNotification(`Không thể cập nhật trạng thái: ${error.message}`, 'error');
             }
         }
 
@@ -330,6 +375,7 @@
             document.getElementById('email').value     = '';
             document.getElementById('sdt').value       = '';
             document.getElementById('chuyenMon').value = '';
+            document.getElementById('trangThai').value = 'HOAT_DONG';
         }
 
         window.addEventListener('DOMContentLoaded', loadTeachers);

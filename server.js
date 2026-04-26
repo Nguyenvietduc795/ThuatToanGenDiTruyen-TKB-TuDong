@@ -262,6 +262,25 @@ function normalizeScheduleStatus(value) {
   return String(value || 'DANG_HOC').trim().toUpperCase();
 }
 
+function normalizeTeacherStatus(value) {
+  const text = stripVietnamese(value || 'HOAT_DONG');
+  if (['tamngung', 'inactive', 'ngung', 'pause', 'paused'].includes(text)) {
+    return 'TAM_NGUNG';
+  }
+  return 'HOAT_DONG';
+}
+
+function parseTeacherStatus(value) {
+  const text = stripVietnamese(value);
+  if (['hoatdong', 'danggiangday', 'active', '1', 'true'].includes(text)) return 'HOAT_DONG';
+  if (['tamngung', 'inactive', 'ngung', 'pause', 'paused', '0', 'false'].includes(text)) return 'TAM_NGUNG';
+  return null;
+}
+
+function isActiveTeacher(row) {
+  return normalizeTeacherStatus(row?.trangthai) === 'HOAT_DONG';
+}
+
 function rangesOverlap(aStart, aEnd, bStart, bEnd) {
   return !(Number(aEnd) < Number(bStart) || Number(aStart) > Number(bEnd));
 }
@@ -299,7 +318,28 @@ function hasRelatedPracticeSubject(mon, monMap) {
   return false;
 }
 
+function getCompatibleRoomTypes(mon, classType = null, pc = null, monMap = null) {
+  const sessionType = classType || normalizeAssignmentType(pc || {}, new Map([[mon?.mamon, mon]].filter(([k]) => k)));
+  const hasPractice = Number(mon?.sotietthuchanh || 0) > 0 || hasRelatedPracticeSubject(mon, monMap);
+  const specialTH = specialRoomMamons().has(String(pc?.mamon || '').toUpperCase());
+
+  if (sessionType === 'TH') return ['TH'];
+  if (sessionType === 'LT') {
+    if (specialTH) return ['TH'];
+    if (hasPractice) return ['LT', 'TH'];
+    return ['LT'];
+  }
+  return ['LT'];
+}
+
 function roomCompatibilityMessage(pc, mon, room, monMap = null) {
+  const compatibleTypes = getCompatibleRoomTypes(
+    mon,
+    normalizeAssignmentType(pc, new Map([[mon?.mamon, mon]].filter(([k]) => k))),
+    pc,
+    monMap,
+  );
+  return compatibleTypes.includes(normalizeRoomType(room?.loaiphong)) ? null : 'Phòng không đúng loại yêu cầu.';
   const sessionType = normalizeAssignmentType(pc, new Map([[mon?.mamon, mon]].filter(([k]) => k)));
   const roomType = normalizeRoomType(room?.loaiphong);
   const hasPractice = Number(mon?.sotietthuchanh || 0) > 0 || hasRelatedPracticeSubject(mon, monMap);
@@ -331,6 +371,22 @@ function sessionDurationFromAssignment(pc, fallback = 3) {
   return Math.max(raw, observed) >= 5 ? 5 : 3;
 }
 
+function gaSessionConfigForSubject(mon, type = 'LT') {
+  const total = Number(mon?.tongsotiet || 0);
+  const lt = Number(mon?.sotietlythuyet || 0);
+  const th = Number(mon?.sotietthuchanh || 0);
+  const practiceType = type === 'TH' || (lt === 0 && th > 0);
+  if (practiceType) return { sobuoimoituan: 1, sotietmoibuoi: 5 };
+  const special5 = specialRoomMamons().has(String(mon?.mamon || '').toUpperCase())
+    || (process.env.SPECIAL_5TIET_MAMONS || '').split(',').map((s) => s.trim().toUpperCase()).includes(String(mon?.mamon || '').toUpperCase());
+  if (special5 || th > 0 || Number(mon?.sotietthuchanh || 0) > 0) {
+    return { sobuoimoituan: 1, sotietmoibuoi: 5 };
+  }
+  return total >= 45
+    ? { sobuoimoituan: 2, sotietmoibuoi: 3 }
+    : { sobuoimoituan: 1, sotietmoibuoi: 3 };
+}
+
 function allowedMakeupStartSlots(duration) {
   return duration >= 5 ? [1, 7] : [1, 4, 7, 10];
 }
@@ -344,13 +400,14 @@ async function fetchScheduleContext(matkb) {
   if (rowError) throw new Error(rowError.message);
   if (!row) throw new Error('Không tìm thấy lịch gốc.');
 
-  const [pcRes, monRes, roomRes, khungRes] = await Promise.all([
+  const [pcRes, monRes, roomRes, khungRes, gvRes] = await Promise.all([
     supabase.from('phan_cong_giang_day').select('*').eq('mapc', row.mapc).maybeSingle(),
     supabase.from('mon_hoc').select('*'),
     supabase.from('phong_hoc').select('*'),
     supabase.from('khung_thoi_gian').select('*'),
+    supabase.from('giang_vien').select('magv, tengv, trangthai'),
   ]);
-  const errs = [pcRes.error, monRes.error, roomRes.error, khungRes.error].filter(Boolean);
+  const errs = [pcRes.error, monRes.error, roomRes.error, khungRes.error, gvRes.error].filter(Boolean);
   if (errs.length) throw new Error(errs.map((e) => e.message).join(' | '));
   if (!pcRes.data) throw new Error('Không tìm thấy phân công giảng dạy của lịch gốc.');
 
@@ -362,6 +419,7 @@ async function fetchScheduleContext(matkb) {
     tietketthuc: Number(k.tietketthuc),
   }]));
   const roomMap = new Map((roomRes.data || []).map((r) => [r.maphong, r]));
+  const teacherMap = new Map((gvRes.data || []).map((g) => [g.magv, g]));
 
   const originalKhung = khungMap.get(row.makhung);
   if (!originalKhung) throw new Error('Không tìm thấy khung thời gian của lịch gốc.');
@@ -408,6 +466,7 @@ async function fetchScheduleContext(matkb) {
     originalRows: originalRows.length ? originalRows : [row],
     pc: pcRes.data,
     mon: monMap.get(pcRes.data.mamon) || {},
+    teacher: teacherMap.get(pcRes.data.magv) || null,
     monMap,
     khungMap,
     roomMap,
@@ -604,6 +663,23 @@ async function buildAvailableMakeupSlots({ matkbGoc, tuanhoc, ngayhoc, excludeMa
     });
 }
 
+function makeupOriginalPayload(ctx) {
+  const sessionType = normalizeAssignmentType(ctx.pc, new Map([[ctx.mon?.mamon, ctx.mon]].filter(([k]) => k)));
+  return {
+    matkb: ctx.row.matkb,
+    mapc: ctx.pc.mapc,
+    mamon: ctx.pc.mamon,
+    tenmon: ctx.mon?.tenmon || ctx.pc.mamon,
+    malop: ctx.pc.malop,
+    magv: ctx.pc.magv,
+    tengv: ctx.teacher?.tengv || ctx.pc.magv,
+    sotietmoibuoi: sessionDurationFromAssignment(ctx.pc, ctx.originalRows.length),
+    required_room_types: getCompatibleRoomTypes(ctx.mon, sessionType, ctx.pc, ctx.monMap),
+    tuanbatdau: normalizeWeekBounds(ctx.pc).start,
+    tuanketthuc: normalizeWeekBounds(ctx.pc).end,
+  };
+}
+
 async function writeScheduleHistory({ matkbGoc, matkbMoi, hanhdong, lydo, nguoithuchien }) {
   const { error } = await supabase.from('lich_su_doi_lich').insert({
     matkb_goc: matkbGoc,
@@ -613,6 +689,214 @@ async function writeScheduleHistory({ matkbGoc, matkbMoi, hanhdong, lydo, nguoit
     nguoithuchien: nguoithuchien || 'admin',
   });
   if (error) throw new Error(error.message);
+}
+
+async function restoreScheduleRows(rows) {
+  for (const row of rows || []) {
+    const { error } = await supabase
+      .from('thoi_khoa_bieu')
+      .update({
+        trangthai: row.trangthai,
+        lydo: row.lydo || null,
+        ngaycapnhat: row.ngaycapnhat || null,
+      })
+      .eq('matkb', row.matkb);
+    if (error) console.error('[Rollback] restore schedule failed:', row.matkb, error.message);
+  }
+}
+
+async function assertTeacherCanBeAssigned(magv) {
+  const { data, error } = await supabase
+    .from('giang_vien')
+    .select('magv, tengv, trangthai')
+    .eq('magv', magv)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error('Không tìm thấy giảng viên.');
+  if (!isActiveTeacher(data)) {
+    throw new Error('Không thể phân công vì giảng viên đang tạm ngưng.');
+  }
+  return data;
+}
+
+async function findPausedTeacherAssignments(assignments, monMap = null, teacherMap = null) {
+  const magvs = [...new Set((assignments || []).map((pc) => pc.magv).filter(Boolean))];
+  if (magvs.length === 0) return [];
+  let gvMap = teacherMap;
+  if (!gvMap) {
+    const { data, error } = await supabase
+      .from('giang_vien')
+      .select('magv, tengv, trangthai')
+      .in('magv', magvs);
+    if (error) throw new Error(error.message);
+    gvMap = new Map((data || []).map((g) => [g.magv, g]));
+  }
+  return (assignments || [])
+    .filter((pc) => {
+      const gv = gvMap.get(pc.magv);
+      return gv && !isActiveTeacher(gv);
+    })
+    .map((pc) => {
+      const gv = gvMap.get(pc.magv) || {};
+      const mon = monMap?.get(pc.mamon) || {};
+      return {
+        mapc: pc.mapc,
+        magv: pc.magv,
+        tengv: gv.tengv || pc.magv,
+        mamon: pc.mamon,
+        tenmon: mon.tenmon || pc.mamon,
+        malop: pc.malop,
+      };
+    });
+}
+
+async function deleteTeacherSafely(magv) {
+  const { data: assignments, error: pcError } = await supabase
+    .from('phan_cong_giang_day')
+    .select('mapc')
+    .eq('magv', magv);
+  if (pcError) throw new Error(pcError.message);
+
+  const mapcList = (assignments || []).map((pc) => pc.mapc).filter(Boolean);
+  let scheduleCount = 0;
+  if (mapcList.length > 0) {
+    const { count, error: tkbError } = await supabase
+      .from('thoi_khoa_bieu')
+      .select('*', { count: 'exact', head: true })
+      .in('mapc', mapcList);
+    if (tkbError) throw new Error(tkbError.message);
+    scheduleCount = count || 0;
+  }
+
+  if ((assignments || []).length > 0 || scheduleCount > 0) {
+    return {
+      deleted: false,
+      status: 409,
+      message: 'Không thể xóa giảng viên vì giảng viên này đã có phân công giảng dạy hoặc đã được xếp thời khóa biểu. Vui lòng dùng chức năng Tạm ngưng.',
+    };
+  }
+
+  const { error } = await supabase.from('giang_vien').delete().eq('magv', magv);
+  if (error) throw new Error(error.message);
+  return { deleted: true, status: 200, message: 'Xóa giảng viên thành công.' };
+}
+
+async function nextAssignmentCodes(count) {
+  const { data, error } = await supabase.from('phan_cong_giang_day').select('mapc');
+  if (error) throw new Error(error.message);
+  const maxNumber = (data || []).reduce((max, row) => {
+    const match = String(row.mapc || '').match(/^PC(\d+)$/i);
+    return match ? Math.max(max, Number(match[1])) : max;
+  }, 0);
+  return Array.from({ length: count }, (_, idx) => `PC${String(maxNumber + idx + 1).padStart(5, '0')}`);
+}
+
+async function prepareGaAssignmentsForSelection({ mahk, malops, mamons }) {
+  const selectedLops = [].concat(malops || []).map(String).filter(Boolean);
+  const selectedMons = [].concat(mamons || []).map(String).filter(Boolean);
+  if (selectedLops.length === 0 || selectedMons.length === 0) {
+    return { active: false, duplicates: [], allowed: [] };
+  }
+
+  let pcQuery = supabase
+    .from('phan_cong_giang_day')
+    .select('mapc, mahk, malop, mamon')
+    .in('malop', selectedLops)
+    .in('mamon', selectedMons);
+  if (mahk === null || mahk === undefined) pcQuery = pcQuery.is('mahk', null);
+  else pcQuery = pcQuery.eq('mahk', Number(mahk));
+  const { data: existingPc, error: pcError } = await pcQuery;
+  if (pcError) throw new Error(pcError.message);
+
+  const existingByPair = new Map((existingPc || []).map((pc) => [`${pc.malop}|${pc.mamon}`, pc]));
+  let scheduledMapcs = new Set();
+  const existingMapcs = (existingPc || []).map((pc) => pc.mapc).filter(Boolean);
+  if (existingMapcs.length > 0) {
+    let tkbQuery = supabase
+      .from('thoi_khoa_bieu')
+      .select('mapc')
+      .in('mapc', existingMapcs)
+      .in('trangthai', ['DANG_HOC', 'TAM_NGUNG', 'HOC_BU']);
+    if (mahk === null || mahk === undefined) tkbQuery = tkbQuery.is('mahk', null);
+    else tkbQuery = tkbQuery.eq('mahk', Number(mahk));
+    const { data: tkbRows, error: tkbError } = await tkbQuery;
+    if (tkbError) throw new Error(tkbError.message);
+    scheduledMapcs = new Set((tkbRows || []).map((row) => row.mapc));
+  }
+
+  const duplicates = [];
+  const allowed = [];
+  for (const malop of selectedLops) {
+    for (const mamon of selectedMons) {
+      const pc = existingByPair.get(`${malop}|${mamon}`);
+      if (pc) {
+        if (scheduledMapcs.has(pc.mapc)) {
+          duplicates.push({
+            malop,
+            mamon,
+            mapc: pc.mapc,
+            da_xep: true,
+            reason: 'Đã có thời khóa biểu trong học kỳ này',
+          });
+        } else {
+          allowed.push({ malop, mamon, mapc: pc.mapc, existing: true });
+        }
+      } else {
+        allowed.push({ malop, mamon });
+      }
+    }
+  }
+
+  if (allowed.length === 0) {
+    return { active: true, duplicates, allowed };
+  }
+
+  const newPairs = allowed.filter((pair) => !pair.existing);
+  if (newPairs.length === 0) {
+    return { active: true, duplicates, allowed };
+  }
+
+  const [{ data: monRows, error: monError }, { data: teacherRows, error: teacherError }] = await Promise.all([
+    supabase.from('mon_hoc').select('*').in('mamon', [...new Set(newPairs.map((p) => p.mamon))]),
+    supabase.from('giang_vien').select('magv, trangthai').order('magv', { ascending: true }),
+  ]);
+  const errors = [monError, teacherError].filter(Boolean);
+  if (errors.length) throw new Error(errors.map((e) => e.message).join(' | '));
+  const monMap = new Map((monRows || []).map((m) => [m.mamon, m]));
+  const teachers = (teacherRows || []).filter((gv) => isActiveTeacher(gv));
+  if (teachers.length === 0) throw new Error('Không có giảng viên hoạt động để tạo phân công.');
+
+  const codes = await nextAssignmentCodes(newPairs.length);
+  const rows = newPairs.map((pair, idx) => {
+    const mon = monMap.get(pair.mamon);
+    if (!mon) throw new Error(`Không tìm thấy môn học ${pair.mamon}.`);
+    const teacher = teachers[idx % teachers.length];
+    const loai = normalizeAssignmentType({ mamon: pair.mamon, loaiphong: mon.loaiphong }, monMap);
+    const cfg = gaSessionConfigForSubject(mon, loai);
+    return {
+      mapc: codes[idx],
+      mahk: mahk === null || mahk === undefined ? null : Number(mahk),
+      malop: pair.malop,
+      mamon: pair.mamon,
+      magv: teacher.magv,
+      sobuoimoituan: cfg.sobuoimoituan,
+      sotietmoibuoi: cfg.sotietmoibuoi,
+      loaiphong: loai,
+    };
+  });
+
+  const { error: insertError } = await supabase.from('phan_cong_giang_day').insert(rows);
+  if (insertError) throw new Error(insertError.message);
+  return {
+    active: true,
+    duplicates,
+    allowed: allowed.map((pair) => ({
+      malop: pair.malop,
+      mamon: pair.mamon,
+      mapc: pair.mapc || rows.find((row) => row.malop === pair.malop && row.mamon === pair.mamon)?.mapc,
+      existing: !!pair.existing,
+    })),
+  };
 }
 
 async function deleteAssignmentsAndSchedules(filters) {
@@ -645,7 +929,14 @@ app.get('/api/giangvien', async (req, res) => {
     .from('giang_vien')
     .select('*');
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data);
+  let teachers = (data || []).map((row) => ({
+    ...row,
+    trangthai: normalizeTeacherStatus(row.trangthai),
+  }));
+  if (['1', 'true', 'HOAT_DONG'].includes(String(req.query.active || '').trim())) {
+    teachers = teachers.filter((row) => isActiveTeacher(row));
+  }
+  res.json(teachers);
 });
 
 app.post('/api/giangvien', async (req, res) => {
@@ -662,7 +953,7 @@ app.post('/api/giangvien', async (req, res) => {
       sdt: optionalText(firstValue(body, ['SDT', 'sdt'])),
       hocvi: optionalText(firstValue(body, ['HocVi', 'hocvi'])),
       chuyenmon: optionalText(firstValue(body, ['ChuyenMon', 'chuyenmon'])),
-      trangthai: optionalText(firstValue(body, ['TrangThai', 'trangthai'])),
+      trangthai: normalizeTeacherStatus(firstValue(body, ['TrangThai', 'trangthai'])),
     };
 
     const { data, error } = await supabase.from('giang_vien').insert(row).select('*').single();
@@ -682,8 +973,9 @@ app.put('/api/giangvien/:magv', async (req, res) => {
       sdt: optionalText(firstValue(body, ['SDT', 'sdt'])),
       hocvi: optionalText(firstValue(body, ['HocVi', 'hocvi'])),
       chuyenmon: optionalText(firstValue(body, ['ChuyenMon', 'chuyenmon'])),
-      trangthai: optionalText(firstValue(body, ['TrangThai', 'trangthai'])),
     };
+    const statusValue = firstValue(body, ['TrangThai', 'trangthai']);
+    if (statusValue !== undefined) row.trangthai = normalizeTeacherStatus(statusValue);
 
     const { data, error } = await supabase
       .from('giang_vien')
@@ -700,10 +992,44 @@ app.put('/api/giangvien/:magv', async (req, res) => {
 
 app.delete('/api/giangvien/:magv', async (req, res) => {
   try {
-    await deleteAssignmentsAndSchedules({ magv: req.params.magv });
-    const { error } = await supabase.from('giang_vien').delete().eq('magv', req.params.magv);
+    const result = await deleteTeacherSafely(req.params.magv);
+    return res.status(result.status).json({
+      ok: result.deleted,
+      success: result.deleted,
+      error: result.deleted ? undefined : result.message,
+      message: result.message,
+    });
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
+});
+
+app.delete('/api/giang-vien/:magv', async (req, res) => {
+  try {
+    const result = await deleteTeacherSafely(req.params.magv);
+    return res.status(result.status).json({
+      success: result.deleted,
+      message: result.message,
+    });
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
+});
+
+app.patch('/api/giang-vien/:magv/trang-thai', async (req, res) => {
+  try {
+    const trangthai = parseTeacherStatus(req.body?.trangthai);
+    if (!trangthai) {
+      return res.status(400).json({ ok: false, error: 'Trạng thái giảng viên không hợp lệ.' });
+    }
+    const { data, error } = await supabase
+      .from('giang_vien')
+      .update({ trangthai })
+      .eq('magv', req.params.magv)
+      .select('*')
+      .single();
     if (error) return sendSupabaseError(res, error);
-    return res.json({ ok: true });
+    return res.json({ ok: true, success: true, message: 'Cập nhật trạng thái giảng viên thành công.', data });
   } catch (error) {
     return sendSupabaseError(res, error);
   }
@@ -929,6 +1255,146 @@ app.get('/api/phan-cong', async (req, res) => {
   }
 });
 
+app.post('/api/phan-cong/by-lops', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const malops = [].concat(body.malops || body.malop || []).map(String).filter(Boolean);
+    const mahk = body.mahk !== undefined && body.mahk !== null && body.mahk !== ''
+      ? Number(body.mahk)
+      : null;
+
+    if (malops.length === 0) {
+      return res.status(400).json({ success: false, message: 'Vui lòng chọn ít nhất một lớp.', data: [] });
+    }
+    if (body.mahk !== undefined && body.mahk !== null && body.mahk !== '' && !Number.isFinite(mahk)) {
+      return res.status(400).json({ success: false, message: 'Mã học kỳ không hợp lệ.', data: [] });
+    }
+
+    let pcQuery = supabase
+      .from('phan_cong_giang_day')
+      .select('*')
+      .in('malop', malops);
+    if (mahk !== null) pcQuery = pcQuery.eq('mahk', mahk);
+
+    const [{ data: pcs, error: pcError }, { data: mons, error: monError }, { data: teachers, error: gvError }] = await Promise.all([
+      pcQuery,
+      supabase.from('mon_hoc').select('mamon, tenmon'),
+      supabase.from('giang_vien').select('magv, tengv, trangthai'),
+    ]);
+    const errors = [pcError, monError, gvError].filter(Boolean);
+    if (errors.length) throw new Error(errors.map((e) => e.message).join(' | '));
+
+    const rows = pcs || [];
+    const mapcs = rows.map((pc) => pc.mapc).filter(Boolean);
+    let scheduledMapcs = new Set();
+    if (mapcs.length > 0) {
+      let tkbQuery = supabase
+        .from('thoi_khoa_bieu')
+        .select('mapc, mahk, trangthai')
+        .in('mapc', mapcs)
+        .in('trangthai', ['DANG_HOC', 'TAM_NGUNG', 'HOC_BU']);
+      if (mahk !== null) tkbQuery = tkbQuery.eq('mahk', mahk);
+      const { data: tkbs, error: tkbError } = await tkbQuery;
+      if (tkbError) throw new Error(tkbError.message);
+      scheduledMapcs = new Set((tkbs || []).map((row) => row.mapc));
+    }
+
+    const monMap = new Map((mons || []).map((mon) => [mon.mamon, mon]));
+    const teacherMap = new Map((teachers || []).map((gv) => [gv.magv, gv]));
+    const data = rows.map((pc) => {
+      const mon = monMap.get(pc.mamon) || {};
+      const gv = teacherMap.get(pc.magv) || {};
+      return {
+        mapc: pc.mapc,
+        malop: pc.malop,
+        mamon: pc.mamon,
+        tenmon: mon.tenmon || pc.mamon,
+        magv: pc.magv,
+        tengv: gv.tengv || pc.magv,
+        sotietmoibuoi: pc.sotietmoibuoi,
+        sobuoimoituan: pc.sobuoimoituan,
+        tuanbatdau: pc.tuanbatdau,
+        tuanketthuc: pc.tuanketthuc,
+        mahk: pc.mahk,
+        da_xep: scheduledMapcs.has(pc.mapc),
+      };
+    });
+
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message, data: [] });
+  }
+});
+
+app.post('/api/phan-cong', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const magv = optionalText(firstValue(body, ['MaGV', 'magv']));
+    if (!magv) throw new Error('Vui lòng chọn giảng viên.');
+    await assertTeacherCanBeAssigned(magv);
+    const row = {
+      mapc: optionalText(firstValue(body, ['MaPC', 'mapc'])) || crypto.randomUUID(),
+      mahk: parseOptionalNumber(firstValue(body, ['MaHK', 'mahk']), 'mahk'),
+      malop: optionalText(firstValue(body, ['MaLop', 'malop'])),
+      mamon: optionalText(firstValue(body, ['MaMon', 'mamon'])),
+      magv,
+      sobuoimoituan: parseBodyNumber(firstValue(body, ['SoBuoiMoiTuan', 'sobuoimoituan']), 'sobuoimoituan'),
+      sotietmoibuoi: parseBodyNumber(firstValue(body, ['SoTietMoiBuoi', 'sotietmoibuoi']), 'sotietmoibuoi'),
+      loaiphong: optionalText(firstValue(body, ['LoaiPhong', 'loaiphong'])),
+      namhoc: optionalText(firstValue(body, ['NamHoc', 'namhoc'])),
+      tuanbatdau: parseBodyNumber(firstValue(body, ['TuanBatDau', 'tuanbatdau']) ?? 1, 'tuanbatdau'),
+      tuanketthuc: parseOptionalNumber(firstValue(body, ['TuanKetThuc', 'tuanketthuc']), 'tuanketthuc'),
+    };
+    const { data, error } = await supabase.from('phan_cong_giang_day').insert(row).select('*').single();
+    if (error) return sendSupabaseError(res, error);
+    return res.status(201).json(data);
+  } catch (err) {
+    return sendSupabaseError(res, err);
+  }
+});
+
+app.put('/api/phan-cong/:mapc', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const magv = optionalText(firstValue(body, ['MaGV', 'magv']));
+    if (magv) await assertTeacherCanBeAssigned(magv);
+    const row = {};
+    for (const [field, keys] of Object.entries({
+      mahk: ['MaHK', 'mahk'],
+      malop: ['MaLop', 'malop'],
+      mamon: ['MaMon', 'mamon'],
+      magv: ['MaGV', 'magv'],
+      loaiphong: ['LoaiPhong', 'loaiphong'],
+      namhoc: ['NamHoc', 'namhoc'],
+    })) {
+      const value = firstValue(body, keys);
+      if (value !== undefined) row[field] = optionalText(value);
+    }
+    if (firstValue(body, ['SoBuoiMoiTuan', 'sobuoimoituan']) !== undefined) {
+      row.sobuoimoituan = parseBodyNumber(firstValue(body, ['SoBuoiMoiTuan', 'sobuoimoituan']), 'sobuoimoituan');
+    }
+    if (firstValue(body, ['SoTietMoiBuoi', 'sotietmoibuoi']) !== undefined) {
+      row.sotietmoibuoi = parseBodyNumber(firstValue(body, ['SoTietMoiBuoi', 'sotietmoibuoi']), 'sotietmoibuoi');
+    }
+    if (firstValue(body, ['TuanBatDau', 'tuanbatdau']) !== undefined) {
+      row.tuanbatdau = parseBodyNumber(firstValue(body, ['TuanBatDau', 'tuanbatdau']), 'tuanbatdau');
+    }
+    if (firstValue(body, ['TuanKetThuc', 'tuanketthuc']) !== undefined) {
+      row.tuanketthuc = parseOptionalNumber(firstValue(body, ['TuanKetThuc', 'tuanketthuc']), 'tuanketthuc');
+    }
+    const { data, error } = await supabase
+      .from('phan_cong_giang_day')
+      .update(row)
+      .eq('mapc', req.params.mapc)
+      .select('*')
+      .single();
+    if (error) return sendSupabaseError(res, error);
+    return res.json(data);
+  } catch (err) {
+    return sendSupabaseError(res, err);
+  }
+});
+
 app.post('/api/tkb/check-slot', async (req, res) => {
   try {
     const body = req.body || {};
@@ -943,6 +1409,9 @@ app.post('/api/tkb/check-slot', async (req, res) => {
     return res.status(result.available ? 200 : 400).json({
       available: result.available,
       message: result.message,
+      teacher_available: result.teacher_available ?? result.available,
+      class_available: result.class_available ?? result.available,
+      room_available: result.room_available ?? result.available,
     });
   } catch (error) {
     return res.status(400).json({ available: false, message: error.message });
@@ -952,18 +1421,57 @@ app.post('/api/tkb/check-slot', async (req, res) => {
 app.post('/api/tkb/:matkb/available-makeup-slots', async (req, res) => {
   try {
     const body = req.body || {};
+    const ctx = await fetchScheduleContext(req.params.matkb);
+    if (normalizeScheduleStatus(ctx.row.trangthai) === 'HOC_BU') {
+      return res.status(400).json({ success: false, message: 'Không thể tạo học bù từ một buổi học bù.', slots: [] });
+    }
     const slots = await buildAvailableMakeupSlots({
       matkbGoc: req.params.matkb,
       tuanhoc: body.tuanhoc,
       ngayhoc: body.ngayhoc,
       excludeMatkb: body.exclude_matkb || null,
     });
+    const normalizedSlots = slots.map((slot) => {
+      const availableRooms = slot.rooms?.available_rooms || [];
+      const teacher = {
+        available: !!slot.teacher?.available,
+        message: slot.teacher?.available ? 'Giảng viên rảnh' : 'Giảng viên bận',
+      };
+      const klass = {
+        available: !!slot.class?.available,
+        message: slot.class?.available ? 'Lớp rảnh' : 'Lớp đang học',
+      };
+      const rooms = {
+        available: availableRooms.length > 0,
+        available_rooms: availableRooms,
+        message: availableRooms.length
+          ? `Có ${availableRooms.length} phòng trống phù hợp`
+          : 'Không có phòng trống phù hợp',
+      };
+      const selectable = teacher.available && klass.available && rooms.available;
+      const reason = selectable
+        ? 'GV rảnh, lớp rảnh, có phòng trống phù hợp'
+        : [teacher.message, klass.message, rooms.message]
+            .filter((m) => !['Giảng viên rảnh', 'Lớp rảnh'].includes(m))
+            .join('; ');
+      return {
+        ...slot,
+        label: `Tiết ${slot.tietbatdau}-${slot.tietketthuc}`,
+        teacher,
+        class: klass,
+        rooms,
+        selectable,
+        reason,
+      };
+    });
     return res.json({
       ok: true,
-      slots,
+      success: true,
+      original: makeupOriginalPayload(ctx),
+      slots: normalizedSlots,
     });
   } catch (error) {
-    return res.status(400).json({ ok: false, message: error.message, slots: [] });
+    return res.status(400).json({ ok: false, success: false, message: error.message, slots: [] });
   }
 });
 
@@ -980,6 +1488,12 @@ app.post('/api/tkb/:matkb/tam-ngung', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Buổi học này đã tạm ngưng.' });
     }
 
+    const originalSnapshots = ctx.originalRows.map((r) => ({
+      matkb: r.matkb,
+      trangthai: r.trangthai,
+      lydo: r.lydo,
+      ngaycapnhat: r.ngaycapnhat,
+    }));
     const originalIds = ctx.originalRows.map((r) => r.matkb);
     const { data: updated, error: updateError } = await supabase
       .from('thoi_khoa_bieu')
@@ -1027,6 +1541,9 @@ app.post('/api/tkb/:matkb/tao-hoc-bu', async (req, res) => {
       .eq('trangthai', 'HOC_BU');
     if (existingError) throw new Error(existingError.message);
     if ((existingMakeups || []).length > 0) {
+      return res.status(400).json({ success: false, message: 'Buổi học này đã có lịch học bù. Vui lòng chỉnh lịch học bù hiện tại.' });
+    }
+    if ((existingMakeups || []).length > 0) {
       return res.status(400).json({ success: false, message: 'Buổi học này đã có lịch học bù.' });
     }
 
@@ -1069,6 +1586,12 @@ app.post('/api/tkb/:matkb/tao-hoc-bu', async (req, res) => {
       });
     }
 
+    const originalSnapshots = ctx.originalRows.map((r) => ({
+      matkb: r.matkb,
+      trangthai: r.trangthai,
+      lydo: r.lydo,
+      ngaycapnhat: r.ngaycapnhat,
+    }));
     const originalIds = ctx.originalRows.map((r) => r.matkb);
     const { data: updatedOriginal, error: updateError } = await supabase
       .from('thoi_khoa_bieu')
@@ -1085,15 +1608,24 @@ app.post('/api/tkb/:matkb/tao-hoc-bu', async (req, res) => {
       .from('thoi_khoa_bieu')
       .insert(makeupRows)
       .select('*');
-    if (insertError) throw new Error(insertError.message);
+    if (insertError) {
+      await restoreScheduleRows(originalSnapshots);
+      throw new Error(insertError.message);
+    }
 
-    await writeScheduleHistory({
-      matkbGoc: matkb,
-      matkbMoi: makeupRows[0].matkb,
-      hanhdong: 'TAO_HOC_BU',
-      lydo: body.lydo,
-      nguoithuchien: body.nguoithuchien,
-    });
+    try {
+      await writeScheduleHistory({
+        matkbGoc: matkb,
+        matkbMoi: makeupRows[0].matkb,
+        hanhdong: 'TAO_HOC_BU',
+        lydo: body.lydo,
+        nguoithuchien: body.nguoithuchien,
+      });
+    } catch (historyError) {
+      await supabase.from('thoi_khoa_bieu').delete().in('matkb', makeupRows.map((row) => row.matkb));
+      await restoreScheduleRows(originalSnapshots);
+      throw historyError;
+    }
 
     return res.json({
       success: true,
@@ -1278,29 +1810,65 @@ app.get('/api/ga/input-summary', async (req, res) => {
   }
 });
 
+// Trả về trạng thái xếp lịch per-MAPC (không aggregate theo mamon).
+// Query param: ?mahk=<số> để lọc theo học kỳ (tùy chọn).
 app.get('/api/ga/mon-status', async (req, res) => {
   try {
+    const mahk = req.query.mahk !== undefined && req.query.mahk !== ''
+      ? Number(req.query.mahk)
+      : null;
+
+    // Lấy phan_cong theo mahk nếu có
+    let pcQ = supabase
+      .from('phan_cong_giang_day')
+      .select('mapc, malop, mamon, sobuoimoituan, sotietmoibuoi, mahk');
+    if (mahk !== null) pcQ = pcQ.eq('mahk', mahk);
+
+    // Lấy TKB theo mahk nếu có — chỉ đếm dòng đang hoạt động hoặc đã xếp
+    let tkbQ = supabase
+      .from('thoi_khoa_bieu')
+      .select('mapc, mahk');
+    if (mahk !== null) tkbQ = tkbQ.eq('mahk', mahk);
+
     const [pcRes, monRes, tkbRes] = await Promise.all([
-      supabase.from('phan_cong_giang_day').select('mapc, malop, mamon, sobuoimoituan, sotietmoibuoi'),
+      pcQ,
       supabase.from('mon_hoc').select('mamon, tongsotiet'),
-      supabase.from('thoi_khoa_bieu').select('mapc'),
+      tkbQ,
     ]);
+
     const monMap = new Map((monRes.data || []).map(m => [m.mamon, m]));
+
+    // scheduledCount: mapc → số buổi đã có trong thoi_khoa_bieu (cùng mahk)
     const scheduledCount = {};
     for (const row of tkbRes.data || []) {
       scheduledCount[row.mapc] = (scheduledCount[row.mapc] || 0) + 1;
     }
+
+    // Trả về 1 entry per mapc — KHÔNG aggregate nhiều mapc chung mamon
     const result = (pcRes.data || []).map(pc => {
-      const tongsotiet = Number(monMap.get(pc.mamon)?.tongsotiet || 0);
-      const scheduled  = scheduledCount[pc.mapc] || 0;
-      const remaining  = Math.max(0, tongsotiet - scheduled);
+      const tongsotiet  = Number(monMap.get(pc.mamon)?.tongsotiet || 0);
+      const sessionCount = scheduledCount[pc.mapc] || 0;
+
+      // Quy đổi số buổi → số tiết để so sánh đúng đơn vị với tongsotiet.
+      // VD: 3 buổi × sotietmoibuoi=5 = 15 tiết → đúng bằng tongsotiet=15 → exhausted=true.
+      const scheduledTiet = Math.min(tongsotiet, sessionCount * Number(pc.sotietmoibuoi || 1));
+      const remaining     = Math.max(0, tongsotiet - scheduledTiet);
+
       return {
-        mapc: pc.mapc, malop: pc.malop, mamon: pc.mamon,
-        sobuoimoituan: pc.sobuoimoituan, sotietmoibuoi: pc.sotietmoibuoi,
-        tongsotiet, scheduled, remaining,
-        exhausted: tongsotiet > 0 && remaining === 0,
+        mapc         : pc.mapc,
+        malop        : pc.malop,
+        mamon        : pc.mamon,
+        mahk         : pc.mahk,
+        sobuoimoituan: pc.sobuoimoituan,
+        sotietmoibuoi: pc.sotietmoibuoi,
+        tongsotiet,
+        scheduled    : scheduledTiet,   // tiết đã xếp (đã quy đổi)
+        remaining,
+        // exhausted = true khi tất cả tiết đã có trong TKB (cùng mahk)
+        exhausted    : tongsotiet > 0 && remaining === 0,
       };
     });
+
     return res.json(result);
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
@@ -1333,10 +1901,14 @@ app.post('/api/ga/generate', async (req, res) => {
     }
 
     // Auto-seed nếu bảng phan_cong rỗng (user xóa khi test)
+    const malops = [].concat(req.body.malop || []).map(String).filter(Boolean);
+    const mamons = [].concat(req.body.mamon || []).map(String).filter(Boolean);
+    const hasExplicitSelection = malops.length > 0 && mamons.length > 0;
+
     {
       const { count } = await supabase
         .from('phan_cong_giang_day').select('*', { count: 'exact', head: true });
-      if (!count || count === 0) {
+      if ((!count || count === 0) && !hasExplicitSelection) {
         console.log('[GA] phan_cong_giang_day trong, dang tu dong seed lai...');
         const seedResult = spawnSync(
           'node',
@@ -1355,11 +1927,39 @@ app.post('/api/ga/generate', async (req, res) => {
       }
     }
 
+    const selectionPrep = await prepareGaAssignmentsForSelection({
+      mahk: parsedMahk,
+      malops,
+      mamons,
+    });
+    if (selectionPrep.active && selectionPrep.allowed.length === 0) {
+      return res.status(409).json({
+        ok: false,
+        success: false,
+        message: 'Một số lớp-môn đã được xếp thời khóa biểu.',
+        error: 'Một số lớp-môn đã được xếp thời khóa biểu.',
+        duplicates: selectionPrep.duplicates,
+        allowed: [],
+      });
+    }
+
     const { rawData, khungThoiGian } = await getSupabaseGaInput({ mahk: parsedMahk, namhoc });
+    const monMap = new Map((rawData.mon_hoc || []).map((m) => [m.mamon, m]));
+    const teacherMap = new Map((rawData.giang_vien || []).map((g) => [g.magv, g]));
+    const pausedAssignmentsAll = await findPausedTeacherAssignments(
+      rawData.phan_cong_giang_day || [],
+      monMap,
+      teacherMap,
+    );
+    if (false && pausedAssignmentsAll.length > 0) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Không thể tạo thời khóa biểu vì có phân công sử dụng giảng viên đang tạm ngưng. Vui lòng đổi giảng viên hoặc kích hoạt lại giảng viên.',
+        invalid_assignments: pausedAssignmentsAll,
+      });
+    }
 
     // ── Lọc theo malop/mamon (hỗ trợ cả string lẫn array) ───────────────
-    const malops = [].concat(req.body.malop || []).map(String).filter(Boolean);
-    const mamons = [].concat(req.body.mamon || []).map(String).filter(Boolean);
     if (malops.length > 0) {
       rawData.phan_cong_giang_day = (rawData.phan_cong_giang_day || []).filter(
         (pc) => malops.includes(pc.malop)
@@ -1376,11 +1976,32 @@ app.post('/api/ga/generate', async (req, res) => {
     }
 
     // ── Enforce session rules + loại bỏ phân công đã hoàn thành ──────────
-    const monMap = new Map((rawData.mon_hoc || []).map((m) => [m.mamon, m]));
-
     // Build thToLtMamon: mamon_TH → mamon_LT, dựa trên tenmon.
     // TH tenmon = LT tenmon + "-Thực hành" (quy tắc đặt tên trong DB này).
     // Đây là cách link duy nhất đúng vì mamon là dãy số, không có suffix _LT/_TH.
+    if (selectionPrep.active) {
+      const allowedPairs = new Set(selectionPrep.allowed.map((p) => `${p.malop}|${p.mamon}`));
+      rawData.phan_cong_giang_day = (rawData.phan_cong_giang_day || []).filter(
+        (pc) => allowedPairs.has(`${pc.malop}|${pc.mamon}`)
+      );
+    }
+
+    const pausedAssignments = await findPausedTeacherAssignments(
+      rawData.phan_cong_giang_day || [],
+      monMap,
+      teacherMap,
+    );
+    if (pausedAssignments.length > 0) {
+      return res.status(400).json({
+        ok: false,
+        success: false,
+        error: 'Không thể tạo thời khóa biểu vì có phân công sử dụng giảng viên đang tạm ngưng. Vui lòng đổi giảng viên hoặc kích hoạt lại giảng viên.',
+        message: 'Không thể tạo thời khóa biểu vì có phân công sử dụng giảng viên đang tạm ngưng. Vui lòng đổi giảng viên hoặc kích hoạt lại giảng viên.',
+        invalid_assignments: pausedAssignments,
+      });
+    }
+    rawData.giang_vien = (rawData.giang_vien || []).filter((gv) => isActiveTeacher(gv));
+
     const tenmonToLtMamon = new Map();
     for (const mon of rawData.mon_hoc || []) {
       const isLT = Number(mon.sotietlythuyet || 0) > 0
@@ -1597,11 +2218,13 @@ app.post('/api/ga/generate', async (req, res) => {
 
       for (let w = startWeek; w < startWeek + soTuan; w++) {
         allRows.push({
-          matkb:   crypto.randomUUID(),
-          tuanhoc: w,
-          mapc:    row.mapc,
-          maphong: row.maphong,
-          makhung: row.makhung,
+          matkb    : crypto.randomUUID(),
+          tuanhoc  : w,
+          mapc     : row.mapc,
+          maphong  : row.maphong,
+          makhung  : row.makhung,
+          mahk     : parsedMahk ?? null,   // cần để /api/ga/mon-status?mahk= filter đúng
+          trangthai: 'DANG_HOC',           // cần để /api/phan-cong/by-lops filter trangthai đúng
         });
       }
     }
@@ -1636,6 +2259,9 @@ app.post('/api/ga/generate', async (req, res) => {
       history,
       breakdown,
       filters: { mahk: parsedMahk, namhoc, tuanhoc: parsedTuanhoc, popSize: parsedPopSize, maxGen: parsedMaxGen },
+      duplicates: selectionPrep?.duplicates || [],
+      allowed: selectionPrep?.allowed || [],
+      skippedDuplicates: selectionPrep?.duplicates?.length || 0,
       persisted: Boolean(persist),
       generatedRows:     allRows.length,
       generatedSessions: sessions.length,
@@ -1865,10 +2491,10 @@ async function autoSeedIfEmpty() {
       .from('phan_cong_giang_day').select('*', { count: 'exact', head: true });
 
     const needsKhung = !khungCount || khungCount < 84;
-    const needsPC    = !pcCount    || pcCount    === 0;
+    const needsPC    = false;
 
     if (needsKhung || needsPC) {
-      console.log('[AutoSeed] Phat hien bang trong, dang seed...');
+      console.log('[AutoSeed] Phat hien bang khung_thoi_gian trong, dang seed khung...');
       if (needsKhung) {
         const r = spawnSync('node', [path.join(__dirname, 'scripts/bootstrap_time_slots.js')],
           { stdio: 'pipe', encoding: 'utf8', cwd: __dirname });
@@ -1889,7 +2515,7 @@ async function autoSeedIfEmpty() {
         }
       }
     } else {
-      console.log(`[AutoSeed] Du lieu OK: ${khungCount} khung, ${pcCount} phan_cong.`);
+      console.log(`[AutoSeed] Du lieu OK: ${khungCount} khung. Khong auto-seed phan_cong (${pcCount || 0} ban ghi).`);
     }
   } catch (e) {
     console.warn('[AutoSeed] Khong the kiem tra / seed tu dong:', e.message);

@@ -8,6 +8,9 @@
 <style>
   body { font-family: 'Segoe UI', sans-serif; }
   .timetable { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  .schedule-scroll { overflow:auto; max-height:72vh; }
+  .schedule-scroll .timetable { min-width:860px; }
+  .schedule-scroll thead th { position:sticky; top:0; z-index:3; }
   .timetable th { border:1px solid #d1d5db; background:#f3f4f6; padding:8px 4px;
                   text-align:center; font-size:13px; font-weight:600; }
   .timetable td { border:1px solid #e5e7eb; }
@@ -78,7 +81,7 @@
   </div>
 
   <!-- ══ Thanh phân trang tuần (hiển thị cho tất cả tab) ══ -->
-  <div class="bg-white rounded-2xl shadow px-4 py-3 mb-5 flex items-center justify-between gap-4">
+  <div class="bg-white rounded-2xl shadow px-4 py-3 mb-5 flex flex-wrap items-center justify-between gap-4">
     <button onclick="prevWeek()" id="btn-prev"
       class="week-nav-btn px-4 py-2 rounded-xl font-semibold text-sm border border-gray-200 text-gray-700 flex items-center gap-1">
       ← Tuần trước
@@ -93,13 +96,22 @@
       class="week-nav-btn px-4 py-2 rounded-xl font-semibold text-sm border border-gray-200 text-gray-700 flex items-center gap-1">
       Tuần sau →
     </button>
+    <div class="w-full border-t border-gray-100 pt-3 flex flex-wrap items-end gap-3">
+      <label class="text-xs text-gray-500 font-medium">
+        Ngày
+        <input id="calendar-date" type="date" onchange="selectCalendarDate(this.value)"
+          class="block mt-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+      </label>
+      <button type="button" onclick="selectToday()"
+        class="px-4 py-2 rounded-xl font-semibold text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all">📅 Hôm nay</button>
+    </div>
   </div>
 
   <!-- ===== TAB: Quản lý ===== -->
   <div id="tab-ql" class="tab-pane">
     <div id="stats-row" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"></div>
     <div id="legend-row" class="flex flex-wrap gap-2 mb-4 bg-white rounded-xl p-3 shadow text-xs items-center"></div>
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+    <div class="bg-white rounded-2xl shadow p-4 schedule-scroll">
       <p class="text-xs text-gray-400 mb-3">
         Hiển thị mỗi buổi tại tiết bắt đầu. Nhiều thẻ trong cùng ô = các lớp học song song.
       </p>
@@ -116,7 +128,7 @@
       </select>
       <span id="gv-info" class="text-xs text-gray-400 italic"></span>
     </div>
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+    <div class="bg-white rounded-2xl shadow p-4 schedule-scroll">
       <div id="grid-gv"></div>
     </div>
   </div>
@@ -129,7 +141,7 @@
         class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-52">
       </select>
     </div>
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+    <div class="bg-white rounded-2xl shadow p-4 schedule-scroll">
       <div id="grid-sv"></div>
     </div>
   </div>
@@ -153,7 +165,7 @@
       </span>
     </div>
 
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+    <div class="bg-white rounded-2xl shadow p-4 schedule-scroll">
       <div id="grid-ph"></div>
     </div>
   </div>
@@ -161,9 +173,9 @@
 </div>
 
 <script>
-const DATA      = {"lich": [{"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV05", "tengv": "Đinh Cao Tín", "hocvi": "Tiến sĩ", "malop": "L04", "tenlop": "DH23TIN04", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 4, "tiet_start": 10, "tiet_end": 12, "last_week": 8}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV06", "tengv": "Nguyễn Nhị Gia Vinh", "hocvi": "Thạc sĩ", "malop": "L05", "tenlop": "DH23TIN05", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 3, "tiet_start": 4, "tiet_end": 6, "last_week": 8}, {"mamon": "0110011101", "tenmon": "Cấu trúc dữ liệu và giải thuật", "loai": "LT", "magv": "GV06", "tengv": "Nguyễn Nhị Gia Vinh", "hocvi": "Thạc sĩ", "malop": "L02", "tenlop": "DH23TIN02", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 2, "tiet_start": 1, "tiet_end": 5, "last_week": 3}, {"mamon": "0110011001", "tenmon": "Lập trình thiết bị di động", "loai": "LT", "magv": "GV05", "tengv": "Đinh Cao Tín", "hocvi": "Tiến sĩ", "malop": "L03", "tenlop": "DH23TIN03", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 3, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV08", "tengv": "Phạm Quốc Bảo", "hocvi": "Tiến sĩ", "malop": "L07", "tenlop": "DH23TIN07", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 1, "tiet_start": 4, "tiet_end": 6, "last_week": 8}, {"mamon": "0110011001", "tenmon": "Lập trình thiết bị di động", "loai": "LT", "magv": "GV04", "tengv": "Nguyễn Trung Kiên", "hocvi": "Thạc sĩ", "malop": "L02", "tenlop": "DH23TIN02", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 5, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110110000", "tenmon": "Trí tuệ nhân tạo", "loai": "LT", "magv": "GV04", "tengv": "Nguyễn Trung Kiên", "hocvi": "Thạc sĩ", "malop": "L03", "tenlop": "DH23TIN03", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 4, "tiet_start": 7, "tiet_end": 11, "last_week": 9}, {"mamon": "0110011001", "tenmon": "Lập trình thiết bị di động", "loai": "LT", "magv": "GV01", "tengv": "Trần Minh Tâm", "hocvi": "Thạc sĩ", "malop": "L09", "tenlop": "DH23TIN09", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 5, "tiet_start": 1, "tiet_end": 5, "last_week": 3}, {"mamon": "0110110000", "tenmon": "Trí tuệ nhân tạo", "loai": "LT", "magv": "GV05", "tengv": "Đinh Cao Tín", "hocvi": "Tiến sĩ", "malop": "L04", "tenlop": "DH23TIN04", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 1, "tiet_start": 1, "tiet_end": 5, "last_week": 9}, {"mamon": "0110110000", "tenmon": "Trí tuệ nhân tạo", "loai": "LT", "magv": "GV02", "tengv": "Mai Yến Trinh", "hocvi": "Tiến sĩ", "malop": "L01", "tenlop": "DH23TIN01", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 4, "tiet_start": 7, "tiet_end": 11, "last_week": 9}, {"mamon": "0110100100", "tenmon": "Kiến trúc máy tính", "loai": "LT", "magv": "GV07", "tengv": "Lê Thị Thu Hà", "hocvi": "Thạc sĩ", "malop": "L10", "tenlop": "DH23TIN10", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 2, "tiet_start": 7, "tiet_end": 9, "last_week": 10}, {"mamon": "0110011001", "tenmon": "Lập trình thiết bị di động", "loai": "LT", "magv": "GV011", "tengv": "Trần Hải Thiện", "hocvi": "Thạc sĩ", "malop": "L10", "tenlop": "DH23TIN10", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 0, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110110000", "tenmon": "Trí tuệ nhân tạo", "loai": "LT", "magv": "GV07", "tengv": "Lê Thị Thu Hà", "hocvi": "Thạc sĩ", "malop": "L06", "tenlop": "DH23TIN06", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 3, "tiet_start": 7, "tiet_end": 11, "last_week": 9}, {"mamon": "0110011110", "tenmon": "Cấu trúc dữ liệu và giải thuật-Thực hành", "loai": "TH", "magv": "GV06", "tengv": "Nguyễn Nhị Gia Vinh", "hocvi": "Thạc sĩ", "malop": "L01", "tenlop": "DH23TIN01", "maphong": "I2-03", "tenphong": "Phòng máy I2-03", "thu_idx": 1, "tiet_start": 1, "tiet_end": 5, "last_week": 6}, {"mamon": "0110110000", "tenmon": "Trí tuệ nhân tạo", "loai": "LT", "magv": "GV08", "tengv": "Phạm Quốc Bảo", "hocvi": "Tiến sĩ", "malop": "L07", "tenlop": "DH23TIN07", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 5, "tiet_start": 7, "tiet_end": 11, "last_week": 9}, {"mamon": "0110011010", "tenmon": "Lập trình thiết bị di động-Thực hành", "loai": "TH", "magv": "GV01", "tengv": "Trần Minh Tâm", "hocvi": "Thạc sĩ", "malop": "L08", "tenlop": "DH23TIN08", "maphong": "I2-03", "tenphong": "Phòng máy I2-03", "thu_idx": 0, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110110000", "tenmon": "Trí tuệ nhân tạo", "loai": "LT", "magv": "GV10", "tengv": "Hoàng An", "hocvi": "Tiến sĩ", "malop": "L09", "tenlop": "DH23TIN09", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 2, "tiet_start": 1, "tiet_end": 5, "last_week": 9}, {"mamon": "0110011101", "tenmon": "Cấu trúc dữ liệu và giải thuật", "loai": "LT", "magv": "GV03", "tengv": "Trần Văn Thiện", "hocvi": "Tiến sĩ", "malop": "L10", "tenlop": "DH23TIN10", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 5, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110011010", "tenmon": "Lập trình thiết bị di động-Thực hành", "loai": "TH", "magv": "GV04", "tengv": "Nguyễn Trung Kiên", "hocvi": "Thạc sĩ", "malop": "L01", "tenlop": "DH23TIN01", "maphong": "I4-01", "tenphong": "Phòng máy I4-01", "thu_idx": 3, "tiet_start": 1, "tiet_end": 5, "last_week": 6}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV04", "tengv": "Nguyễn Trung Kiên", "hocvi": "Thạc sĩ", "malop": "L03", "tenlop": "DH23TIN03", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 0, "tiet_start": 4, "tiet_end": 6, "last_week": 8}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV07", "tengv": "Lê Thị Thu Hà", "hocvi": "Thạc sĩ", "malop": "L06", "tenlop": "DH23TIN06", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 2, "tiet_start": 4, "tiet_end": 6, "last_week": 8}, {"mamon": "0110100100", "tenmon": "Kiến trúc máy tính", "loai": "LT", "magv": "GV02", "tengv": "Mai Yến Trinh", "hocvi": "Tiến sĩ", "malop": "L05", "tenlop": "DH23TIN05", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 1, "tiet_start": 10, "tiet_end": 12, "last_week": 10}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV03", "tengv": "Trần Văn Thiện", "hocvi": "Tiến sĩ", "malop": "L02", "tenlop": "DH23TIN02", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 0, "tiet_start": 10, "tiet_end": 12, "last_week": 8}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV02", "tengv": "Mai Yến Trinh", "hocvi": "Tiến sĩ", "malop": "L01", "tenlop": "DH23TIN01", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 5, "tiet_start": 4, "tiet_end": 6, "last_week": 8}, {"mamon": "0110011101", "tenmon": "Cấu trúc dữ liệu và giải thuật", "loai": "LT", "magv": "GV02", "tengv": "Mai Yến Trinh", "hocvi": "Tiến sĩ", "malop": "L09", "tenlop": "DH23TIN09", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 4, "tiet_start": 1, "tiet_end": 5, "last_week": 3}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV08", "tengv": "Phạm Quốc Bảo", "hocvi": "Tiến sĩ", "malop": "L07", "tenlop": "DH23TIN07", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 4, "tiet_start": 4, "tiet_end": 6, "last_week": 8}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV06", "tengv": "Nguyễn Nhị Gia Vinh", "hocvi": "Thạc sĩ", "malop": "L05", "tenlop": "DH23TIN05", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 0, "tiet_start": 1, "tiet_end": 3, "last_week": 8}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV09", "tengv": "Vũ Đức Mạnh", "hocvi": "Thạc sĩ", "malop": "L08", "tenlop": "DH23TIN08", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 0, "tiet_start": 1, "tiet_end": 3, "last_week": 8}, {"mamon": "0110100100", "tenmon": "Kiến trúc máy tính", "loai": "LT", "magv": "GV03", "tengv": "Trần Văn Thiện", "hocvi": "Tiến sĩ", "malop": "L06", "tenlop": "DH23TIN06", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 2, "tiet_start": 1, "tiet_end": 3, "last_week": 10}, {"mamon": "0110100100", "tenmon": "Kiến trúc máy tính", "loai": "LT", "magv": "GV09", "tengv": "Vũ Đức Mạnh", "hocvi": "Thạc sĩ", "malop": "L01", "tenlop": "DH23TIN01", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 0, "tiet_start": 4, "tiet_end": 6, "last_week": 10}, {"mamon": "0110011101", "tenmon": "Cấu trúc dữ liệu và giải thuật", "loai": "LT", "magv": "GV10", "tengv": "Hoàng An", "hocvi": "Tiến sĩ", "malop": "L06", "tenlop": "DH23TIN06", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 2, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110011010", "tenmon": "Lập trình thiết bị di động-Thực hành", "loai": "TH", "magv": "GV06", "tengv": "Nguyễn Nhị Gia Vinh", "hocvi": "Thạc sĩ", "malop": "L03", "tenlop": "DH23TIN03", "maphong": "I2-03", "tenphong": "Phòng máy I2-03", "thu_idx": 5, "tiet_start": 1, "tiet_end": 5, "last_week": 6}, {"mamon": "0110100100", "tenmon": "Kiến trúc máy tính", "loai": "LT", "magv": "GV011", "tengv": "Trần Hải Thiện", "hocvi": "Thạc sĩ", "malop": "L04", "tenlop": "DH23TIN04", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 5, "tiet_start": 1, "tiet_end": 3, "last_week": 10}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV03", "tengv": "Trần Văn Thiện", "hocvi": "Tiến sĩ", "malop": "L02", "tenlop": "DH23TIN02", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 1, "tiet_start": 4, "tiet_end": 6, "last_week": 8}, {"mamon": "0110011001", "tenmon": "Lập trình thiết bị di động", "loai": "LT", "magv": "GV06", "tengv": "Nguyễn Nhị Gia Vinh", "hocvi": "Thạc sĩ", "malop": "L04", "tenlop": "DH23TIN04", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 1, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110011010", "tenmon": "Lập trình thiết bị di động-Thực hành", "loai": "TH", "magv": "GV09", "tengv": "Vũ Đức Mạnh", "hocvi": "Thạc sĩ", "malop": "L06", "tenlop": "DH23TIN06", "maphong": "I4-01", "tenphong": "Phòng máy I4-01", "thu_idx": 1, "tiet_start": 1, "tiet_end": 5, "last_week": 6}, {"mamon": "0110100100", "tenmon": "Kiến trúc máy tính", "loai": "LT", "magv": "GV10", "tengv": "Hoàng An", "hocvi": "Tiến sĩ", "malop": "L02", "tenlop": "DH23TIN02", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 1, "tiet_start": 1, "tiet_end": 3, "last_week": 10}, {"mamon": "0110011101", "tenmon": "Cấu trúc dữ liệu và giải thuật", "loai": "LT", "magv": "GV05", "tengv": "Đinh Cao Tín", "hocvi": "Tiến sĩ", "malop": "L01", "tenlop": "DH23TIN01", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 2, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV01", "tengv": "Trần Minh Tâm", "hocvi": "Thạc sĩ", "malop": "L10", "tenlop": "DH23TIN10", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 0, "tiet_start": 4, "tiet_end": 6, "last_week": 8}, {"mamon": "0110100100", "tenmon": "Kiến trúc máy tính", "loai": "LT", "magv": "GV06", "tengv": "Nguyễn Nhị Gia Vinh", "hocvi": "Thạc sĩ", "malop": "L09", "tenlop": "DH23TIN09", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 3, "tiet_start": 1, "tiet_end": 3, "last_week": 10}, {"mamon": "0110011001", "tenmon": "Lập trình thiết bị di động", "loai": "LT", "magv": "GV08", "tengv": "Phạm Quốc Bảo", "hocvi": "Tiến sĩ", "malop": "L06", "tenlop": "DH23TIN06", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 0, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110011101", "tenmon": "Cấu trúc dữ liệu và giải thuật", "loai": "LT", "magv": "GV07", "tengv": "Lê Thị Thu Hà", "hocvi": "Thạc sĩ", "malop": "L03", "tenlop": "DH23TIN03", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 1, "tiet_start": 1, "tiet_end": 5, "last_week": 3}, {"mamon": "0110110000", "tenmon": "Trí tuệ nhân tạo", "loai": "LT", "magv": "GV06", "tengv": "Nguyễn Nhị Gia Vinh", "hocvi": "Thạc sĩ", "malop": "L05", "tenlop": "DH23TIN05", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 4, "tiet_start": 1, "tiet_end": 5, "last_week": 9}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV10", "tengv": "Hoàng An", "hocvi": "Tiến sĩ", "malop": "L09", "tenlop": "DH23TIN09", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 3, "tiet_start": 4, "tiet_end": 6, "last_week": 8}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV02", "tengv": "Mai Yến Trinh", "hocvi": "Tiến sĩ", "malop": "L01", "tenlop": "DH23TIN01", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 0, "tiet_start": 7, "tiet_end": 9, "last_week": 8}, {"mamon": "0110011110", "tenmon": "Cấu trúc dữ liệu và giải thuật-Thực hành", "loai": "TH", "magv": "GV02", "tengv": "Mai Yến Trinh", "hocvi": "Tiến sĩ", "malop": "L08", "tenlop": "DH23TIN08", "maphong": "I2-04", "tenphong": "Phòng máy I2-04", "thu_idx": 2, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV09", "tengv": "Vũ Đức Mạnh", "hocvi": "Thạc sĩ", "malop": "L08", "tenlop": "DH23TIN08", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 4, "tiet_start": 10, "tiet_end": 12, "last_week": 8}, {"mamon": "0110011001", "tenmon": "Lập trình thiết bị di động", "loai": "LT", "magv": "GV10", "tengv": "Hoàng An", "hocvi": "Tiến sĩ", "malop": "L08", "tenlop": "DH23TIN08", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 5, "tiet_start": 1, "tiet_end": 5, "last_week": 3}, {"mamon": "0110011110", "tenmon": "Cấu trúc dữ liệu và giải thuật-Thực hành", "loai": "TH", "magv": "GV09", "tengv": "Vũ Đức Mạnh", "hocvi": "Thạc sĩ", "malop": "L04", "tenlop": "DH23TIN04", "maphong": "I2-03", "tenphong": "Phòng máy I2-03", "thu_idx": 2, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110110000", "tenmon": "Trí tuệ nhân tạo", "loai": "LT", "magv": "GV01", "tengv": "Trần Minh Tâm", "hocvi": "Thạc sĩ", "malop": "L10", "tenlop": "DH23TIN10", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 1, "tiet_start": 7, "tiet_end": 11, "last_week": 9}, {"mamon": "0110110000", "tenmon": "Trí tuệ nhân tạo", "loai": "LT", "magv": "GV03", "tengv": "Trần Văn Thiện", "hocvi": "Tiến sĩ", "malop": "L02", "tenlop": "DH23TIN02", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 3, "tiet_start": 7, "tiet_end": 11, "last_week": 9}, {"mamon": "0110011010", "tenmon": "Lập trình thiết bị di động-Thực hành", "loai": "TH", "magv": "GV07", "tengv": "Lê Thị Thu Hà", "hocvi": "Thạc sĩ", "malop": "L04", "tenlop": "DH23TIN04", "maphong": "I2-04", "tenphong": "Phòng máy I2-04", "thu_idx": 0, "tiet_start": 1, "tiet_end": 5, "last_week": 6}, {"mamon": "0110011110", "tenmon": "Cấu trúc dữ liệu và giải thuật-Thực hành", "loai": "TH", "magv": "GV04", "tengv": "Nguyễn Trung Kiên", "hocvi": "Thạc sĩ", "malop": "L10", "tenlop": "DH23TIN10", "maphong": "I4-01", "tenphong": "Phòng máy I4-01", "thu_idx": 3, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV04", "tengv": "Nguyễn Trung Kiên", "hocvi": "Thạc sĩ", "malop": "L03", "tenlop": "DH23TIN03", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 2, "tiet_start": 1, "tiet_end": 3, "last_week": 8}, {"mamon": "0110100100", "tenmon": "Kiến trúc máy tính", "loai": "LT", "magv": "GV04", "tengv": "Nguyễn Trung Kiên", "hocvi": "Thạc sĩ", "malop": "L07", "tenlop": "DH23TIN07", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 1, "tiet_start": 1, "tiet_end": 3, "last_week": 10}, {"mamon": "0110011001", "tenmon": "Lập trình thiết bị di động", "loai": "LT", "magv": "GV07", "tengv": "Lê Thị Thu Hà", "hocvi": "Thạc sĩ", "malop": "L05", "tenlop": "DH23TIN05", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 5, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110100100", "tenmon": "Kiến trúc máy tính", "loai": "LT", "magv": "GV05", "tengv": "Đinh Cao Tín", "hocvi": "Tiến sĩ", "malop": "L08", "tenlop": "DH23TIN08", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 0, "tiet_start": 4, "tiet_end": 6, "last_week": 10}, {"mamon": "0110011010", "tenmon": "Lập trình thiết bị di động-Thực hành", "loai": "TH", "magv": "GV10", "tengv": "Hoàng An", "hocvi": "Tiến sĩ", "malop": "L07", "tenlop": "DH23TIN07", "maphong": "I2-03", "tenphong": "Phòng máy I2-03", "thu_idx": 4, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110011110", "tenmon": "Cấu trúc dữ liệu và giải thuật-Thực hành", "loai": "TH", "magv": "GV03", "tengv": "Trần Văn Thiện", "hocvi": "Tiến sĩ", "malop": "L09", "tenlop": "DH23TIN09", "maphong": "I2-03", "tenphong": "Phòng máy I2-03", "thu_idx": 1, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110011101", "tenmon": "Cấu trúc dữ liệu và giải thuật", "loai": "LT", "magv": "GV09", "tengv": "Vũ Đức Mạnh", "hocvi": "Thạc sĩ", "malop": "L05", "tenlop": "DH23TIN05", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 5, "tiet_start": 1, "tiet_end": 5, "last_week": 3}, {"mamon": "0110011101", "tenmon": "Cấu trúc dữ liệu và giải thuật", "loai": "LT", "magv": "GV08", "tengv": "Phạm Quốc Bảo", "hocvi": "Tiến sĩ", "malop": "L04", "tenlop": "DH23TIN04", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 3, "tiet_start": 1, "tiet_end": 5, "last_week": 3}, {"mamon": "0110011001", "tenmon": "Lập trình thiết bị di động", "loai": "LT", "magv": "GV03", "tengv": "Trần Văn Thiện", "hocvi": "Tiến sĩ", "malop": "L01", "tenlop": "DH23TIN01", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 4, "tiet_start": 1, "tiet_end": 5, "last_week": 3}, {"mamon": "0110011110", "tenmon": "Cấu trúc dữ liệu và giải thuật-Thực hành", "loai": "TH", "magv": "GV08", "tengv": "Phạm Quốc Bảo", "hocvi": "Tiến sĩ", "malop": "L03", "tenlop": "DH23TIN03", "maphong": "I2-04", "tenphong": "Phòng máy I2-04", "thu_idx": 1, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110011101", "tenmon": "Cấu trúc dữ liệu và giải thuật", "loai": "LT", "magv": "GV011", "tengv": "Trần Hải Thiện", "hocvi": "Thạc sĩ", "malop": "L08", "tenlop": "DH23TIN08", "maphong": "I3-01", "tenphong": "Phòng I3-01", "thu_idx": 1, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110011010", "tenmon": "Lập trình thiết bị di động-Thực hành", "loai": "TH", "magv": "GV08", "tengv": "Phạm Quốc Bảo", "hocvi": "Tiến sĩ", "malop": "L05", "tenlop": "DH23TIN05", "maphong": "I2-04", "tenphong": "Phòng máy I2-04", "thu_idx": 2, "tiet_start": 1, "tiet_end": 5, "last_week": 6}, {"mamon": "0110011110", "tenmon": "Cấu trúc dữ liệu và giải thuật-Thực hành", "loai": "TH", "magv": "GV011", "tengv": "Trần Hải Thiện", "hocvi": "Thạc sĩ", "malop": "L07", "tenlop": "DH23TIN07", "maphong": "I2-03", "tenphong": "Phòng máy I2-03", "thu_idx": 0, "tiet_start": 1, "tiet_end": 5, "last_week": 6}, {"mamon": "0110011110", "tenmon": "Cấu trúc dữ liệu và giải thuật-Thực hành", "loai": "TH", "magv": "GV10", "tengv": "Hoàng An", "hocvi": "Tiến sĩ", "malop": "L05", "tenlop": "DH23TIN05", "maphong": "I4-03", "tenphong": "Phòng máy I4-03", "thu_idx": 3, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110011010", "tenmon": "Lập trình thiết bị di động-Thực hành", "loai": "TH", "magv": "GV011", "tengv": "Trần Hải Thiện", "hocvi": "Thạc sĩ", "malop": "L09", "tenlop": "DH23TIN09", "maphong": "I2-03", "tenphong": "Phòng máy I2-03", "thu_idx": 3, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110011010", "tenmon": "Lập trình thiết bị di động-Thực hành", "loai": "TH", "magv": "GV02", "tengv": "Mai Yến Trinh", "hocvi": "Tiến sĩ", "malop": "L10", "tenlop": "DH23TIN10", "maphong": "I2-04", "tenphong": "Phòng máy I2-04", "thu_idx": 3, "tiet_start": 1, "tiet_end": 5, "last_week": 6}, {"mamon": "0110011010", "tenmon": "Lập trình thiết bị di động-Thực hành", "loai": "TH", "magv": "GV05", "tengv": "Đinh Cao Tín", "hocvi": "Tiến sĩ", "malop": "L02", "tenlop": "DH23TIN02", "maphong": "I4-01", "tenphong": "Phòng máy I4-01", "thu_idx": 1, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110110000", "tenmon": "Trí tuệ nhân tạo", "loai": "LT", "magv": "GV09", "tengv": "Vũ Đức Mạnh", "hocvi": "Thạc sĩ", "malop": "L08", "tenlop": "DH23TIN08", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 3, "tiet_start": 1, "tiet_end": 5, "last_week": 9}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV05", "tengv": "Đinh Cao Tín", "hocvi": "Tiến sĩ", "malop": "L04", "tenlop": "DH23TIN04", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 0, "tiet_start": 7, "tiet_end": 9, "last_week": 8}, {"mamon": "0110011101", "tenmon": "Cấu trúc dữ liệu và giải thuật", "loai": "LT", "magv": "GV01", "tengv": "Trần Minh Tâm", "hocvi": "Thạc sĩ", "malop": "L07", "tenlop": "DH23TIN07", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 2, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110011001", "tenmon": "Lập trình thiết bị di động", "loai": "LT", "magv": "GV09", "tengv": "Vũ Đức Mạnh", "hocvi": "Thạc sĩ", "malop": "L07", "tenlop": "DH23TIN07", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 3, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110100100", "tenmon": "Kiến trúc máy tính", "loai": "LT", "magv": "GV01", "tengv": "Trần Minh Tâm", "hocvi": "Thạc sĩ", "malop": "L03", "tenlop": "DH23TIN03", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 0, "tiet_start": 1, "tiet_end": 3, "last_week": 10}, {"mamon": "0110011110", "tenmon": "Cấu trúc dữ liệu và giải thuật-Thực hành", "loai": "TH", "magv": "GV01", "tengv": "Trần Minh Tâm", "hocvi": "Thạc sĩ", "malop": "L06", "tenlop": "DH23TIN06", "maphong": "I2-03", "tenphong": "Phòng máy I2-03", "thu_idx": 4, "tiet_start": 1, "tiet_end": 5, "last_week": 6}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV07", "tengv": "Lê Thị Thu Hà", "hocvi": "Thạc sĩ", "malop": "L06", "tenlop": "DH23TIN06", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 1, "tiet_start": 7, "tiet_end": 9, "last_week": 8}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV10", "tengv": "Hoàng An", "hocvi": "Tiến sĩ", "malop": "L09", "tenlop": "DH23TIN09", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 0, "tiet_start": 1, "tiet_end": 3, "last_week": 8}, {"mamon": "0110010100", "tenmon": "Toán rời rạc", "loai": "LT", "magv": "GV01", "tengv": "Trần Minh Tâm", "hocvi": "Thạc sĩ", "malop": "L10", "tenlop": "DH23TIN10", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 2, "tiet_start": 4, "tiet_end": 6, "last_week": 8}, {"mamon": "0110011110", "tenmon": "Cấu trúc dữ liệu và giải thuật-Thực hành", "loai": "TH", "magv": "GV07", "tengv": "Lê Thị Thu Hà", "hocvi": "Thạc sĩ", "malop": "L02", "tenlop": "DH23TIN02", "maphong": "I2-04", "tenphong": "Phòng máy I2-04", "thu_idx": 4, "tiet_start": 1, "tiet_end": 5, "last_week": 6}], "gv_list": [{"magv": "GV02", "tengv": "Mai Yến Trinh", "hocvi": "Tiến sĩ"}, {"magv": "GV03", "tengv": "Trần Văn Thiện", "hocvi": "Tiến sĩ"}, {"magv": "GV04", "tengv": "Nguyễn Trung Kiên", "hocvi": "Thạc sĩ"}, {"magv": "GV10", "tengv": "Hoàng An", "hocvi": "Tiến sĩ"}, {"magv": "GV09", "tengv": "Vũ Đức Mạnh", "hocvi": "Thạc sĩ"}, {"magv": "GV05", "tengv": "Đinh Cao Tín", "hocvi": "Tiến sĩ"}, {"magv": "GV06", "tengv": "Nguyễn Nhị Gia Vinh", "hocvi": "Thạc sĩ"}, {"magv": "GV07", "tengv": "Lê Thị Thu Hà", "hocvi": "Thạc sĩ"}, {"magv": "GV08", "tengv": "Phạm Quốc Bảo", "hocvi": "Tiến sĩ"}, {"magv": "GV011", "tengv": "Trần Hải Thiện", "hocvi": "Thạc sĩ"}, {"magv": "GV01", "tengv": "Trần Minh Tâm", "hocvi": "Thạc sĩ"}], "lop_list": [{"malop": "L02", "tenlop": "DH23TIN02"}, {"malop": "L03", "tenlop": "DH23TIN03"}, {"malop": "L04", "tenlop": "DH23TIN04"}, {"malop": "L05", "tenlop": "DH23TIN05"}, {"malop": "L06", "tenlop": "DH23TIN06"}, {"malop": "L07", "tenlop": "DH23TIN07"}, {"malop": "L08", "tenlop": "DH23TIN08"}, {"malop": "L09", "tenlop": "DH23TIN09"}, {"malop": "L10", "tenlop": "DH23TIN10"}, {"malop": "L01", "tenlop": "DH23TIN01"}, {"malop": "DH23TIN04", "tenlop": "Tin04"}, {"malop": "DH23TIN05", "tenlop": "Tin05"}], "phong_list": [{"maphong": "I2-02", "tenphong": "Phòng I2-02", "loaiphong": "Lý thuyết"}, {"maphong": "I2-03", "tenphong": "Phòng máy I2-03", "loaiphong": "Phòng máy tính"}, {"maphong": "I2-04", "tenphong": "Phòng máy I2-04", "loaiphong": "Phòng máy tính"}, {"maphong": "I3-02", "tenphong": "Phòng I3-02", "loaiphong": "Lý thuyết"}, {"maphong": "I4-01", "tenphong": "Phòng máy I4-01", "loaiphong": "Phòng máy tính"}, {"maphong": "I4-03", "tenphong": "Phòng máy I4-03", "loaiphong": "Phòng máy tính"}, {"maphong": "I5-01", "tenphong": "Phòng I5-01", "loaiphong": "Lý thuyết"}, {"maphong": "I5-03", "tenphong": "Phòng máy I5-03", "loaiphong": "Phòng máy tính"}, {"maphong": "I2-01", "tenphong": "Phòng I2-01", "loaiphong": "Phòng máy"}, {"maphong": "I3-01", "tenphong": "Phòng I3-01", "loaiphong": "Lý thuyết"}], "mon_list": [{"mamon": "0110010100", "sotietlythuyet": 45, "sotietthuchanh": 0}, {"mamon": "0110100100", "sotietlythuyet": 30, "sotietthuchanh": 0}, {"mamon": "0110110000", "sotietlythuyet": 45, "sotietthuchanh": 0}, {"mamon": "0110110100", "sotietlythuyet": 30, "sotietthuchanh": 0}, {"mamon": "0110111100", "sotietlythuyet": 30, "sotietthuchanh": 0}, {"mamon": "0110011001", "sotietlythuyet": 15, "sotietthuchanh": 0}, {"mamon": "0110011010", "sotietlythuyet": 0, "sotietthuchanh": 30}, {"mamon": "0110011101", "sotietlythuyet": 15, "sotietthuchanh": 0}, {"mamon": "0110011110", "sotietlythuyet": 0, "sotietthuchanh": 30}, {"mamon": "0110100001", "sotietlythuyet": 15, "sotietthuchanh": 0}, {"mamon": "0110100010", "sotietlythuyet": 0, "sotietthuchanh": 30}, {"mamon": "0110101001", "sotietlythuyet": 30, "sotietthuchanh": 0}, {"mamon": "0110101101", "sotietlythuyet": 30, "sotietthuchanh": 0}, {"mamon": "0110101110", "sotietlythuyet": 0, "sotietthuchanh": 15}, {"mamon": "0110111001", "sotietlythuyet": 15, "sotietthuchanh": 0}, {"mamon": "0110111010", "sotietlythuyet": 0, "sotietthuchanh": 30}], "start_date": "2026-04-20"};
-const DAYS      = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
-const DAY_SHORT = ['T2','T3','T4','T5','T6','T7'];
+const DATA      = {"lich": [{"mamon": "0110101110", "tenmon": "Mạng máy tính-Thực hành", "loai": "TH", "magv": "GV08", "tengv": "Phạm Quốc Bảo", "hocvi": "Tiến sĩ", "malop": "DH22TIN04", "tenlop": "DH22TIN04", "maphong": "I2-03", "tenphong": "Phòng máy I2-03", "thu_idx": 2, "tiet_start": 1, "tiet_end": 5, "last_week": 3}, {"mamon": "0110111010", "tenmon": "Thiết kế đồ họa-Thực hành", "loai": "TH", "magv": "GV10", "tengv": "Hoàng An", "hocvi": "Tiến sĩ", "malop": "DH22TIN02", "tenlop": "DH22TIN02", "maphong": "I4-03", "tenphong": "Phòng máy I4-03", "thu_idx": 0, "tiet_start": 1, "tiet_end": 5, "last_week": 6}, {"mamon": "0110111010", "tenmon": "Thiết kế đồ họa-Thực hành", "loai": "TH", "magv": "GV04", "tengv": "Nguyễn Trung Kiên", "hocvi": "Thạc sĩ", "malop": "DH22TIN04", "tenlop": "DH22TIN04", "maphong": "I2-01", "tenphong": "Phòng I2-01", "thu_idx": 1, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110111001", "tenmon": "Thiết kế đồ họa", "loai": "LT", "magv": "GV09", "tengv": "Vũ Đức Mạnh", "hocvi": "Thạc sĩ", "malop": "DH22TIN02", "tenlop": "DH22TIN02", "maphong": "I3-02", "tenphong": "Phòng I3-02", "thu_idx": 1, "tiet_start": 1, "tiet_end": 5, "last_week": 3}, {"mamon": "0110101110", "tenmon": "Mạng máy tính-Thực hành", "loai": "TH", "magv": "GV07", "tengv": "Lê Thị Thu Hà", "hocvi": "Thạc sĩ", "malop": "DH22TIN03", "tenlop": "DH22TIN03", "maphong": "I2-04", "tenphong": "Phòng máy I2-04", "thu_idx": 3, "tiet_start": 1, "tiet_end": 5, "last_week": 3}, {"mamon": "0110111001", "tenmon": "Thiết kế đồ họa", "loai": "LT", "magv": "GV011", "tengv": "Trần Hải Thiện", "hocvi": "Thạc sĩ", "malop": "DH22TIN04", "tenlop": "DH22TIN04", "maphong": "I4-01", "tenphong": "Phòng máy I4-01", "thu_idx": 5, "tiet_start": 1, "tiet_end": 5, "last_week": 3}, {"mamon": "0110111010", "tenmon": "Thiết kế đồ họa-Thực hành", "loai": "TH", "magv": "GV011", "tengv": "Trần Hải Thiện", "hocvi": "Thạc sĩ", "malop": "DH22TIN03", "tenlop": "DH22TIN03", "maphong": "I2-03", "tenphong": "Phòng máy I2-03", "thu_idx": 0, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110101101", "tenmon": "Mạng máy tính", "loai": "LT", "magv": "GV07", "tengv": "Lê Thị Thu Hà", "hocvi": "Thạc sĩ", "malop": "DH22TIN04", "tenlop": "DH22TIN04", "maphong": "I5-01", "tenphong": "Phòng I5-01", "thu_idx": 0, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110111010", "tenmon": "Thiết kế đồ họa-Thực hành", "loai": "TH", "magv": "GV05", "tengv": "Đinh Cao Tín", "hocvi": "Tiến sĩ", "malop": "DH22TIN05", "tenlop": "DH22TIN05", "maphong": "I2-03", "tenphong": "Phòng máy I2-03", "thu_idx": 1, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110101101", "tenmon": "Mạng máy tính", "loai": "LT", "magv": "GV08", "tengv": "Phạm Quốc Bảo", "hocvi": "Tiến sĩ", "malop": "DH22TIN05", "tenlop": "DH22TIN05", "maphong": "I4-03", "tenphong": "Phòng máy I4-03", "thu_idx": 0, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110111010", "tenmon": "Thiết kế đồ họa-Thực hành", "loai": "TH", "magv": "GV09", "tengv": "Vũ Đức Mạnh", "hocvi": "Thạc sĩ", "malop": "DH22TIN01", "tenlop": "DH22TIN01", "maphong": "I2-04", "tenphong": "Phòng máy I2-04", "thu_idx": 0, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110101101", "tenmon": "Mạng máy tính", "loai": "LT", "magv": "GV06", "tengv": "Nguyễn Nhị Gia Vinh", "hocvi": "Thạc sĩ", "malop": "DH22TIN03", "tenlop": "DH22TIN03", "maphong": "I2-03", "tenphong": "Phòng máy I2-03", "thu_idx": 4, "tiet_start": 7, "tiet_end": 11, "last_week": 6}, {"mamon": "0110111001", "tenmon": "Thiết kế đồ họa", "loai": "LT", "magv": "GV04", "tengv": "Nguyễn Trung Kiên", "hocvi": "Thạc sĩ", "malop": "DH22TIN05", "tenlop": "DH22TIN05", "maphong": "I4-03", "tenphong": "Phòng máy I4-03", "thu_idx": 4, "tiet_start": 1, "tiet_end": 5, "last_week": 3}, {"mamon": "0110101101", "tenmon": "Mạng máy tính", "loai": "LT", "magv": "GV05", "tengv": "Đinh Cao Tín", "hocvi": "Tiến sĩ", "malop": "DH22TIN02", "tenlop": "DH22TIN02", "maphong": "I5-03", "tenphong": "Phòng máy I5-03", "thu_idx": 4, "tiet_start": 1, "tiet_end": 5, "last_week": 6}, {"mamon": "0110101110", "tenmon": "Mạng máy tính-Thực hành", "loai": "TH", "magv": "GV06", "tengv": "Nguyễn Nhị Gia Vinh", "hocvi": "Thạc sĩ", "malop": "DH22TIN02", "tenlop": "DH22TIN02", "maphong": "I4-01", "tenphong": "Phòng máy I4-01", "thu_idx": 5, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110101110", "tenmon": "Mạng máy tính-Thực hành", "loai": "TH", "magv": "GV09", "tengv": "Vũ Đức Mạnh", "hocvi": "Thạc sĩ", "malop": "DH22TIN05", "tenlop": "DH22TIN05", "maphong": "I5-03", "tenphong": "Phòng máy I5-03", "thu_idx": 5, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110101110", "tenmon": "Mạng máy tính-Thực hành", "loai": "TH", "magv": "GV05", "tengv": "Đinh Cao Tín", "hocvi": "Tiến sĩ", "malop": "DH22TIN01", "tenlop": "DH22TIN01", "maphong": "I4-01", "tenphong": "Phòng máy I4-01", "thu_idx": 3, "tiet_start": 7, "tiet_end": 11, "last_week": 3}, {"mamon": "0110101101", "tenmon": "Mạng máy tính", "loai": "LT", "magv": "GV04", "tengv": "Nguyễn Trung Kiên", "hocvi": "Thạc sĩ", "malop": "DH22TIN01", "tenlop": "DH22TIN01", "maphong": "I2-02", "tenphong": "Phòng I2-02", "thu_idx": 2, "tiet_start": 1, "tiet_end": 5, "last_week": 6}, {"mamon": "0110111001", "tenmon": "Thiết kế đồ họa", "loai": "LT", "magv": "GV10", "tengv": "Hoàng An", "hocvi": "Tiến sĩ", "malop": "DH22TIN03", "tenlop": "DH22TIN03", "maphong": "I2-03", "tenphong": "Phòng máy I2-03", "thu_idx": 1, "tiet_start": 1, "tiet_end": 5, "last_week": 3}, {"mamon": "0110111001", "tenmon": "Thiết kế đồ họa", "loai": "LT", "magv": "GV08", "tengv": "Phạm Quốc Bảo", "hocvi": "Tiến sĩ", "malop": "DH22TIN01", "tenlop": "DH22TIN01", "maphong": "I2-04", "tenphong": "Phòng máy I2-04", "thu_idx": 1, "tiet_start": 1, "tiet_end": 5, "last_week": 3}], "gv_list": [{"magv": "GV10", "tengv": "Hoàng An", "hocvi": "Tiến sĩ"}, {"magv": "GV04", "tengv": "Nguyễn Trung Kiên", "hocvi": "Thạc sĩ"}, {"magv": "GV09", "tengv": "Vũ Đức Mạnh", "hocvi": "Thạc sĩ"}, {"magv": "GV05", "tengv": "Đinh Cao Tín", "hocvi": "Tiến sĩ"}, {"magv": "GV06", "tengv": "Nguyễn Nhị Gia Vinh", "hocvi": "Thạc sĩ"}, {"magv": "GV07", "tengv": "Lê Thị Thu Hà", "hocvi": "Thạc sĩ"}, {"magv": "GV08", "tengv": "Phạm Quốc Bảo", "hocvi": "Tiến sĩ"}, {"magv": "GV011", "tengv": "Trần Hải Thiện", "hocvi": "Thạc sĩ"}], "lop_list": [{"malop": "L02", "tenlop": "DH23TIN02"}, {"malop": "L03", "tenlop": "DH23TIN03"}, {"malop": "L04", "tenlop": "DH23TIN04"}, {"malop": "L05", "tenlop": "DH23TIN05"}, {"malop": "L06", "tenlop": "DH23TIN06"}, {"malop": "L07", "tenlop": "DH23TIN07"}, {"malop": "L08", "tenlop": "DH23TIN08"}, {"malop": "L09", "tenlop": "DH23TIN09"}, {"malop": "L10", "tenlop": "DH23TIN10"}, {"malop": "L01", "tenlop": "DH23TIN01"}, {"malop": "DH22TIN01", "tenlop": "DH22TIN01"}, {"malop": "DH22TIN02", "tenlop": "DH22TIN02"}, {"malop": "DH22TIN03", "tenlop": "DH22TIN03"}, {"malop": "DH22TIN04", "tenlop": "DH22TIN04"}, {"malop": "DH22TIN05", "tenlop": "DH22TIN05"}, {"malop": "DH24TIN01", "tenlop": "DH24TIN01"}, {"malop": "DH24TIN02", "tenlop": "DH24TIN02"}, {"malop": "DH24TIN03", "tenlop": "DH24TIN03"}, {"malop": "DH24TIN04", "tenlop": "DH24TIN04"}, {"malop": "DH24TIN05", "tenlop": "DH24TIN05"}, {"malop": "DH25TIN01", "tenlop": "DH25TIN01"}, {"malop": "DH25TIN02", "tenlop": "DH25TIN02"}, {"malop": "DH25TIN03", "tenlop": "DH25TIN03"}, {"malop": "DH25TIN04", "tenlop": "DH25TIN04"}, {"malop": "DH25TIN05", "tenlop": "DH25TIN05"}], "phong_list": [{"maphong": "I2-02", "tenphong": "Phòng I2-02", "loaiphong": "Lý thuyết"}, {"maphong": "I2-03", "tenphong": "Phòng máy I2-03", "loaiphong": "Phòng máy tính"}, {"maphong": "I2-04", "tenphong": "Phòng máy I2-04", "loaiphong": "Phòng máy tính"}, {"maphong": "I3-02", "tenphong": "Phòng I3-02", "loaiphong": "Lý thuyết"}, {"maphong": "I4-01", "tenphong": "Phòng máy I4-01", "loaiphong": "Phòng máy tính"}, {"maphong": "I4-03", "tenphong": "Phòng máy I4-03", "loaiphong": "Phòng máy tính"}, {"maphong": "I5-01", "tenphong": "Phòng I5-01", "loaiphong": "Lý thuyết"}, {"maphong": "I5-03", "tenphong": "Phòng máy I5-03", "loaiphong": "Phòng máy tính"}, {"maphong": "I2-01", "tenphong": "Phòng I2-01", "loaiphong": "Phòng máy"}, {"maphong": "I3-01", "tenphong": "Phòng I3-01", "loaiphong": "Lý thuyết"}], "mon_list": [{"mamon": "0110010100", "sotietlythuyet": 45, "sotietthuchanh": 0}, {"mamon": "0110100100", "sotietlythuyet": 30, "sotietthuchanh": 0}, {"mamon": "0110110000", "sotietlythuyet": 45, "sotietthuchanh": 0}, {"mamon": "0110110100", "sotietlythuyet": 30, "sotietthuchanh": 0}, {"mamon": "0110111100", "sotietlythuyet": 30, "sotietthuchanh": 0}, {"mamon": "0110011001", "sotietlythuyet": 15, "sotietthuchanh": 0}, {"mamon": "0110011010", "sotietlythuyet": 0, "sotietthuchanh": 30}, {"mamon": "0110011101", "sotietlythuyet": 15, "sotietthuchanh": 0}, {"mamon": "0110011110", "sotietlythuyet": 0, "sotietthuchanh": 30}, {"mamon": "0110100001", "sotietlythuyet": 15, "sotietthuchanh": 0}, {"mamon": "0110100010", "sotietlythuyet": 0, "sotietthuchanh": 30}, {"mamon": "0110101001", "sotietlythuyet": 30, "sotietthuchanh": 0}, {"mamon": "0110101101", "sotietlythuyet": 30, "sotietthuchanh": 0}, {"mamon": "0110101110", "sotietlythuyet": 0, "sotietthuchanh": 15}, {"mamon": "0110111001", "sotietlythuyet": 15, "sotietthuchanh": 0}, {"mamon": "0110111010", "sotietlythuyet": 0, "sotietthuchanh": 30}], "start_date": "2026-04-20"};
+const DAYS      = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','CN'];
+const DAY_SHORT = ['T2','T3','T4','T5','T6','T7','CN'];
 const CLR = {M01:'c-M01',M02:'c-M02',M03:'c-M03',M04:'c-M04',
              M05:'c-M05',M06:'c-M06',M07:'c-M07',M08:'c-M08'};
 
@@ -178,9 +190,10 @@ const START_DATE = (() => {
 })();
 
 let currentWeek = 1;
+let selectedCalendarDate = null;
 
 function getWeekDates(week) {
-  return Array.from({length: 6}, (_, i) => {
+  return Array.from({length: DAYS.length}, (_, i) => {
     const d = new Date(START_DATE);
     d.setDate(d.getDate() + (week - 1) * 7 + i);
     return d;
@@ -190,23 +203,72 @@ function getWeekDates(week) {
 function fmt(d) {
   return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}`;
 }
+function isoDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function parseLocalDate(value) {
+  if (!value) return null;
+  const parts = value.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+  return new Date(parts[0], parts[1]-1, parts[2]);
+}
+function weekFromDate(date) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  const diffDays = Math.floor((d - START_DATE) / 86400000);
+  return Math.max(0, Math.floor(diffDays / DAYS.length) + 1);
+}
+function dayIndexFromDate(date) {
+  const jsDay = date.getDay();
+  return jsDay === 0 ? 6 : jsDay - 1;
+}
+function syncCalendarControls(dates) {
+  const start = dates[0];
+  const end = dates[dates.length-1];
+  if (!selectedCalendarDate || selectedCalendarDate < start || selectedCalendarDate > end) {
+    selectedCalendarDate = new Date(start);
+  }
+  const dateEl = document.getElementById('calendar-date');
+  if (dateEl) dateEl.value = isoDate(selectedCalendarDate);
+}
 
 function updateWeekNav() {
   const dates = getWeekDates(currentWeek);
   document.getElementById('week-label').textContent = `Tuần ${currentWeek}`;
-  document.getElementById('week-range').textContent  = `${fmt(dates[0])} – ${fmt(dates[5])}`;
-  document.getElementById('btn-prev').disabled = currentWeek <= 1;
+  document.getElementById('week-range').textContent  = `${fmt(dates[0])} – ${fmt(dates[dates.length-1])}`;
+  document.getElementById('btn-prev').disabled = currentWeek <= 0;
+  syncCalendarControls(dates);
+}
+function goToCalendarDate(date) {
+  if (!date) return;
+  date.setHours(0,0,0,0);
+  selectedCalendarDate = date;
+  currentWeek = weekFromDate(date);
+  currentDay = dayIndexFromDate(date);
+  updateWeekNav();
+  refreshActiveTab();
+}
+function selectCalendarDate(value) {
+  goToCalendarDate(parseLocalDate(value));
+}
+function selectToday() {
+  goToCalendarDate(new Date());
 }
 
 function prevWeek() {
-  if (currentWeek <= 1) return;
+  if (currentWeek <= 0) return;
   currentWeek--;
+  selectedCalendarDate = getWeekDates(currentWeek)[0];
   updateWeekNav();
   refreshActiveTab();
 }
 
 function nextWeek() {
   currentWeek++;
+  selectedCalendarDate = getWeekDates(currentWeek)[0];
   updateWeekNav();
   refreshActiveTab();
 }
@@ -288,13 +350,14 @@ function buildGrid(sessions, showGV, showLop){
     if(!g[s.thu_idx]) g[s.thu_idx]={};
     g[s.thu_idx][s.tiet_start] = s;
   });
-  const rowEnd = new Array(6).fill(0);
+  const dayCount = DAYS.length;
+  const rowEnd = new Array(dayCount).fill(0);
   let h = `<table class="timetable"><thead><tr><th style="width:40px">Tiết</th>${dayHeaders()}</tr></thead><tbody>`;
   for(let t=1; t<=12; t++){
-    if(t===1) h+='<tr class="sang-hd"><td colspan="7">☀️ BUỔI SÁNG &nbsp;(Tiết 1 – 6)</td></tr>';
-    if(t===7) h+='<tr class="chieu-hd"><td colspan="7">🌙 BUỔI CHIỀU &nbsp;(Tiết 7 – 12)</td></tr>';
+    if(t===1) h+=`<tr class="sang-hd"><td colspan="${dayCount+1}">☀️ BUỔI SÁNG &nbsp;(Tiết 1 – 6)</td></tr>`;
+    if(t===7) h+=`<tr class="chieu-hd"><td colspan="${dayCount+1}">🌙 BUỔI CHIỀU &nbsp;(Tiết 7 – 12)</td></tr>`;
     h+=`<tr><td class="tiet-lbl">${t}</td>`;
-    for(let d=0; d<6; d++){
+    for(let d=0; d<dayCount; d++){
       if(rowEnd[d]>t) continue;
       const s = g[d] && g[d][t];
       if(s){
@@ -318,7 +381,10 @@ function buildGridAll(sessions){
     if(!g[s.thu_idx][s.tiet_start]) g[s.thu_idx][s.tiet_start]=[];
     g[s.thu_idx][s.tiet_start].push(s);
   });
-  const tiets = [...new Set(sessions.map(s=>s.tiet_start))].sort((a,b)=>a-b);
+  const dayCount = DAYS.length;
+  const tiets = sessions.length
+    ? [...new Set(sessions.map(s=>s.tiet_start))].sort((a,b)=>a-b)
+    : Array.from({length:12}, (_,i)=>i+1);
   let h = `<table class="timetable"><thead><tr><th style="width:55px">Tiết BĐ</th>${dayHeaders()}</tr></thead><tbody>`;
   let prev = null;
   tiets.forEach(t=>{
@@ -326,11 +392,11 @@ function buildGridAll(sessions){
     if(buoi!==prev){
       prev=buoi;
       h += buoi==='sang'
-        ? '<tr class="sang-hd"><td colspan="7">☀️ BUỔI SÁNG</td></tr>'
-        : '<tr class="chieu-hd"><td colspan="7">🌙 BUỔI CHIỀU</td></tr>';
+        ? `<tr class="sang-hd"><td colspan="${dayCount+1}">☀️ BUỔI SÁNG</td></tr>`
+        : `<tr class="chieu-hd"><td colspan="${dayCount+1}">🌙 BUỔI CHIỀU</td></tr>`;
     }
     h+=`<tr><td class="tiet-lbl" style="font-size:10px">Tiết<br><b>${t}</b></td>`;
-    for(let d=0; d<6; d++){
+    for(let d=0; d<dayCount; d++){
       const list = (g[d]&&g[d][t])||[];
       if(!list.length){ h+='<td class="empty-td"></td>'; continue; }
       h+='<td class="sess-cell" style="min-width:140px">';
@@ -358,7 +424,7 @@ function buildRoomGrid(dayIdx){
     const occ = new Set();
     active.filter(s => s.thu_idx===dayIdx && s.maphong===r.maphong)
              .forEach(s=>{ for(let t=s.tiet_start;t<=s.tiet_end;t++) occ.add(t); });
-    freeCount[r.maphong] = 10 - occ.size;
+    freeCount[r.maphong] = 12 - occ.size;
   });
 
   const rowEnd = {};
@@ -407,7 +473,7 @@ function buildRoomGrid(dayIdx){
 function buildRoomStats(dayIdx){
   const rooms  = DATA.phong_list;
   const active = activeSessions(DATA.lich);
-  const total  = 10;
+  const total  = 12;
   let free = 0, occ = 0;
   rooms.forEach(r => {
     const s = new Set();
@@ -492,17 +558,13 @@ function renderGV(){
   const gv = DATA.gv_list.find(g=>g.magv===id)||{};
   document.getElementById('gv-info').textContent = gv.hocvi||'';
   const ses = DATA.lich.filter(s=>s.magv===id);
-  document.getElementById('grid-gv').innerHTML = ses.length
-    ? buildGrid(ses, false, true)
-    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch dạy trong tuần này.</p>';
+  document.getElementById('grid-gv').innerHTML = buildGrid(ses, false, true);
 }
 
 function renderSV(){
   const id  = document.getElementById('sel-lop').value;
   const ses = DATA.lich.filter(s=>s.malop===id);
-  document.getElementById('grid-sv').innerHTML = ses.length
-    ? buildGrid(ses, true, false)
-    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch học trong tuần này.</p>';
+  document.getElementById('grid-sv').innerHTML = buildGrid(ses, true, false);
 }
 
 /* ── Init ── */
