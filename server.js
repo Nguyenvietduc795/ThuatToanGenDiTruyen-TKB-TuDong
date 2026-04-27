@@ -795,7 +795,7 @@ async function prepareGaAssignmentsForSelection({ mahk, malops, mamons }) {
   const selectedLops = [].concat(malops || []).map(String).filter(Boolean);
   const selectedMons = [].concat(mamons || []).map(String).filter(Boolean);
   if (selectedLops.length === 0 || selectedMons.length === 0) {
-    return { active: false, duplicates: [], allowed: [] };
+    return { active: false, duplicates: [], skipped: [], allowed: [], generated: [] };
   }
 
   let pcQuery = supabase
@@ -824,14 +824,14 @@ async function prepareGaAssignmentsForSelection({ mahk, malops, mamons }) {
     scheduledMapcs = new Set((tkbRows || []).map((row) => row.mapc));
   }
 
-  const duplicates = [];
+  const skipped = [];
   const allowed = [];
   for (const malop of selectedLops) {
     for (const mamon of selectedMons) {
       const pc = existingByPair.get(`${malop}|${mamon}`);
       if (pc) {
         if (scheduledMapcs.has(pc.mapc)) {
-          duplicates.push({
+          skipped.push({
             malop,
             mamon,
             mapc: pc.mapc,
@@ -846,14 +846,26 @@ async function prepareGaAssignmentsForSelection({ mahk, malops, mamons }) {
       }
     }
   }
+  skipped.forEach((item) => { item.reason = 'Da xep trong hoc ky nay'; });
 
   if (allowed.length === 0) {
-    return { active: true, duplicates, allowed };
+    return { active: true, skipped, duplicates: skipped, allowed, generated: [] };
   }
 
   const newPairs = allowed.filter((pair) => !pair.existing);
   if (newPairs.length === 0) {
-    return { active: true, duplicates, allowed };
+    return {
+      active: true,
+      skipped,
+      duplicates: skipped,
+      allowed,
+      generated: allowed.map((pair) => ({
+        malop: pair.malop,
+        mamon: pair.mamon,
+        mapc: pair.mapc,
+        existing: true,
+      })),
+    };
   }
 
   const [{ data: monRows, error: monError }, { data: teacherRows, error: teacherError }] = await Promise.all([
@@ -889,14 +901,119 @@ async function prepareGaAssignmentsForSelection({ mahk, malops, mamons }) {
   if (insertError) throw new Error(insertError.message);
   return {
     active: true,
-    duplicates,
+    skipped,
+    duplicates: skipped,
     allowed: allowed.map((pair) => ({
       malop: pair.malop,
       mamon: pair.mamon,
       mapc: pair.mapc || rows.find((row) => row.malop === pair.malop && row.mamon === pair.mamon)?.mapc,
       existing: !!pair.existing,
     })),
+    generated: allowed.map((pair) => ({
+      malop: pair.malop,
+      mamon: pair.mamon,
+      mapc: pair.mapc || rows.find((row) => row.malop === pair.malop && row.mamon === pair.mamon)?.mapc,
+      existing: !!pair.existing,
+    })),
   };
+}
+
+async function prepareGaAssignmentsForSelectionV2({ mahk, malops, mamons }) {
+  const selectedLops = [].concat(malops || []).map(String).filter(Boolean);
+  const selectedMons = [].concat(mamons || []).map(String).filter(Boolean);
+  if (selectedLops.length === 0 || selectedMons.length === 0) {
+    return { active: false, duplicates: [], skipped: [], allowed: [], generated: [] };
+  }
+
+  let pcQuery = supabase
+    .from('phan_cong_giang_day')
+    .select('mapc, mahk, malop, mamon')
+    .in('malop', selectedLops)
+    .in('mamon', selectedMons);
+  if (mahk === null || mahk === undefined) pcQuery = pcQuery.is('mahk', null);
+  else pcQuery = pcQuery.eq('mahk', Number(mahk));
+  const { data: existingPc, error: pcError } = await pcQuery;
+  if (pcError) throw new Error(pcError.message);
+
+  const existingByPair = new Map((existingPc || []).map((pc) => [`${pc.malop}|${pc.mamon}`, pc]));
+  const existingMapcs = (existingPc || []).map((pc) => pc.mapc).filter(Boolean);
+  let scheduledMapcs = new Set();
+  if (existingMapcs.length > 0) {
+    let tkbQuery = supabase
+      .from('thoi_khoa_bieu')
+      .select('mapc')
+      .in('mapc', existingMapcs);
+    if (mahk === null || mahk === undefined) tkbQuery = tkbQuery.is('mahk', null);
+    else tkbQuery = tkbQuery.eq('mahk', Number(mahk));
+    const { data: tkbRows, error: tkbError } = await tkbQuery;
+    if (tkbError) throw new Error(tkbError.message);
+    scheduledMapcs = new Set((tkbRows || []).map((row) => row.mapc));
+  }
+
+  const skipped = [];
+  const newPairs = [];
+  for (const malop of selectedLops) {
+    for (const mamon of selectedMons) {
+      const pc = existingByPair.get(`${malop}|${mamon}`);
+      if (pc) {
+        skipped.push({
+          malop,
+          mamon,
+          mapc: pc.mapc,
+          da_xep: scheduledMapcs.has(pc.mapc),
+          reason: scheduledMapcs.has(pc.mapc)
+            ? 'Da xep trong hoc ky nay'
+            : 'Da co phan cong trong hoc ky nay',
+        });
+      } else {
+        newPairs.push({ malop, mamon });
+      }
+    }
+  }
+
+  if (newPairs.length === 0) {
+    return { active: true, duplicates: skipped, skipped, allowed: [], generated: [] };
+  }
+
+  const [{ data: monRows, error: monError }, { data: teacherRows, error: teacherError }] = await Promise.all([
+    supabase.from('mon_hoc').select('*').in('mamon', [...new Set(newPairs.map((p) => p.mamon))]),
+    supabase.from('giang_vien').select('magv, trangthai').order('magv', { ascending: true }),
+  ]);
+  const errors = [monError, teacherError].filter(Boolean);
+  if (errors.length) throw new Error(errors.map((e) => e.message).join(' | '));
+  const monMap = new Map((monRows || []).map((m) => [m.mamon, m]));
+  const teachers = (teacherRows || []).filter((gv) => isActiveTeacher(gv));
+  if (teachers.length === 0) throw new Error('Khong co giang vien hoat dong de tao phan cong.');
+
+  const codes = await nextAssignmentCodes(newPairs.length);
+  const rows = newPairs.map((pair, idx) => {
+    const mon = monMap.get(pair.mamon);
+    if (!mon) throw new Error(`Khong tim thay mon hoc ${pair.mamon}.`);
+    const teacher = teachers[idx % teachers.length];
+    const loai = normalizeAssignmentType({ mamon: pair.mamon, loaiphong: mon.loaiphong }, monMap);
+    const cfg = gaSessionConfigForSubject(mon, loai);
+    return {
+      mapc: codes[idx],
+      mahk: mahk === null || mahk === undefined ? null : Number(mahk),
+      malop: pair.malop,
+      mamon: pair.mamon,
+      magv: teacher.magv,
+      sobuoimoituan: cfg.sobuoimoituan,
+      sotietmoibuoi: cfg.sotietmoibuoi,
+      loaiphong: loai,
+    };
+  });
+
+  const { error: insertError } = await supabase.from('phan_cong_giang_day').insert(rows);
+  if (insertError) throw new Error(insertError.message);
+
+  const generated = rows.map((row) => ({
+    malop: row.malop,
+    mamon: row.mamon,
+    mapc: row.mapc,
+    existing: false,
+  }));
+  return { active: true, duplicates: skipped, skipped, allowed: generated, generated };
 }
 
 async function deleteAssignmentsAndSchedules(filters) {
@@ -1317,6 +1434,112 @@ app.post('/api/phan-cong/by-lops', async (req, res) => {
         tuanketthuc: pc.tuanketthuc,
         mahk: pc.mahk,
         da_xep: scheduledMapcs.has(pc.mapc),
+      };
+    });
+
+    return res.json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message, data: [] });
+  }
+});
+
+app.post('/api/ga/available-subjects', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const malops = [].concat(body.malops || body.malop || []).map(String).filter(Boolean);
+    const mahk = body.mahk !== undefined && body.mahk !== null && body.mahk !== ''
+      ? Number(body.mahk)
+      : null;
+
+    if (malops.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng chọn ít nhất một lớp.',
+        data: [],
+      });
+    }
+    if (body.mahk !== undefined && body.mahk !== null && body.mahk !== '' && !Number.isFinite(mahk)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mã học kỳ không hợp lệ.',
+        data: [],
+      });
+    }
+
+    let semesterPcQuery = supabase
+      .from('phan_cong_giang_day')
+      .select('mapc, mahk, malop, mamon');
+    if (mahk !== null) semesterPcQuery = semesterPcQuery.eq('mahk', mahk);
+    else semesterPcQuery = semesterPcQuery.is('mahk', null);
+
+    const { data: semesterPcs, error: pcError } = await semesterPcQuery;
+    if (pcError) throw new Error(pcError.message);
+
+    const allSemesterPcs = semesterPcs || [];
+    const semesterMamons = [...new Set(allSemesterPcs.map((pc) => pc.mamon).filter(Boolean))];
+    if (semesterMamons.length === 0) {
+      return res.json({
+        success: true,
+        data: [],
+        message: 'Học kỳ này chưa có dữ liệu môn/phân công để tạo thời khóa biểu.',
+      });
+    }
+
+    const [{ data: mons, error: monError }, { data: tkbs, error: tkbError }] = await Promise.all([
+      supabase
+        .from('mon_hoc')
+        .select('mamon, tenmon, sotinchi, tongsotiet, sotietlythuyet, sotietthuchanh, loaiphong')
+        .in('mamon', semesterMamons)
+        .order('mamon', { ascending: true }),
+      (() => {
+        const mapcs = allSemesterPcs.map((pc) => pc.mapc).filter(Boolean);
+        if (mapcs.length === 0) return Promise.resolve({ data: [], error: null });
+        let q = supabase
+          .from('thoi_khoa_bieu')
+          .select('mapc, mahk, trangthai')
+          .in('mapc', mapcs);
+        if (mahk !== null) q = q.eq('mahk', mahk);
+        else q = q.is('mahk', null);
+        return q;
+      })(),
+    ]);
+    const errors = [monError, tkbError].filter(Boolean);
+    if (errors.length) throw new Error(errors.map((e) => e.message).join(' | '));
+
+    const scheduledMapcs = new Set((tkbs || []).map((row) => row.mapc));
+    const pcsByPair = new Map();
+    for (const pc of allSemesterPcs) {
+      if (!malops.includes(pc.malop)) continue;
+      pcsByPair.set(`${pc.malop}|${pc.mamon}`, pc);
+    }
+
+    const data = (mons || []).map((mon) => {
+      const createdClasses = [];
+      const pendingClasses = [];
+
+      for (const malop of malops) {
+        const pc = pcsByPair.get(`${malop}|${mon.mamon}`);
+        if (pc) createdClasses.push(malop);
+        else pendingClasses.push(malop);
+      }
+
+      const createdCount = createdClasses.length;
+      const pendingCount = pendingClasses.length;
+      const statusLabel = pendingCount > 0
+        ? (createdClasses.length > 0
+          ? `Còn ${pendingClasses.length}/${malops.length} lớp chưa xếp`
+          : `Chưa xếp cho ${pendingClasses.length}/${malops.length} lớp`)
+        : 'Đã xếp cho tất cả lớp đã chọn';
+
+      return {
+        ...mon,
+        total_classes: malops.length,
+        created_count: createdCount,
+        pending_count: pendingCount,
+        created_classes: createdClasses,
+        pending_classes: pendingClasses,
+        selectable: true,
+        status_label: statusLabel,
       };
     });
 
@@ -1927,11 +2150,33 @@ app.post('/api/ga/generate', async (req, res) => {
       }
     }
 
-    const selectionPrep = await prepareGaAssignmentsForSelection({
+    const selectionPrep = await prepareGaAssignmentsForSelectionV2({
       mahk: parsedMahk,
       malops,
       mamons,
     });
+    if (selectionPrep.active && selectionPrep.allowed.length === 0) {
+      const skipped = selectionPrep.skipped || selectionPrep.duplicates || [];
+      return res.json({
+        ok: false,
+        success: false,
+        status: 'NO_NEW_ASSIGNMENTS',
+        message: 'Tat ca mon/lop da duoc xep trong hoc ky nay. Khong co du lieu moi de tao.',
+        generated: [],
+        skipped,
+        summary: {
+          generated_count: 0,
+          skipped_count: skipped.length,
+        },
+        duplicates: skipped,
+        allowed: [],
+        persisted: false,
+        generatedRows: 0,
+        generatedSessions: 0,
+        weeksGenerated: 0,
+        weekRange: null,
+      });
+    }
     if (selectionPrep.active && selectionPrep.allowed.length === 0) {
       return res.status(409).json({
         ok: false,
@@ -2255,7 +2500,15 @@ app.post('/api/ga/generate', async (req, res) => {
 
     return res.json({
       ok: true,
-      summary,
+      success: true,
+      message: `Tao thoi khoa bieu hoan tat. Da tao ${(selectionPrep?.generated || selectionPrep?.allowed || []).length} lop-mon moi, bo qua ${(selectionPrep?.skipped || selectionPrep?.duplicates || []).length} lop-mon da xep.`,
+      generated: selectionPrep?.generated || selectionPrep?.allowed || [],
+      skipped: selectionPrep?.skipped || selectionPrep?.duplicates || [],
+      summary: {
+        ...summary,
+        generated_count: (selectionPrep?.generated || selectionPrep?.allowed || []).length,
+        skipped_count: (selectionPrep?.skipped || selectionPrep?.duplicates || []).length,
+      },
       history,
       breakdown,
       filters: { mahk: parsedMahk, namhoc, tuanhoc: parsedTuanhoc, popSize: parsedPopSize, maxGen: parsedMaxGen },
