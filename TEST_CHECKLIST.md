@@ -12,9 +12,26 @@ Nguyen tac khi test:
 - Bug fitness phai ghi ro pham vi chay, so lop, so buoi, total cost/fitness, hard cost, soft cost.
 - Bug UI phai chup anh truoc/sau hoac khoanh vung loi.
 
+## Phan Cong Nguoi Phu Trach
+
+- Khoa: giu nhip buoi test, gom bug, dieu phoi bug UI/BE, fix UI ro rang, cuoi buoi tong hop pass/fail gui Viet.
+- Tung: test UI/Web/CRUD, gom anh va buoc tai hien cho bug UI.
+- Khiem: test AI/GA 5 case bat buoc: tao TKB lan dau, tao lai lop/mon da xep, tao khoa nay xong chuyen khoa khac, HK2/HK3 chua co data, fitness/hard cost/soft cost/bieu do.
+- Thien: ho tro BE/API/DB khi co bug cu the ve load mon, chong tao trung `mahk + malop + mamon`, generated/skipped, HK2/HK3, reset data, query/API.
+
+Rule chung:
+- Ket qua qua 15 phut phai nhan group.
+- Khong inbox rieng Viet tru bug Critical.
+- Khong co anh minh chung thi chua tinh la da test.
+- Fix xong phai co anh sau fix hoac cach test lai.
+- Cuoi buoi Khoa tong hop ket qua gui Viet.
+
 ## Vai Tro 1: UI/UX Tester
 
 ### 1. Flow Tao TKB Lan Dau
+**Nguoi phu trach chinh:** Tung  
+**Nguoi ho tro/fix:** Khiem/Thien neu loi logic tao; Khoa giu nhip
+
 - [ ] Chon hoc ky dang mo trong dropdown Hoc ky.
 - [ ] Chon 1 lop bat ky.
 - [ ] Kiem tra buoc "Chon mon" hien danh sach mon dung voi lop/hoc ky.
@@ -30,6 +47,9 @@ Lien quan:
 - API: `GET /api/hocky`, `POST /api/ga/available-subjects`, `POST /api/ga/generate`, `GET /api/tkb/viewer`
 
 ### 2. Tao Lai Lop/Mon Da Xep
+**Nguoi phu trach chinh:** Khiem  
+**Nguoi ho tro/fix:** Thien ho tro BE/API; Tung xac nhan UI
+
 - [ ] Tao TKB thanh cong cho 1 lop + 1 mon.
 - [ ] Chon lai dung lop + mon + hoc ky do.
 - [ ] Kiem tra mon van hien trong danh sach.
@@ -44,6 +64,9 @@ Lien quan:
 - API: `POST /api/ga/available-subjects`, `POST /api/ga/generate`
 
 ### 3. Tao Khoa Nay Xong Roi Chuyen Sang Khoa Khac
+**Nguoi phu trach chinh:** Khiem  
+**Nguoi ho tro/fix:** Thien ho tro BE/API; Tung xac nhan UI
+
 - [ ] Chon khoa DH22, tao TKB cho mot mon.
 - [ ] Sau khi tao xong, chon khoa DH25.
 - [ ] Kiem tra mon vua tao cho DH22 van hien cho DH25 neu DH25 chua co.
@@ -56,6 +79,9 @@ Lien quan:
 - API: `POST /api/ga/available-subjects`, `POST /api/ga/generate`
 
 ### 4. Chon ALL Lop/Khoa
+**Nguoi phu trach chinh:** Khiem  
+**Nguoi ho tro/fix:** Tung ho tro UI; Thien ho tro BE/API
+
 - [ ] Chon "Tat ca" lop.
 - [ ] Kiem tra danh sach mon khong bi rong neu hoc ky co du lieu.
 - [ ] Kiem tra moi mon co thong tin tong so lop, da xep, chua xep.
@@ -68,6 +94,9 @@ Lien quan:
 - Ham: `selectAllLop`, `selectAllMon`, `renderMonList`, `generateTKB`
 
 ### 5. HK2/HK3 Chua Co Du Lieu
+**Nguoi phu trach chinh:** Khiem  
+**Nguoi ho tro/fix:** Thien ho tro BE/API; Tung xac nhan message UI
+
 - [ ] Chon HK2 hoac HK3.
 - [ ] Chon mot lop/khoa.
 - [ ] Kiem tra buoc "Chon mon" khong hien mon neu hoc ky khong co phan cong.
@@ -80,6 +109,9 @@ Lien quan:
 - Seed data: `scripts/bootstrap_assignments.js` chi chon hoc ky dang mo/hoac hoc ky dau tien. Can xac minh neu can seed HK2/HK3.
 
 ### 6. Fitness Va Bieu Do Hoi Tu
+**Nguoi phu trach chinh:** Khiem  
+**Nguoi ho tro/fix:** Tung ho tro UI hien thi; Thien ho tro BE neu sai du lieu
+
 - [ ] Sau khi tao moi co GA chay, kiem tra Total cost/Fitness, Hard cost, Soft cost, The he, Thoi gian chay.
 - [ ] Kiem tra bieu do hoi tu co duong line va diem theo generation.
 - [ ] Doi che do "Toan bo" va "50 the he dau".
@@ -92,6 +124,9 @@ Lien quan:
 - API: `POST /api/ga/generate`
 
 ### 7. Metadata Pham Vi Chay
+**Nguoi phu trach chinh:** Tung  
+**Nguoi ho tro/fix:** Khiem/Thien neu sai logic
+
 - [ ] Tao TKB cho 1 lop, kiem tra metadata hien 1 lop.
 - [ ] Tao TKB cho 1 khoa, kiem tra metadata hien dung khoa/pham vi.
 - [ ] Tao TKB cho All, kiem tra metadata khong gay hieu nham voi ket qua cu.
@@ -101,6 +136,9 @@ Lien quan:
 - Ham: `buildRunMeta`, `renderGAMeta`
 
 ### 8. Lich Theo Lop
+**Nguoi phu trach chinh:** Tung  
+**Nguoi ho tro/fix:** Khiem/Thien neu sai du lieu
+
 - [ ] Sau khi tao TKB, vao tab Sinh vien.
 - [ ] Chon lop vua tao.
 - [ ] Kiem tra lich hien dung mon, phong, giang vien, tiet hoc.
@@ -112,6 +150,9 @@ Lien quan:
 - API: `GET /api/tkb/viewer`
 
 ### 9. Lich Theo Giang Vien
+**Nguoi phu trach chinh:** Tung  
+**Nguoi ho tro/fix:** Khiem/Thien neu sai du lieu
+
 - [ ] Vao tab Giang vien.
 - [ ] Chon giang vien co lich.
 - [ ] Kiem tra cac buoi day hien dung lop/mon/phong.
@@ -123,6 +164,9 @@ Lien quan:
 - API: `GET /api/tkb/viewer`
 
 ### 10. Lich Theo Phong
+**Nguoi phu trach chinh:** Tung  
+**Nguoi ho tro/fix:** Khiem/Thien neu sai du lieu
+
 - [ ] Vao tab Phong hoc.
 - [ ] Chon ngay trong tuan.
 - [ ] Kiem tra phong co lich va phong trong.
@@ -134,6 +178,9 @@ Lien quan:
 - API: `GET /api/tkb/viewer`
 
 ### 11. Mau LT/TH/Trong
+**Nguoi phu trach chinh:** Tung  
+**Nguoi ho tro/fix:** Khoa fix UI ro rang
+
 - [ ] Kiem tra LT co mau/badge LT.
 - [ ] Kiem tra TH co mau/badge TH.
 - [ ] Kiem tra o trong hien "TRONG" va khong nham voi lop dang hoc.
@@ -144,6 +191,9 @@ Lien quan:
 - Ham: `card`, `buildRoomGrid`, `buildLegend`
 
 ### 12. Hoan Lich/Hoc Bu
+**Nguoi phu trach chinh:** Khiem  
+**Nguoi ho tro/fix:** Thien ho tro BE/API; Tung/Khoa ho tro UI
+
 - [ ] Tam ngung mot buoi hoc.
 - [ ] Tao hoc bu cho buoi tam ngung.
 - [ ] Kiem tra slot hoc bu chi cho chon khi giang vien/lop/phong hop le.
@@ -156,6 +206,9 @@ Lien quan:
 - API: `POST /api/tkb/:matkb/tam-ngung`, `POST /api/tkb/:matkb/available-makeup-slots`, `POST /api/tkb/:matkb/tao-hoc-bu`, `PUT /api/tkb/:matkb_hocbu`, `POST /api/tkb/check-slot`
 
 ### 13. Thong Bao Loi/Thanh Cong
+**Nguoi phu trach chinh:** Tung  
+**Nguoi ho tro/fix:** Thien ho tro BE/API neu message sai
+
 - [ ] Tao thanh cong lan dau: message co generated/skipped ro rang.
 - [ ] Tao lai toan bo da co: message la no-new-data, khong bao GA thanh cong moi.
 - [ ] Hoc ky chua co data: message ro hoc ky chua co data.
@@ -166,6 +219,9 @@ Lien quan:
 - Ham: `showResult`, `generateTKB`, `renderMonList`
 
 ### 14. Responsive/Layout
+**Nguoi phu trach chinh:** Tung  
+**Nguoi ho tro/fix:** Khoa fix UI ro rang
+
 - [ ] Test man hinh laptop nho.
 - [ ] Test trinh duyet zoom 125% va 150%.
 - [ ] Test danh sach lop/mon dai.
@@ -179,6 +235,9 @@ Lien quan:
 ## Vai Tro 2: AI/BE Logic Tester
 
 ### 1. API Load Mon Theo Lop/Hoc Ky
+**Nguoi phu trach chinh:** Thien  
+**Nguoi ho tro/fix:** Khiem test xac nhan
+
 - [ ] Goi `POST /api/ga/available-subjects` voi `malops` va `mahk`.
 - [ ] Kiem tra moi mon co `total_classes`, `created_count`, `pending_count`, `created_classes`, `pending_classes`, `status_label`, `selectable`.
 - [ ] Kiem tra status dua tren khoa `mahk + malop + mamon`, khong dua tren `mamon` toan he thong.
@@ -191,6 +250,9 @@ Lien quan:
 - Ham/logic: code trong route `/api/ga/available-subjects`
 
 ### 2. Chan Tao Trung Khi Bam Tao TKB
+**Nguoi phu trach chinh:** Khiem  
+**Nguoi ho tro/fix:** Thien ho tro BE/API
+
 - [ ] Tao truoc 1 cap `mahk + malop + mamon`.
 - [ ] Goi `POST /api/ga/generate` lai voi cap do.
 - [ ] Kiem tra backend khong tao `mapc` moi.
@@ -204,6 +266,9 @@ Lien quan:
 - Ham: `prepareGaAssignmentsForSelectionV2`
 
 ### 3. Mixed Generated/Skipped
+**Nguoi phu trach chinh:** Khiem  
+**Nguoi ho tro/fix:** Thien ho tro BE/API
+
 - [ ] Chon 5 lop + 1 mon, trong do 3 cap da co `phan_cong_giang_day`, 2 cap chua co.
 - [ ] Goi tao TKB.
 - [ ] Kiem tra `skipped_count = 3`, `generated_count = 2`.
@@ -216,6 +281,9 @@ Lien quan:
 - Ham: `prepareGaAssignmentsForSelectionV2`
 
 ### 4. Mahk Isolation
+**Nguoi phu trach chinh:** Thien  
+**Nguoi ho tro/fix:** Khiem test xac nhan
+
 - [ ] Tao `DH22TIN01 + AI + HK1`.
 - [ ] Test `DH22TIN01 + AI + HK2`.
 - [ ] Neu HK2 co data, phai duoc xem doc lap voi HK1.
@@ -228,6 +296,9 @@ Lien quan:
 - Can xac minh: data seed HK2/HK3 co ton tai hay khong.
 
 ### 5. Fitness/History From Backend
+**Nguoi phu trach chinh:** Khiem  
+**Nguoi ho tro/fix:** Thien ho tro BE/Python
+
 - [ ] Kiem tra `run_ga_with_raw` tra `summary`, `history`, `breakdown`.
 - [ ] Kiem tra frontend chi render GA result khi response tao co `generated_count > 0`.
 - [ ] Kiem tra no-new-assignment khong ghi localStorage GA result moi.
@@ -238,6 +309,9 @@ Lien quan:
 - Ham: `run_ga_with_raw`, `generateTKB`, `saveGAResult`, `renderGAResult`
 
 ### 6. TKB Viewer Data
+**Nguoi phu trach chinh:** Tung  
+**Nguoi ho tro/fix:** Thien ho tro BE/API
+
 - [ ] Goi `GET /api/tkb/viewer?tuanhoc=...&mahk=...`.
 - [ ] Kiem tra response co danh sach lich, gv, lop, phong, mon, khung.
 - [ ] Kiem tra filter hoc ky khong lam mat du lieu ngoai y muon.
@@ -248,6 +322,9 @@ Lien quan:
 - UI ham: `loadViewData`
 
 ### 7. Hoc Bu/Hoan Lich
+**Nguoi phu trach chinh:** Khiem  
+**Nguoi ho tro/fix:** Thien ho tro BE/API; Tung/Khoa ho tro UI
+
 - [ ] Kiem tra API check slot khong cho trung giang vien/lop/phong.
 - [ ] Kiem tra tam ngung khong xoa mat lich goc ngoai y muon.
 - [ ] Kiem tra hoc bu co link ve `tkb_goc_id` neu source dang dung.
