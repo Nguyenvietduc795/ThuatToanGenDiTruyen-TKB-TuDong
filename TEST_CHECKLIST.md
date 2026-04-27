@@ -21,10 +21,10 @@ Nguyen tac khi test:
 
 Rule chung:
 - Ket qua qua 15 phut phai nhan group.
-- Khong inbox rieng Viet tru bug Critical.
+- Khong inbox rieng Viet Duc tru bug Critical.
 - Khong co anh minh chung thi chua tinh la da test.
 - Fix xong phai co anh sau fix hoac cach test lai.
-- Cuoi buoi Khoa tong hop ket qua gui Viet.
+- Cuoi buoi Khoa tong hop ket qua gui Viet Duc.
 
 ## Vai Tro 1: UI/UX Tester
 
