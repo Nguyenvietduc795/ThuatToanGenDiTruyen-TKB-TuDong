@@ -189,8 +189,6 @@
             tableBody.innerHTML = pageData.map((gv) => {
                 const status = normalizeTeacherStatus(gv.TrangThai);
                 const isPaused = status === 'TAM_NGUNG';
-                const nextStatus = isPaused ? 'HOAT_DONG' : 'TAM_NGUNG';
-                const toggleText = isPaused ? 'Kích hoạt' : 'Tạm ngưng';
                 return `
                     <tr>
                         <td><strong>${gv.MaGV}</strong></td>
@@ -202,7 +200,6 @@
                         <td><span class="status-tag ${isPaused ? 'status-paused' : 'status-teaching'}">${teacherStatusLabel(status)}</span></td>
                         <td>
                             <button onclick="editTeacher('${gv.MaGV}')" class="btn-edit">Sửa</button>
-                            <button onclick="toggleTeacherStatus('${gv.MaGV}', '${nextStatus}')" class="${isPaused ? 'btn-edit' : 'btn-delete'}">${toggleText}</button>
                             <button onclick="deleteTeacher('${gv.MaGV}')" class="btn-delete">Xóa</button>
                         </td>
                     </tr>
