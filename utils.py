@@ -209,6 +209,7 @@ def _is_active(value):
     INACTIVE = {
         'inactive', 'khonghoatdong', 'nghi', 'nghiviec', 'ngungday',
         'tamngung', 'dadung', 'false', '0', 'disabled', 'locked',
+        'dangbaotri', 'baotri', 'maintenance',   # phong dang bao tri
     }
     return normalized not in INACTIVE
 
@@ -285,9 +286,9 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
         groups[lop['malop']] = idx
         groups_empty_space[idx] = []
 
-    # ── Giang vien (them tat ca GV co trong phan_cong, bo qua filter active) ──
-    # Neu GV da duoc phan_cong thi van phai xep lich du trangthai la gi.
-    # Lay tap magv thuc su co trong phan_cong de khoi tao dung so luong.
+    # ── Giang vien: chi them GV dang hoat dong VA co trong phan_cong ──────────
+    # GV tam ngung bi loai du da co phan_cong — data da duoc server.js filter
+    # truoc khi truyen vao day (chi giang_vien active con lai).
     magv_in_pc = {pc['magv'] for pc in raw.get('phan_cong_giang_day', [])
                   if isinstance(pc, dict) and 'magv' in pc}
     teacher_specializations = {}
@@ -299,8 +300,9 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
         chuyenmon = gv.get('chuyenmon', '')
         if chuyenmon:
             teacher_specializations[magv] = chuyenmon
-        # Them tat ca GV: ca GV duoc phan_cong lan GV dang hoat dong
-        if magv in magv_in_pc or _is_active(gv.get('trangthai')):
+        # Chi them GV dang hoat dong (da filter tam ngung tu server.js)
+        # VA co trong phan_cong cua lan chay nay.
+        if _is_active(gv.get('trangthai')) and magv in magv_in_pc:
             if magv not in teachers:
                 teachers[magv] = len(teachers)
                 teachers_empty_space[magv] = []
