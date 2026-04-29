@@ -2523,6 +2523,23 @@ app.post('/api/ga/generate', async (req, res) => {
           .insert(allRows.slice(i, i + BATCH));
         if (insertError) throw new Error(insertError.message);
       }
+
+      // Ghi lại tuanbatdau / tuanketthuc vào phan_cong_giang_day theo từng mapc
+      const mapcWeekRange = new Map();
+      for (const row of allRows) {
+        const cur = mapcWeekRange.get(row.mapc);
+        if (!cur) {
+          mapcWeekRange.set(row.mapc, { start: row.tuanhoc, end: row.tuanhoc });
+        } else {
+          cur.start = Math.min(cur.start, row.tuanhoc);
+          cur.end   = Math.max(cur.end,   row.tuanhoc);
+        }
+      }
+      await Promise.all([...mapcWeekRange.entries()].map(([mapc, range]) =>
+        supabase.from('phan_cong_giang_day')
+          .update({ tuanbatdau: range.start, tuanketthuc: range.end })
+          .eq('mapc', mapc)
+      ));
     }
 
     return res.json({
