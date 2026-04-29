@@ -1644,14 +1644,18 @@ async function loadViewData() {
     document.getElementById('header-sub').textContent =
       `Khoa CNTT${parts.length ? ' — '+parts.join(' / ') : ''} — Tuần ${tuan}`;
 
-    // Populate GV dropdown
+    // Populate GV dropdown — giữ lại GV đang xem khi chuyển tuần
     const sgv = document.getElementById('sel-gv');
+    const prevGv = sgv.value;
     sgv.innerHTML = '';
     (DATA.gv_list||[]).forEach(g => {
       const o = document.createElement('option');
       o.value = g.magv; o.textContent = `${g.tengv} (${g.hocvi||''})`;
       sgv.appendChild(o);
     });
+    if (prevGv && [...sgv.options].some(o => o.value === prevGv)) {
+      sgv.value = prevGv;
+    }
 
     // Populate Lớp dropdown (tab Sinh viên) — giữ lại lớp đang xem khi chuyển tuần
     const slop = document.getElementById('sel-lop');
