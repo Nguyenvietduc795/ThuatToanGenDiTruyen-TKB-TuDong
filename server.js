@@ -367,10 +367,13 @@ function roomCompatibilityMessage(pc, mon, room, monMap = null) {
 
 function normalizeWeekBounds(pc) {
   const start = Number(pc?.tuanbatdau || 1);
-  const end = Number(pc?.tuanketthuc || pc?.tuanbatdau || 999);
+  // tuanketthuc null/undefined → không giới hạn tuần (999).
+  // KHÔNG fallback về tuanbatdau vì start ≠ end — môn có thể bù ở bất kỳ tuần nào trong HK.
+  const rawEnd = pc?.tuanketthuc;
+  const end = (rawEnd != null && Number(rawEnd) > 0) ? Number(rawEnd) : 999;
   return {
-    start: Number.isFinite(start) ? start : 1,
-    end: Number.isFinite(end) ? end : 999,
+    start: Number.isFinite(start) && start > 0 ? start : 1,
+    end:   Number.isFinite(end) ? end : 999,
   };
 }
 
