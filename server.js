@@ -2535,11 +2535,18 @@ app.post('/api/ga/generate', async (req, res) => {
           cur.end   = Math.max(cur.end,   row.tuanhoc);
         }
       }
-      await Promise.all([...mapcWeekRange.entries()].map(([mapc, range]) =>
-        supabase.from('phan_cong_giang_day')
+      console.log(`[GA] Cap nhat tuanbatdau/tuanketthuc cho ${mapcWeekRange.size} mapc...`);
+      for (const [mapc, range] of mapcWeekRange) {
+        const { error: updErr } = await supabase
+          .from('phan_cong_giang_day')
           .update({ tuanbatdau: range.start, tuanketthuc: range.end })
-          .eq('mapc', mapc)
-      ));
+          .eq('mapc', mapc);
+        if (updErr) {
+          console.error(`[GA] Loi cap nhat mapc=${mapc}:`, updErr.message);
+          throw new Error(`Khong the cap nhat tuan cho phan cong ${mapc}: ${updErr.message}`);
+        }
+        console.log(`[GA] mapc=${mapc} tuanbatdau=${range.start} tuanketthuc=${range.end}`);
+      }
     }
 
     return res.json({
