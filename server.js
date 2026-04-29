@@ -281,6 +281,15 @@ function isActiveTeacher(row) {
   return normalizeTeacherStatus(row?.trangthai) === 'HOAT_DONG';
 }
 
+function isAvailableRoom(room) {
+  const raw = String(room?.trangthai || room?.TrangThai || '').trim();
+  const normalized = stripVietnamese(raw);
+  // Loại phòng đang bảo trì — khớp cả "Đang bảo trì" lẫn "Bảo trì"
+  if (['dangbaotri', 'baotri', 'maintenance'].includes(normalized)) return false;
+  // Chỉ nhận phòng "Sẵn sàng" hoặc không có trạng thái (mặc định sẵn sàng)
+  return true;
+}
+
 function rangesOverlap(aStart, aEnd, bStart, bEnd) {
   return !(Number(aEnd) < Number(bStart) || Number(aStart) > Number(bEnd));
 }
@@ -950,69 +959,67 @@ async function prepareGaAssignmentsForSelectionV2({ mahk, malops, mamons }) {
     scheduledMapcs = new Set((tkbRows || []).map((row) => row.mapc));
   }
 
-  const skipped = [];
-  const newPairs = [];
+  const skipped      = [];  // có phan_cong VÀ có TKB → skip thật
+  const existingOk   = [];  // có phan_cong nhưng CHƯA có TKB → cho GA chạy lại
+  const newPairs     = [];  // chưa có phan_cong → cần tạo mới
+
   for (const malop of selectedLops) {
     for (const mamon of selectedMons) {
       const pc = existingByPair.get(`${malop}|${mamon}`);
       if (pc) {
-        skipped.push({
-          malop,
-          mamon,
-          mapc: pc.mapc,
-          da_xep: scheduledMapcs.has(pc.mapc),
-          reason: scheduledMapcs.has(pc.mapc)
-            ? 'Da xep trong hoc ky nay'
-            : 'Da co phan cong trong hoc ky nay',
-        });
+        if (scheduledMapcs.has(pc.mapc)) {
+          skipped.push({ malop, mamon, mapc: pc.mapc, da_xep: true, reason: 'Da xep trong hoc ky nay' });
+        } else {
+          existingOk.push({ malop, mamon, mapc: pc.mapc, existing: true });
+        }
       } else {
         newPairs.push({ malop, mamon });
       }
     }
   }
 
-  if (newPairs.length === 0) {
+  const allAllowed = [...existingOk, ...newPairs];
+  if (allAllowed.length === 0) {
     return { active: true, duplicates: skipped, skipped, allowed: [], generated: [] };
   }
 
-  const [{ data: monRows, error: monError }, { data: teacherRows, error: teacherError }] = await Promise.all([
-    supabase.from('mon_hoc').select('*').in('mamon', [...new Set(newPairs.map((p) => p.mamon))]),
-    supabase.from('giang_vien').select('magv, trangthai').order('magv', { ascending: true }),
-  ]);
-  const errors = [monError, teacherError].filter(Boolean);
-  if (errors.length) throw new Error(errors.map((e) => e.message).join(' | '));
-  const monMap = new Map((monRows || []).map((m) => [m.mamon, m]));
-  const teachers = (teacherRows || []).filter((gv) => isActiveTeacher(gv));
-  if (teachers.length === 0) throw new Error('Khong co giang vien hoat dong de tao phan cong.');
+  // Chỉ tạo phan_cong MỚI cho các pair chưa có
+  let generatedNew = [];
+  if (newPairs.length > 0) {
+    const [{ data: monRows, error: monError }, { data: teacherRows, error: teacherError }] = await Promise.all([
+      supabase.from('mon_hoc').select('*').in('mamon', [...new Set(newPairs.map((p) => p.mamon))]),
+      supabase.from('giang_vien').select('magv, trangthai').order('magv', { ascending: true }),
+    ]);
+    const errors = [monError, teacherError].filter(Boolean);
+    if (errors.length) throw new Error(errors.map((e) => e.message).join(' | '));
+    const monMap  = new Map((monRows || []).map((m) => [m.mamon, m]));
+    const teachers = (teacherRows || []).filter((gv) => isActiveTeacher(gv));
+    if (teachers.length === 0) throw new Error('Khong co giang vien hoat dong de tao phan cong.');
 
-  const codes = await nextAssignmentCodes(newPairs.length);
-  const rows = newPairs.map((pair, idx) => {
-    const mon = monMap.get(pair.mamon);
-    if (!mon) throw new Error(`Khong tim thay mon hoc ${pair.mamon}.`);
-    const teacher = teachers[idx % teachers.length];
-    const loai = normalizeAssignmentType({ mamon: pair.mamon, loaiphong: mon.loaiphong }, monMap);
-    const cfg = gaSessionConfigForSubject(mon, loai);
-    return {
-      mapc: codes[idx],
-      mahk: mahk === null || mahk === undefined ? null : Number(mahk),
-      malop: pair.malop,
-      mamon: pair.mamon,
-      magv: teacher.magv,
-      sobuoimoituan: cfg.sobuoimoituan,
-      sotietmoibuoi: cfg.sotietmoibuoi,
-      loaiphong: loai,
-    };
-  });
+    const codes = await nextAssignmentCodes(newPairs.length);
+    const rows = newPairs.map((pair, idx) => {
+      const mon = monMap.get(pair.mamon);
+      if (!mon) throw new Error(`Khong tim thay mon hoc ${pair.mamon}.`);
+      const teacher = teachers[idx % teachers.length];
+      const loai = normalizeAssignmentType({ mamon: pair.mamon, loaiphong: mon.loaiphong }, monMap);
+      const cfg   = gaSessionConfigForSubject(mon, loai);
+      return {
+        mapc: codes[idx],
+        mahk: mahk === null || mahk === undefined ? null : Number(mahk),
+        malop: pair.malop,
+        mamon: pair.mamon,
+        magv: teacher.magv,
+        sobuoimoituan: cfg.sobuoimoituan,
+        sotietmoibuoi: cfg.sotietmoibuoi,
+        loaiphong: loai,
+      };
+    });
+    const { error: insertError } = await supabase.from('phan_cong_giang_day').insert(rows);
+    if (insertError) throw new Error(insertError.message);
+    generatedNew = rows.map((row) => ({ malop: row.malop, mamon: row.mamon, mapc: row.mapc, existing: false }));
+  }
 
-  const { error: insertError } = await supabase.from('phan_cong_giang_day').insert(rows);
-  if (insertError) throw new Error(insertError.message);
-
-  const generated = rows.map((row) => ({
-    malop: row.malop,
-    mamon: row.mamon,
-    mapc: row.mapc,
-    existing: false,
-  }));
+  const generated = [...existingOk, ...generatedNew];
   return { active: true, duplicates: skipped, skipped, allowed: generated, generated };
 }
 
@@ -1519,7 +1526,8 @@ app.post('/api/ga/available-subjects', async (req, res) => {
 
       for (const malop of malops) {
         const pc = pcsByPair.get(`${malop}|${mon.mamon}`);
-        if (pc) createdClasses.push(malop);
+        // "Đã xếp" = có phan_cong VÀ phan_cong đó đã có trong thoi_khoa_bieu
+        if (pc && scheduledMapcs.has(pc.mapc)) createdClasses.push(malop);
         else pendingClasses.push(malop);
       }
 
@@ -1527,9 +1535,9 @@ app.post('/api/ga/available-subjects', async (req, res) => {
       const pendingCount = pendingClasses.length;
       const statusLabel = pendingCount > 0
         ? (createdClasses.length > 0
-          ? `Còn ${pendingClasses.length}/${malops.length} lớp chưa xếp`
-          : `Chưa xếp cho ${pendingClasses.length}/${malops.length} lớp`)
-        : 'Đã xếp cho tất cả lớp đã chọn';
+          ? `Còn ${pendingClasses.length}/${malops.length} lớp chưa xếp lịch`
+          : `Chưa xếp lịch cho ${pendingClasses.length}/${malops.length} lớp`)
+        : 'Đã xếp lịch cho tất cả lớp đã chọn';
 
       return {
         ...mon,
@@ -2126,12 +2134,14 @@ app.post('/api/ga/generate', async (req, res) => {
     // Auto-seed nếu bảng phan_cong rỗng (user xóa khi test)
     const malops = [].concat(req.body.malop || []).map(String).filter(Boolean);
     const mamons = [].concat(req.body.mamon || []).map(String).filter(Boolean);
-    const hasExplicitSelection = malops.length > 0 && mamons.length > 0;
+    // Auto-seed chỉ khi user KHÔNG chọn gì cả (cả lớp lẫn môn đều rỗng)
+    // Nếu user đã chọn lớp nhưng chưa chọn môn → KHÔNG auto-seed (tránh seed DH26 ngoài ý muốn)
+    const hasAnySelection = malops.length > 0 || mamons.length > 0;
 
     {
       const { count } = await supabase
         .from('phan_cong_giang_day').select('*', { count: 'exact', head: true });
-      if ((!count || count === 0) && !hasExplicitSelection) {
+      if ((!count || count === 0) && !hasAnySelection) {
         console.log('[GA] phan_cong_giang_day trong, dang tu dong seed lai...');
         const seedResult = spawnSync(
           'node',
@@ -2246,6 +2256,20 @@ app.post('/api/ga/generate', async (req, res) => {
       });
     }
     rawData.giang_vien = (rawData.giang_vien || []).filter((gv) => isActiveTeacher(gv));
+    rawData.phong_hoc  = (rawData.phong_hoc  || []).filter((p)  => isAvailableRoom(p));
+
+    if ((rawData.giang_vien || []).length === 0) {
+      return res.status(400).json({
+        ok: false, success: false,
+        error: 'Không thể tạo thời khóa biểu vì không có giảng viên đang giảng dạy.',
+      });
+    }
+    if ((rawData.phong_hoc || []).length === 0) {
+      return res.status(400).json({
+        ok: false, success: false,
+        error: 'Không thể tạo thời khóa biểu vì không có phòng học hợp lệ (tất cả phòng đang bảo trì).',
+      });
+    }
 
     const tenmonToLtMamon = new Map();
     for (const mon of rawData.mon_hoc || []) {
@@ -2713,7 +2737,7 @@ app.get('/api/tkb/viewer', async (req, res) => {
 // Thứ tự xóa theo FK: thoi_khoa_bieu tham chiếu cả phan_cong và khung_thoi_gian nên phải xóa trước.
 app.post('/api/seed/reset', async (req, res) => {
   try {
-    // 1. Xóa thoi_khoa_bieu (FK → phan_cong_giang_day.mapc, FK → khung_thoi_gian.makhung)
+    // 1. Xóa thoi_khoa_bieu trước (FK tham chiếu phan_cong và khung_thoi_gian)
     const { error: e1 } = await supabase.from('thoi_khoa_bieu').delete().neq('matkb', '');
     if (e1) throw new Error('thoi_khoa_bieu: ' + e1.message);
 
@@ -2721,13 +2745,12 @@ app.post('/api/seed/reset', async (req, res) => {
     const { error: e2 } = await supabase.from('phan_cong_giang_day').delete().neq('mapc', '');
     if (e2) throw new Error('phan_cong_giang_day: ' + e2.message);
 
-    // 3. Xóa khung_thoi_gian (makhung là int4 PK, xóa tất cả hàng có PK > 0)
-    const { error: e3 } = await supabase.from('khung_thoi_gian').delete().gt('makhung', 0);
-    if (e3) throw new Error('khung_thoi_gian: ' + e3.message);
+    // khung_thoi_gian là cấu hình tĩnh (tiết 1-12, thứ 2-7) — KHÔNG xóa.
+    // GA cần bảng này để xếp lịch; xóa nó sẽ khiến thoi_khoa_bieu trống sau khi chạy GA.
 
     return res.json({
       ok: true,
-      message: 'Đã xóa sạch 3 bảng: thoi_khoa_bieu, phan_cong_giang_day, khung_thoi_gian. Dữ liệu về trạng thái trống.',
+      message: 'Đã xóa sạch thoi_khoa_bieu và phan_cong_giang_day. Sẵn sàng tạo TKB mới.',
     });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });

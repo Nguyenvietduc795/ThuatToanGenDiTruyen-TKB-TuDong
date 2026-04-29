@@ -1352,11 +1352,10 @@ async function onLopCheckChange() {
 /* ── Generate TKB ── */
 async function resetAndSeed() {
   if (!confirm(
-    'Xóa sạch dữ liệu 3 bảng:\n' +
-    '  • thoi_khoa_bieu\n' +
-    '  • phan_cong_giang_day\n' +
-    '  • khung_thoi_gian\n\n' +
-    'Sau khi xóa, các bảng sẽ trống hoàn toàn.\nBạn có chắc chắn?'
+    'Xóa sạch dữ liệu TKB:\n' +
+    '  • thoi_khoa_bieu (lịch đã xếp)\n' +
+    '  • phan_cong_giang_day (phân công giảng dạy)\n\n' +
+    'Sau khi xóa có thể chạy GA lại để tạo TKB mới.\nBạn có chắc chắn?'
   )) return;
   const btn = document.getElementById('reset-btn');
   btn.disabled = true;
@@ -1367,6 +1366,9 @@ async function resetAndSeed() {
     const json = await res.json();
     if (!json.ok) throw new Error(json.error);
     showResult('success', '✅ ' + json.message);
+    // Xóa cache stale trước để renderMonList không re-render dữ liệu cũ
+    currentMonDisplay = [];
+    monStatusMap = new Map();
     // Reload lại view sau khi xóa để phản ánh bảng trống
     DATA = null;
     document.getElementById('grid-ql').innerHTML = '';
@@ -1377,6 +1379,7 @@ async function resetAndSeed() {
     document.getElementById('legend-row').innerHTML = '';
     document.getElementById('view-status').textContent = 'Dữ liệu đã được xóa sạch.';
     await Promise.all([loadViewData(), reloadMonStatus()]);
+    await onLopCheckChange(); // re-fetch fresh từ DB theo lớp đang chọn
   } catch (err) {
     showResult('error', '❌ Xóa thất bại: ' + err.message);
   } finally {
@@ -1650,14 +1653,18 @@ async function loadViewData() {
       sgv.appendChild(o);
     });
 
-    // Populate Lớp dropdown (tab Sinh viên)
+    // Populate Lớp dropdown (tab Sinh viên) — giữ lại lớp đang xem khi chuyển tuần
     const slop = document.getElementById('sel-lop');
+    const prevLop = slop.value;
     slop.innerHTML = '';
     (DATA.lop_list||[]).forEach(l => {
       const o = document.createElement('option');
       o.value = l.malop; o.textContent = l.tenlop;
       slop.appendChild(o);
     });
+    if (prevLop && [...slop.options].some(o => o.value === prevLop)) {
+      slop.value = prevLop;
+    }
 
     updateWeekNav();
     document.getElementById('stats-row').innerHTML  = buildStats();
