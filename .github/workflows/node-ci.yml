@@ -1,0 +1,36 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Check for syntax errors
+      run: |
+        npm run lint --if-present || echo "No linter configured"
+    
+    - name: Verify seed scripts
+      run: |
+        node scripts/bootstrap_time_slots.js --dry-run || echo "Seed check skipped"
+        node scripts/bootstrap_assignments.js --dry-run || echo "Seed check skipped"

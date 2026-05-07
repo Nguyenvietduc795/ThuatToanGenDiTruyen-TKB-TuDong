@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+.github
+
+# Dependencies
+node_modules
+*.egg-info
+__pycache__
+.venv
+venv
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE & Editor
+.vscode
+.idea
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+
+# Testing
+.coverage
+htmlcov
+test_files
+*.test.js
+*.test.py
+
+# Build artifacts
+dist
+build
+*.o
+*.a
+*.so
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# OS
+Thumbs.db
+.AppleDouble
+.LSOverride
