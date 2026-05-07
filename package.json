@@ -10,7 +10,12 @@
     "seed:khung:dry": "node scripts/bootstrap_time_slots.js --dry-run",
     "seed:assignments": "node scripts/bootstrap_assignments.js",
     "seed:assignments:dry": "node scripts/bootstrap_assignments.js --dry-run",
-    "seed:all": "node scripts/bootstrap_time_slots.js && node scripts/bootstrap_assignments.js"
+    "seed:all": "node scripts/bootstrap_time_slots.js && node scripts/bootstrap_assignments.js",
+    "docker:build": "docker build -t tkb-app:latest .",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:rebuild": "docker-compose down && npm run docker:build && npm run docker:up"
   },
   "repository": {
     "type": "git",
@@ -30,4 +35,5 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1"
   }
+  
 }
