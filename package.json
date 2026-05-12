@@ -6,6 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
+    "dev": "node --watch server.js",
     "seed:khung": "node scripts/bootstrap_time_slots.js",
     "seed:khung:dry": "node scripts/bootstrap_time_slots.js --dry-run",
     "seed:assignments": "node scripts/bootstrap_assignments.js",

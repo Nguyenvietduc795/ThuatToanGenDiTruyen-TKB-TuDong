@@ -2800,6 +2800,35 @@ app.post('/api/seed/reset', async (req, res) => {
   }
 });
 
+// Seed lại phan_cong_giang_day từ dữ liệu lớp/môn/GV hiện có trong DB
+// Tương đương chạy: npm run seed:assignments
+app.post('/api/seed/assignments', async (req, res) => {
+  try {
+    console.log('[SeedAPI] Bat dau seed phan_cong_giang_day...');
+    const result = spawnSync(
+      'node',
+      [path.join(__dirname, 'scripts/bootstrap_assignments.js')],
+      { stdio: 'pipe', encoding: 'utf8', cwd: __dirname }
+    );
+    if (result.status !== 0) {
+      const errMsg = (result.stderr || result.stdout || '').trim();
+      console.error('[SeedAPI] Seed that bai:', errMsg);
+      return res.status(500).json({ ok: false, error: errMsg || 'Seed phan_cong that bai.' });
+    }
+    console.log('[SeedAPI] Seed thanh cong:\n', result.stdout);
+    const { count } = await supabase
+      .from('phan_cong_giang_day')
+      .select('*', { count: 'exact', head: true });
+    return res.json({
+      ok: true,
+      message: `Đã tạo lại phân công giảng dạy. Tổng: ${count || 0} bản ghi.`,
+      count: count || 0,
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 async function autoSeedIfEmpty() {
