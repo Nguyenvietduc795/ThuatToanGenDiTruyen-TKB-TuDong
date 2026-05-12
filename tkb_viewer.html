@@ -1362,10 +1362,20 @@ async function resetAndSeed() {
   document.getElementById('reset-icon').textContent = '⏳';
   document.getElementById('reset-text').textContent = 'Đang xóa...';
   try {
+    // Bước 1: Reset (xóa TKB + phân công)
     const res = await fetch(apiUrl('/api/seed/reset'), { method: 'POST' });
     const json = await res.json();
     if (!json.ok) throw new Error(json.error);
-    showResult('success', '✅ ' + json.message);
+
+    // Bước 2: Tự động seed lại phân công (thay thế npm run seed:all)
+    document.getElementById('reset-text').textContent = 'Đang tạo phân công...';
+    showResult('', '');
+    const seedRes = await fetch(apiUrl('/api/seed/assignments'), { method: 'POST' });
+    const seedJson = await seedRes.json();
+    if (!seedJson.ok) throw new Error('Seed phân công thất bại: ' + seedJson.error);
+
+    showResult('success', `✅ Đã xóa sạch và tạo lại phân công giảng dạy (${seedJson.count} bản ghi). Sẵn sàng tạo TKB mới.`);
+
     // Xóa cache stale trước để renderMonList không re-render dữ liệu cũ
     currentMonDisplay = [];
     monStatusMap = new Map();
@@ -1381,7 +1391,7 @@ async function resetAndSeed() {
     await Promise.all([loadViewData(), reloadMonStatus()]);
     await onLopCheckChange(); // re-fetch fresh từ DB theo lớp đang chọn
   } catch (err) {
-    showResult('error', '❌ Xóa thất bại: ' + err.message);
+    showResult('error', '❌ ' + err.message);
   } finally {
     btn.disabled = false;
     document.getElementById('reset-icon').textContent = '🗑';
