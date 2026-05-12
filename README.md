@@ -1,3 +1,12 @@
+---
+title: tkb-ga-ai
+emoji: 📅
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 # Timetable Generator
 Timetable generator for university schedule implemented in Python using *genetic algorithms*.
 
