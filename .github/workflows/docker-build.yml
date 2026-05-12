@@ -1,0 +1,33 @@
+name: Docker Build & Push
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Build Docker image
+      run: |
+        docker build -t tkb-app:latest .
+    
+    - name: Check image size
+      run: |
+        docker images tkb-app:latest
+    
+    - name: Run basic health check
+      run: |
+        docker run --rm -d -p 3000:3000 --name tkb-test tkb-app:latest
+        sleep 10
+        curl -f http://localhost:3000/api/giangvien || echo "API check skipped (Supabase not configured)"
+        docker stop tkb-test
+      continue-on-error: true

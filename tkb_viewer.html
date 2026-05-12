@@ -8,20 +8,65 @@
 <style>
   body { font-family: 'Segoe UI', sans-serif; }
   .timetable { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  .schedule-scroll { overflow:auto; max-height:72vh; }
+  .schedule-scroll .timetable { min-width:860px; }
+  .schedule-scroll thead th { position:sticky; top:0; z-index:3; background:#f3f4f6; box-shadow:0 1px 0 #d1d5db; }
   .timetable th { border:1px solid #d1d5db; background:#f3f4f6; padding:8px 4px; text-align:center; font-size:13px; font-weight:600; }
   .timetable td { border:1px solid #e5e7eb; }
   .tiet-lbl  { width:40px; text-align:center; font-size:11px; color:#6b7280; background:#f9fafb; padding:2px; }
   .empty-td  { background:#fafafa; height:30px; }
-  .free-td   { background:#f0fdf4 !important; text-align:center; vertical-align:middle; color:#16a34a; font-size:11px; font-weight:600; height:30px; }
+  .free-td   { background:#f8fafc !important; text-align:center; vertical-align:middle; color:#94a3b8; font-size:11px; font-weight:500; height:30px; letter-spacing:.03em; }
   .sess-cell { vertical-align:top; padding:3px; }
-  .sess-card { border-radius:7px; padding:5px 7px; height:100%; }
+  .sess-card { border-radius:7px; padding:5px 7px; height:100%; position:relative; overflow:hidden; }
   .sess-name { font-weight:700; font-size:12px; line-height:1.3; margin-bottom:3px; }
   .sess-info { color:#374151; font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px; }
   .badge     { display:inline-block; padding:1px 5px; border-radius:4px; font-size:9px; font-weight:700; margin-bottom:3px; }
   .bdg-lt { background:#dbeafe; color:#1d4ed8; }
   .bdg-th { background:#dcfce7; color:#15803d; }
-  .sang-hd td  { background:#fffbeb; text-align:center; font-size:11px; font-weight:700; color:#92400e; padding:5px; }
-  .chieu-hd td { background:#eff6ff; text-align:center; font-size:11px; font-weight:700; color:#1e40af; padding:5px; }
+  .bdg-stop { background:#fee2e2; color:#b91c1c; }
+  .bdg-makeup { background:#fef3c7; color:#92400e; }
+  .sess-card.is-paused { background:#fff1f2; border-left-color:#dc2626; opacity:.92; }
+  .sess-card.is-makeup { background:#fffbeb; border-left-color:#f59e0b; }
+  .sess-card.is-paused::before {
+    content:"Tạm ngưng";
+    position:absolute;
+    top:8px;
+    left:-28px;
+    width:100px;
+    transform:rotate(-45deg);
+    background:#dc2626;
+    color:#fff;
+    text-align:center;
+    font-size:9px;
+    font-weight:900;
+    line-height:18px;
+    box-shadow:0 1px 4px rgba(220,38,38,.28);
+  }
+  .sess-card.is-paused .sess-name { padding-left:14px; color:#991b1b; }
+  .sess-action { margin-top:5px; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; border-radius:6px; padding:3px 6px; font-size:10px; font-weight:800; cursor:pointer; }
+  .sess-action:hover { background:#dbeafe; }
+  .sess-action.warn { border-color:#fed7aa; background:#fff7ed; color:#c2410c; }
+  .modal-backdrop { position:fixed; inset:0; background:rgba(15,23,42,.45); display:none; align-items:center; justify-content:center; z-index:10000; padding:20px; }
+  .modal-backdrop.show { display:flex; }
+  .modal-panel { width:min(760px,100%); max-height:92vh; overflow:auto; background:#fff; border-radius:16px; box-shadow:0 20px 60px rgba(15,23,42,.25); padding:20px; }
+  .modal-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .modal-field label { display:block; color:#64748b; font-size:12px; font-weight:700; margin-bottom:5px; }
+  .modal-field input, .modal-field select, .modal-field textarea { width:100%; border:1px solid #cbd5e1; border-radius:9px; padding:9px 10px; font-size:14px; outline:none; }
+  .modal-field textarea { min-height:72px; resize:vertical; }
+  .modal-status { border-radius:10px; padding:10px 12px; font-size:13px; font-weight:700; display:none; }
+  .modal-status.ok { display:block; background:#dcfce7; color:#166534; border:1px solid #bbf7d0; }
+  .modal-status.bad { display:block; background:#fee2e2; color:#991b1b; border:1px solid #fecaca; }
+  .slot-table-wrap { border:1px solid #e5e7eb; border-radius:12px; overflow:auto; max-height:280px; }
+  .slot-table { width:100%; border-collapse:collapse; min-width:760px; font-size:12px; }
+  .slot-table th { position:sticky; top:0; background:#f8fafc; z-index:1; color:#475569; font-weight:800; border-bottom:1px solid #e5e7eb; padding:8px; text-align:left; }
+  .slot-table td { border-top:1px solid #eef2f7; padding:8px; vertical-align:top; }
+  .slot-table tr.selected { background:#eff6ff; }
+  .slot-ok { color:#15803d; font-weight:800; }
+  .slot-bad { color:#b91c1c; font-weight:800; }
+  .slot-pick { border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; border-radius:8px; padding:5px 8px; font-weight:800; }
+  .slot-pick:disabled { opacity:.4; cursor:not-allowed; }
+  .sang-hd td  { background:linear-gradient(90deg,#fffbeb 0%,#fef3c7 100%); text-align:center; font-size:12px; font-weight:800; color:#92400e; padding:9px 8px; border-top:2px solid #fbbf24; border-bottom:1px solid #fde68a; letter-spacing:.05em; text-transform:uppercase; }
+  .chieu-hd td { background:linear-gradient(90deg,#eff6ff 0%,#dbeafe 100%); text-align:center; font-size:12px; font-weight:800; color:#1e40af; padding:9px 8px; border-top:2px solid #3b82f6; border-bottom:1px solid #bfdbfe; letter-spacing:.05em; text-transform:uppercase; }
   .c-0{background:#eff6ff;border-left:3px solid #3b82f6}
   .c-1{background:#f0fdf4;border-left:3px solid #22c55e}
   .c-2{background:#faf5ff;border-left:3px solid #a855f7}
@@ -34,6 +79,14 @@
   .c-9{background:#f0f9ff;border-left:3px solid #0ea5e9}
   .c-def{background:#f9fafb;border-left:3px solid #9ca3af}
   .tab-on { background:#1d4ed8 !important; color:#fff !important; }
+  /* Nút quick-select theo khóa */
+  .khoa-btn {
+    font-size:11px; padding:3px 9px; border-radius:6px;
+    background:#e2e8f0; color:#475569; border:1px solid #cbd5e1;
+    cursor:pointer; font-weight:700; transition:all .15s; white-space:nowrap;
+  }
+  .khoa-btn:hover { background:#bfdbfe; color:#1d4ed8; border-color:#93c5fd; }
+  .khoa-btn-active { background:#1d4ed8 !important; color:#fff !important; border-color:#1d4ed8 !important; }
   .day-btn-on { background:#0f766e !important; color:#fff !important; }
   .week-nav-btn:hover { background:#e0e7ff; }
   .week-nav-btn:disabled { opacity:.35; cursor:default; }
@@ -48,9 +101,116 @@
   }
   #loading-overlay.show { display:flex; }
   .lo-spinner { width:48px; height:48px; border:5px solid #e5e7eb; border-top-color:#1d4ed8; border-radius:50%; animation: spin .8s linear infinite; }
+  .ga-panel { margin-bottom:20px; }
+  .ga-empty {
+    background:#fff;
+    border:1px dashed #cbd5e1;
+    border-radius:16px;
+    padding:18px 20px;
+    color:#64748b;
+    font-size:14px;
+    text-align:center;
+    box-shadow:0 1px 3px rgba(15,23,42,.04);
+  }
+  .ga-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; }
+  .ga-card {
+    background:#fff;
+    border:1px solid #e5e7eb;
+    border-radius:16px;
+    box-shadow:0 1px 3px rgba(15,23,42,.06), 0 8px 20px rgba(15,23,42,.04);
+    padding:18px;
+    min-width:0;
+  }
+  .ga-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:14px; }
+  .ga-card-title { font-size:15px; font-weight:800; color:#0f172a; margin:0; }
+  .ga-card-desc { font-size:12px; color:#64748b; line-height:1.5; margin:4px 0 0; }
+  .ga-badge { display:inline-flex; align-items:center; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:800; white-space:nowrap; }
+  .ga-badge-ok { background:#dcfce7; color:#166534; }
+  .ga-badge-bad { background:#ffedd5; color:#c2410c; }
+  .ga-badge-idle { background:#f1f5f9; color:#64748b; }
+  .ga-badge-run { background:#dbeafe; color:#1d4ed8; }
+  .ga-metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .ga-metric { background:#f8fafc; border:1px solid #eef2f7; border-radius:12px; padding:11px 12px; }
+  .ga-metric-label { color:#64748b; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+  .ga-metric-value { color:#111827; font-size:19px; font-weight:800; margin-top:4px; line-height:1.15; }
+  .ga-detail-btn {
+    border:1px solid #bfdbfe;
+    background:#eff6ff;
+    color:#1d4ed8;
+    border-radius:10px;
+    padding:8px 12px;
+    font-size:13px;
+    font-weight:800;
+    cursor:pointer;
+    margin-top:14px;
+  }
+  .ga-detail-btn:hover { background:#dbeafe; }
+  .ga-breakdown { margin-top:12px; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden; }
+  .ga-breakdown-row { display:flex; justify-content:space-between; gap:12px; padding:9px 12px; font-size:13px; border-top:1px solid #f1f5f9; }
+  .ga-breakdown-row:first-child { border-top:0; }
+  .ga-breakdown-name { color:#374151; }
+  .ga-breakdown-value { color:#111827; font-weight:800; }
+  .ga-breakdown-total { background:#f8fafc; border-top:1px solid #dbeafe; font-weight:900; }
+  .ga-breakdown-total .ga-breakdown-name { color:#1d4ed8; }
+  .ga-breakdown-total .ga-breakdown-value { color:#1d4ed8; }
+  .ga-chart-wrap { width:100%; overflow:hidden; }
+  .ga-chart-card { min-height:380px; display:flex; flex-direction:column; }
+  .ga-chart-body { flex:1; display:flex; flex-direction:column; min-height:300px; }
+  .ga-chart-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-bottom:12px; }
+  .ga-chart-stat { background:#f8fafc; border:1px solid #eef2f7; border-radius:10px; padding:9px 10px; min-width:0; }
+  .ga-chart-stat-label { color:#64748b; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
+  .ga-chart-stat-value { color:#0f172a; font-size:17px; font-weight:900; margin-top:3px; line-height:1.15; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ga-chart-controls { display:inline-flex; border:1px solid #dbeafe; background:#eff6ff; border-radius:10px; padding:3px; gap:3px; flex-shrink:0; }
+  .ga-chart-mode {
+    border:0;
+    background:transparent;
+    color:#475569;
+    border-radius:8px;
+    padding:6px 10px;
+    font-size:12px;
+    font-weight:800;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .ga-chart-mode.active { background:#4f46e5; color:#fff; box-shadow:0 2px 8px rgba(79,70,229,.22); }
+  .ga-chart-mode:hover:not(.active) { background:#dbeafe; color:#1d4ed8; }
+  .ga-chart-tooltip {
+    position:fixed;
+    display:none;
+    pointer-events:none;
+    z-index:30;
+    background:#0f172a;
+    color:#fff;
+    border-radius:9px;
+    padding:8px 10px;
+    box-shadow:0 10px 24px rgba(15,23,42,.24);
+    font-size:12px;
+    line-height:1.45;
+  }
+  .ga-chart-tooltip strong { display:block; font-size:12px; color:#bfdbfe; margin-bottom:2px; }
+  .ga-chart { width:100%; height:300px; display:block; flex:1; min-height:280px; }
+  .ga-axis { stroke:#cbd5e1; stroke-width:1; }
+  .ga-grid-line { stroke:#eef2f7; stroke-width:1; }
+  .ga-line { fill:none; stroke:#2563eb; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+  .ga-area { fill:rgba(37,99,235,.09); }
+  .ga-point { fill:#2563eb; stroke:#fff; stroke-width:2; }
+  .ga-label { fill:#64748b; font-size:11px; font-weight:600; }
+  .ga-axis-title { fill:#334155; font-size:12px; font-weight:800; }
+  .ga-hit { fill:transparent; cursor:crosshair; }
+  .ga-loading { display:flex; align-items:center; justify-content:center; gap:10px; min-height:144px; color:#1d4ed8; font-weight:800; }
+  .ga-run-meta { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:14px; }
+  .ga-run-meta-item { display:flex; flex-direction:column; gap:2px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:8px 10px; }
+  .ga-run-meta-label { color:#0369a1; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+  .ga-run-meta-val { color:#0c4a6e; font-size:13px; font-weight:800; }
+  .ga-run-note { font-size:11.5px; color:#92400e; background:#fffbeb; border:1px solid #fde68a; border-radius:9px; padding:7px 10px; margin-top:12px; line-height:1.5; }
+  @media (max-width: 900px) {
+    .ga-grid { grid-template-columns:1fr; }
+    .ga-chart-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .ga-chart { height:280px; }
+  }
 </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="min-h-screen" style="background:#f4f7fb">
 <script src="/sidebar.js"></script>
 
 <!-- Loading overlay -->
@@ -62,7 +222,7 @@
 <div class="max-w-screen-xl mx-auto p-4">
 
   <!-- Header -->
-  <div class="bg-gradient-to-r from-blue-700 to-indigo-600 text-white rounded-2xl p-5 mb-5 shadow-lg flex items-center gap-4">
+  <div style="background:linear-gradient(135deg,#2563eb 0%,#4f46e5 100%);box-shadow:0 4px 20px rgba(37,99,235,0.22)" class="text-white rounded-2xl p-5 mb-5 flex items-center gap-4">
     <div class="text-5xl">📅</div>
     <div class="flex-1">
       <h1 class="text-2xl font-bold tracking-tight">Thời Khóa Biểu</h1>
@@ -76,7 +236,8 @@
   <div class="bg-white rounded-2xl shadow mb-5 overflow-hidden">
     <!-- Tiêu đề panel (click để toggle) -->
     <button onclick="toggleGenPanel()"
-      class="w-full flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-sm rounded-t-2xl hover:opacity-95 transition-all">
+      style="background:linear-gradient(135deg,#4f46e5 0%,#2563eb 100%)"
+      class="w-full flex items-center justify-between px-5 py-3.5 text-white font-bold text-sm rounded-t-2xl hover:opacity-95 transition-all">
       <span>🚀 Tạo Thời Khóa Biểu (Thuật Toán Di Truyền)</span>
       <span id="gen-panel-arrow" class="text-lg transition-transform">▲</span>
     </button>
@@ -98,7 +259,14 @@
                 class="text-xs px-2 py-0.5 rounded-md bg-gray-200 text-gray-600 hover:bg-gray-300 font-medium">Bỏ</button>
             </div>
           </div>
-          <input id="lop-search" type="text" placeholder="🔍 Tìm lớp..." oninput="filterLopList()"
+          <!-- Quick-select theo khóa học -->
+          <div id="khoa-btns" class="flex flex-wrap gap-1 mb-2">
+            <button onclick="selectKhoa('DH22')" data-prefix="DH22" class="khoa-btn">K10 · DH22</button>
+            <button onclick="selectKhoa('DH23')" data-prefix="DH23" class="khoa-btn">K11 · DH23</button>
+            <button onclick="selectKhoa('DH24')" data-prefix="DH24" class="khoa-btn">K12 · DH24</button>
+            <button onclick="selectKhoa('DH25')" data-prefix="DH25" class="khoa-btn">K13 · DH25</button>
+          </div>
+          <input id="lop-search" type="text" placeholder="🔍 Tìm lớp..." oninput="filterLopList(); clearKhoaActive();"
             class="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs mb-2 focus:outline-none focus:ring-1 focus:ring-blue-300 bg-white">
           <div id="lop-list" class="overflow-y-auto max-h-44 space-y-0.5">
             <p class="text-xs text-gray-400 px-2 py-2 text-center">⏳ Đang tải...</p>
@@ -127,60 +295,50 @@
         </div>
       </div>
 
-      <!-- Tuần + Học kỳ + Năm học + Nâng cao -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <div>
-          <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Tuần học *</label>
-          <input id="gen-tuan" type="number" min="1" value="1"
-            class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Học kỳ</label>
-          <select id="gen-hocky"
-            class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-            <option value="">-- Tất cả --</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Năm học</label>
-          <input id="gen-namhoc" type="text" placeholder="vd: 2024-2025"
-            class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-        </div>
-        <div class="flex items-end">
-          <button onclick="toggleAdvanced()"
-            class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 font-medium">
-            ⚙️ Nâng cao
-          </button>
-        </div>
+      <!-- Học kỳ -->
+      <div class="mb-4">
+        <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Học kỳ</label>
+        <select id="gen-hocky"
+          class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+          <option value="">-- Tất cả --</option>
+        </select>
       </div>
 
-      <!-- Advanced -->
-      <div id="gen-advanced" class="hidden grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-        <div>
-          <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Số thế hệ (maxGen)</label>
-          <input id="gen-maxgen" type="number" min="10" value="500"
-            class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-          <p class="text-xs text-gray-400 mt-1">Cao hơn = chất lượng tốt hơn, chạy lâu hơn</p>
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Kích thước quần thể (popSize)</label>
-          <input id="gen-popsize" type="number" min="5" value="20"
-            class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-          <p class="text-xs text-gray-400 mt-1">Thường 20–50 là đủ</p>
+      <!-- Cấu hình GA nâng cao (collapsible) -->
+      <div class="mb-4">
+        <button type="button" onclick="toggleAdvanced()"
+          class="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 font-semibold transition-colors">
+          <span id="gen-adv-arrow" style="font-size:9px">▶</span>
+          ⚙ Cấu hình GA nâng cao
+        </button>
+        <div id="gen-advanced" class="hidden grid grid-cols-2 gap-4 mt-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <div>
+            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Số thế hệ (maxGen)</label>
+            <input id="gen-maxgen" type="number" min="10" value="500"
+              class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <p class="text-xs text-gray-400 mt-1">Cao hơn = chất lượng tốt hơn, chạy lâu hơn</p>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Kích thước quần thể (popSize)</label>
+            <input id="gen-popsize" type="number" min="5" value="20"
+              class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <p class="text-xs text-gray-400 mt-1">Thường 20–50 là đủ</p>
+          </div>
         </div>
       </div>
 
       <!-- Generate button + status -->
       <div class="flex items-center gap-4 flex-wrap">
         <button onclick="generateTKB()" id="gen-btn"
-          class="px-8 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-lg transition-all flex items-center gap-2">
+          style="background:#1d4ed8" onmouseover="this.style.background='#1e3a8a'" onmouseout="this.style.background='#1d4ed8'"
+          class="px-8 py-3 rounded-xl text-white font-bold text-sm shadow-lg transition-all flex items-center gap-2">
           <span id="gen-btn-icon">🚀</span>
           <span id="gen-btn-text">Tạo Thời Khóa Biểu</span>
           <span id="gen-spinner" class="spinner-icon">⏳</span>
         </button>
-        <button onclick="resetAndSeed()" id="reset-btn" title="Xóa toàn bộ TKB + phân công rồi seed lại từ đầu"
+        <button onclick="resetAndSeed()" id="reset-btn" title="Xóa sạch 3 bảng: thoi_khoa_bieu, phan_cong_giang_day, khung_thoi_gian"
           class="px-4 py-3 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-semibold text-sm transition-all flex items-center gap-2">
-          <span id="reset-icon">🔄</span>
+          <span id="reset-icon">🗑</span>
           <span id="reset-text">Reset dữ liệu</span>
         </button>
         <div id="gen-status" class="text-sm text-gray-500 italic flex-1"></div>
@@ -189,47 +347,76 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- CONTROLS XEM TKB                                      -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <div class="bg-white rounded-2xl shadow px-5 py-4 mb-5 flex flex-wrap items-end gap-4">
-    <div>
-      <label class="block text-xs font-semibold text-gray-500 mb-1">Tuần xem</label>
-      <input id="view-tuan" type="number" min="1" value="1"
-        class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-20 focus:outline-none focus:ring-2 focus:ring-blue-400">
-    </div>
-    <div>
-      <label class="block text-xs font-semibold text-gray-500 mb-1">Học kỳ</label>
-      <select id="view-hocky" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
-        <option value="">-- Tất cả --</option>
-      </select>
-    </div>
-    <div>
-      <label class="block text-xs font-semibold text-gray-500 mb-1">Năm học</label>
-      <input id="view-namhoc" type="text" placeholder="vd: 2024-2025"
-        class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-36 focus:outline-none focus:ring-2 focus:ring-blue-400">
-    </div>
-    <button onclick="loadViewData()"
-      class="px-6 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow transition-all">
-      🔄 Tải TKB
-    </button>
-    <span id="view-status" class="text-xs text-gray-400 italic self-center"></span>
+  <!-- Inputs ẩn giữ nguyên ID để JS tham chiếu -->
+  <div style="display:none" aria-hidden="true">
+    <input id="view-tuan" type="number" min="0" value="1">
+    <select id="view-hocky"><option value="">-- Tất cả --</option></select>
+    <input id="view-namhoc" type="text" placeholder="vd: 2024-2025">
   </div>
+
+  <!-- GA result panel -->
+  <section id="ga-panel" class="ga-panel">
+    <div id="ga-empty" class="ga-empty">
+      Chưa có dữ liệu phân tích. Hãy bấm Tạo Thời Khóa Biểu để xem kết quả.
+    </div>
+
+    <div id="ga-running" class="ga-card hidden">
+      <div class="ga-loading">
+        <span class="spinner-icon">⏳</span>
+        <span>Đang chạy thuật toán di truyền...</span>
+      </div>
+    </div>
+
+    <div id="ga-content" class="ga-grid hidden">
+      <div class="ga-card">
+        <div class="ga-card-head">
+          <div>
+            <h2 class="ga-card-title">Kết quả lần chạy GA gần nhất</h2>
+            <p class="ga-card-desc">Tổng quan chi phí và trạng thái nghiệm tốt nhất hiện tại.</p>
+          </div>
+          <span id="ga-valid-badge" class="ga-badge ga-badge-idle">Chưa có dữ liệu</span>
+        </div>
+        <div id="ga-run-meta" class="ga-run-meta hidden"></div>
+        <div id="ga-summary" class="ga-metrics"></div>
+        <p class="ga-run-note">💡 Fitness/cost phụ thuộc vào phạm vi dữ liệu được chọn. Chỉ nên so sánh giữa các lần chạy có cùng lớp, môn và học kỳ.</p>
+        <button id="ga-detail-btn" type="button" class="ga-detail-btn" onclick="toggleGABreakdown()">Xem chi tiết đánh giá</button>
+        <div id="ga-breakdown" class="ga-breakdown hidden"></div>
+      </div>
+
+      <div class="ga-card ga-chart-card">
+        <div class="ga-card-head">
+          <div>
+            <h2 class="ga-card-title">Biểu đồ hội tụ GA</h2>
+            <p class="ga-card-desc">Cost giảm dần qua từng thế hệ, thể hiện quá trình thuật toán cải thiện thời khóa biểu.</p>
+          </div>
+          <div class="ga-chart-controls" aria-label="Chế độ xem biểu đồ">
+            <button id="ga-mode-all" type="button" class="ga-chart-mode active" onclick="setGAChartMode('all')">Toàn bộ</button>
+            <button id="ga-mode-first50" type="button" class="ga-chart-mode" onclick="setGAChartMode('first50')">50 thế hệ đầu</button>
+          </div>
+        </div>
+        <div class="ga-chart-body">
+          <div id="ga-chart-stats" class="ga-chart-stats"></div>
+          <div id="ga-chart" class="ga-chart-wrap"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <div id="ga-chart-tooltip" class="ga-chart-tooltip"></div>
 
   <!-- Tab buttons -->
   <div class="flex gap-2 mb-4 flex-wrap">
     <button id="btn-ql" onclick="switchTab('ql')"
-      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">🏫 Quản lý</button>
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 transition-all">🏫 Quản lý</button>
     <button id="btn-gv" onclick="switchTab('gv')"
-      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">👨‍🏫 Giảng viên</button>
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 transition-all">👨‍🏫 Giảng viên</button>
     <button id="btn-sv" onclick="switchTab('sv')"
-      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">🎓 Sinh viên</button>
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 transition-all">🎓 Sinh viên</button>
     <button id="btn-ph" onclick="switchTab('ph')"
-      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-600 transition-all">🏛 Phòng học</button>
+      class="px-5 py-2.5 rounded-xl font-semibold text-sm shadow bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 transition-all">🏛 Phòng học</button>
   </div>
 
   <!-- Week nav -->
-  <div class="bg-white rounded-2xl shadow px-4 py-3 mb-5 flex items-center justify-between gap-4">
+  <div class="bg-white rounded-2xl shadow px-4 py-3 mb-5 flex flex-wrap items-center justify-between gap-4">
     <button onclick="prevWeek()" id="btn-prev"
       class="week-nav-btn px-4 py-2 rounded-xl font-semibold text-sm border border-gray-200 text-gray-700 transition-all">← Tuần trước</button>
     <div class="text-center flex-1">
@@ -238,15 +425,27 @@
     </div>
     <button onclick="nextWeek()" id="btn-next"
       class="week-nav-btn px-4 py-2 rounded-xl font-semibold text-sm border border-gray-200 text-gray-700 transition-all">Tuần sau →</button>
+    <div class="w-full border-t border-gray-100 pt-3 flex items-center gap-3">
+      <input id="calendar-date" type="date" onchange="selectCalendarDate(this.value)"
+        class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white">
+      <button type="button" onclick="selectToday()"
+        class="px-4 py-2 rounded-xl font-semibold text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all">📅 Hôm nay</button>
+      <button onclick="loadViewData()"
+        style="background:#1d4ed8" onmouseover="this.style.background='#1e3a8a'" onmouseout="this.style.background='#1d4ed8'"
+        class="px-4 py-2 rounded-xl text-white font-semibold text-sm shadow transition-all flex items-center gap-1">
+        🔄 Tải TKB
+      </button>
+      <span id="view-status" class="hidden"></span>
+    </div>
   </div>
 
   <!-- TAB: Quản lý -->
   <div id="tab-ql" class="tab-pane">
     <div id="stats-row" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"></div>
     <div id="legend-row" class="flex flex-wrap gap-2 mb-4 bg-white rounded-xl p-3 shadow text-xs items-center"></div>
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
-      <p class="text-xs text-gray-400 mb-3">Tất cả buổi học trong tuần. Nhiều thẻ cùng ô = song song.</p>
-      <div id="grid-ql"></div>
+    <div class="bg-white rounded-2xl shadow overflow-hidden">
+      <p class="text-xs text-gray-400 px-4 pt-3 pb-2">Tất cả buổi học trong tuần. Nhiều thẻ cùng ô = song song.</p>
+      <div class="schedule-scroll"><div id="grid-ql"></div></div>
     </div>
   </div>
 
@@ -258,7 +457,7 @@
         class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-52 bg-white"></select>
       <span id="gv-info" class="text-xs text-gray-400 italic"></span>
     </div>
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto"><div id="grid-gv"></div></div>
+    <div class="bg-white rounded-2xl shadow overflow-hidden"><div class="schedule-scroll"><div id="grid-gv"></div></div></div>
   </div>
 
   <!-- TAB: Sinh viên -->
@@ -268,7 +467,7 @@
       <select id="sel-lop" onchange="renderSV()"
         class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 min-w-52 bg-white"></select>
     </div>
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto"><div id="grid-sv"></div></div>
+    <div class="bg-white rounded-2xl shadow overflow-hidden"><div class="schedule-scroll"><div id="grid-sv"></div></div></div>
   </div>
 
   <!-- TAB: Phòng học -->
@@ -280,12 +479,60 @@
     </div>
     <div class="flex gap-4 mb-4 text-xs items-center bg-white rounded-xl p-3 shadow">
       <span class="text-gray-500 font-medium">Chú thích:</span>
-      <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-green-50 border border-green-200 text-green-700 font-semibold">🟢 TRỐNG</span>
-      <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-semibold">📘 Có lịch</span>
+      <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 font-semibold">🔵 LT – Lý thuyết</span>
+      <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-green-50 border border-green-200 text-green-700 font-semibold">🟢 TH – Thực hành</span>
+      <span class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-400 font-semibold">— Trống</span>
     </div>
-    <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto"><div id="grid-ph"></div></div>
+    <div class="bg-white rounded-2xl shadow overflow-hidden"><div class="schedule-scroll"><div id="grid-ph"></div></div></div>
   </div>
 
+</div>
+
+<div id="makeup-modal" class="modal-backdrop">
+  <div class="modal-panel">
+    <div class="flex items-start justify-between gap-3 mb-4">
+      <div>
+        <h2 id="makeup-title" class="text-lg font-bold text-gray-900">Tạm ngưng / Tạo học bù</h2>
+        <div id="makeup-original" class="text-sm text-gray-500 mt-1"></div>
+      </div>
+      <button type="button" onclick="closeMakeupModal()" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 font-bold">Đóng</button>
+    </div>
+    <input type="hidden" id="makeup-mode">
+    <input type="hidden" id="makeup-matkb">
+    <input type="hidden" id="makeup-makhung">
+    <div class="modal-grid">
+      <div class="modal-field">
+        <label>Tuần học bù</label>
+        <input id="makeup-week" type="number" min="0" onchange="syncMakeupDateToWeek(); loadAvailableMakeupSlots()">
+      </div>
+      <div class="modal-field">
+        <label>Ngày học bù</label>
+        <input id="makeup-date" type="date" onchange="syncMakeupWeekToDate(); loadAvailableMakeupSlots()">
+      </div>
+      <div class="modal-field">
+        <label>Phòng trống phù hợp</label>
+        <select id="makeup-room"></select>
+      </div>
+      <div class="modal-field" style="grid-column:1/-1">
+        <label>Lý do</label>
+        <textarea id="makeup-reason" placeholder="VD: Giảng viên bận đột xuất"></textarea>
+      </div>
+    </div>
+    <div class="mt-4">
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <div class="text-sm font-bold text-gray-700">Slot học bù khả dụng</div>
+        <button type="button" onclick="loadAvailableMakeupSlots()" class="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 font-bold text-sm">Tải slot</button>
+      </div>
+      <div id="makeup-slot-table" class="slot-table-wrap">
+        <div class="p-4 text-sm text-gray-400">Chọn tuần/ngày để tải slot khả dụng.</div>
+      </div>
+    </div>
+    <div id="makeup-status" class="modal-status mt-4"></div>
+    <div class="flex flex-wrap justify-end gap-2 mt-5">
+      <button type="button" onclick="checkMakeupSlot()" class="px-4 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 font-bold">Kiểm tra trùng lịch</button>
+      <button id="makeup-submit" type="button" onclick="submitMakeup()" class="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold">Tạo học bù</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -293,6 +540,9 @@
    DATA & STATE
 ════════════════════════════════════════════════════════════════ */
 let DATA = null;
+let sessionByMatkb = new Map();
+let availableMakeupSlots = [];
+let selectedMakeupSlot = null;
 
 const API_ORIGIN = (
   window.location.origin && /^https?:\/\/localhost:3000$/i.test(window.location.origin)
@@ -301,7 +551,7 @@ function apiUrl(path) {
   return `${API_ORIGIN}${path}`;
 }
 
-const DAYS      = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+const DAYS      = ['Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7','CN'];
 const PALETTE   = ['c-0','c-1','c-2','c-3','c-4','c-5','c-6','c-7','c-8','c-9'];
 let   colorMap  = {};
 
@@ -310,6 +560,320 @@ function assignColors(list) {
   list.forEach((m, i) => { colorMap[m.mamon] = PALETTE[i % PALETTE.length]; });
 }
 function clr(mamon) { return colorMap[mamon] || 'c-def'; }
+
+let gaBreakdownOpen = false;
+let gaChartMode = 'all';
+let gaChartHistory = [];
+const GA_LATEST_KEY = 'tkb_ga_latest_v1';
+
+function setGAState(state) {
+  document.getElementById('ga-empty').classList.toggle('hidden', state !== 'empty');
+  document.getElementById('ga-running').classList.toggle('hidden', state !== 'running');
+  document.getElementById('ga-content').classList.toggle('hidden', state !== 'ready');
+}
+
+function normalizeGAResult(json) {
+  const source = json || {};
+  const summary = source.summary || source.ga_summary || {};
+  return {
+    summary,
+    history: source.history || source.ga_history || source.convergence || [],
+    breakdown: source.breakdown || source.ga_breakdown || {},
+    meta: source.meta || null,
+  };
+}
+
+function saveGAResult(result, tuan, mahk, namhoc, meta) {
+  try {
+    const ga = normalizeGAResult(result);
+    localStorage.setItem(GA_LATEST_KEY, JSON.stringify({
+      saved_at: new Date().toISOString(),
+      summary: ga.summary,
+      history: ga.history,
+      breakdown: ga.breakdown,
+      meta: meta || ga.meta || null,
+    }));
+  } catch (err) {
+    console.warn('Khong luu duoc ket qua GA:', err.message);
+  }
+}
+
+function buildRunMeta(malops, mamons, result) {
+  const summary = result?.summary || result?.ga_summary || {};
+  const activeKhoa = document.querySelector('.khoa-btn-active');
+  let scopeLabel;
+  if (malops.length === 0) {
+    scopeLabel = 'Tất cả khóa';
+  } else if (malops.length === 1) {
+    scopeLabel = `1 lớp — ${malops[0]}`;
+  } else if (activeKhoa) {
+    scopeLabel = `Khóa ${activeKhoa.dataset.prefix}`;
+  } else {
+    scopeLabel = `${malops.length} lớp tùy chọn`;
+  }
+  const soLop = malops.length > 0 ? malops.length : (Number(summary?.classes) || '-');
+  const soBuoi = summary?.total_sessions != null
+    ? Number(summary.total_sessions)
+    : summary?.sessions != null
+      ? Number(summary.sessions)
+      : '-';
+  return { scopeLabel, soLop, soBuoi };
+}
+
+function renderGAMeta(meta) {
+  const el = document.getElementById('ga-run-meta');
+  if (!meta || !meta.scopeLabel) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  el.innerHTML = [
+    ['Phạm vi chạy', meta.scopeLabel],
+    ['Số lớp', meta.soLop],
+    ['Số buổi cần xếp', meta.soBuoi],
+  ].map(([label, val]) => `
+    <div class="ga-run-meta-item">
+      <span class="ga-run-meta-label">${label}</span>
+      <span class="ga-run-meta-val">${val}</span>
+    </div>
+  `).join('');
+}
+
+function loadStoredGAResult() {
+  try {
+    const raw = localStorage.getItem(GA_LATEST_KEY);
+    if (!raw) {
+      setGAState('empty');
+      return;
+    }
+    renderGAResult(JSON.parse(raw));
+  } catch (err) {
+    console.warn('Khong doc duoc ket qua GA da luu:', err.message);
+    setGAState('empty');
+  }
+}
+
+function fmtCost(value) {
+  return Number.isFinite(Number(value)) ? Number(value).toLocaleString('vi-VN') : '-';
+}
+
+function fmtRuntime(seconds) {
+  const n = Number(seconds);
+  return Number.isFinite(n) ? `${n.toFixed(n >= 10 ? 0 : 1)} giây` : '-';
+}
+
+function pctChange(start, end) {
+  const a = Number(start);
+  const b = Number(end);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a === 0) return '-';
+  return `${(((a - b) / a) * 100).toFixed(1)}%`;
+}
+
+function renderGASummary(summary) {
+  const hardCost = Number(summary?.hard_cost);
+  const hasHardCost = Number.isFinite(hardCost);
+  const isValid = summary?.is_valid ?? (hasHardCost && hardCost === 0);
+  const badge = document.getElementById('ga-valid-badge');
+  badge.textContent = hasHardCost ? (isValid ? 'Lịch hợp lệ' : 'Lịch chưa hợp lệ') : 'Chưa có dữ liệu đánh giá';
+  badge.className = `ga-badge ${hasHardCost ? (isValid ? 'ga-badge-ok' : 'ga-badge-bad') : 'ga-badge-idle'}`;
+
+  const metrics = [
+    ['Trạng thái chạy thuật toán', 'Đã hoàn tất'],
+    ['Total cost / Fitness', fmtCost(summary?.total_cost ?? summary?.fitness)],
+    ['Hard cost', fmtCost(summary?.hard_cost)],
+    ['Soft cost', fmtCost(summary?.soft_cost)],
+    ['Thế hệ', `${fmtCost(summary?.generation)} / ${fmtCost(summary?.max_generation)}`],
+    ['Thời gian chạy', fmtRuntime(summary?.runtime_seconds)],
+  ];
+  document.getElementById('ga-summary').innerHTML = metrics.map(([label, value]) => `
+    <div class="ga-metric">
+      <div class="ga-metric-label">${label}</div>
+      <div class="ga-metric-value">${value}</div>
+    </div>
+  `).join('');
+}
+
+function renderGABreakdown(breakdown) {
+  const labels = [
+    ['teacher_conflicts', 'Trùng giảng viên'],
+    ['class_conflicts', 'Trùng lớp'],
+    ['room_type_conflicts', 'Sai loại phòng'],
+    ['same_assignment_same_day', 'Một phân công học nhiều buổi cùng ngày'],
+    ['student_gaps', 'Tiết trống lớp'],
+    ['teacher_gaps', 'Tiết trống giảng viên'],
+    ['same_subject_same_day', 'Cùng lớp học cùng môn nhiều buổi trong ngày'],
+  ];
+  const hasValue = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+  document.getElementById('ga-breakdown').innerHTML = labels.map(([key, label]) => `
+    <div class="ga-breakdown-row">
+      <span class="ga-breakdown-name">${label}</span>
+      <span class="ga-breakdown-value">${hasValue(breakdown, key) ? fmtCost(breakdown[key]) : '-'}</span>
+    </div>
+  `).join('');
+}
+
+function renderGABreakdown(breakdown) {
+  const hardLabels = [
+    ['teacher_conflicts', 'Trùng giảng viên'],
+    ['class_conflicts', 'Trùng lớp'],
+    ['room_type_conflicts', 'Sai loại phòng'],
+    ['same_assignment_same_day', 'Một phân công học nhiều buổi cùng ngày'],
+  ];
+  const softLabels = [
+    ['student_gaps', 'Tiết trống lớp'],
+    ['teacher_gaps', 'Tiết trống giảng viên'],
+    ['fragmentation', 'Lớp học cả sáng và chiều trong ngày'],
+    ['same_subject_same_day', 'Cùng lớp học cùng môn nhiều buổi trong ngày'],
+    ['specialization_mismatch', 'Giảng viên dạy không đúng chuyên môn'],
+  ];
+  const hasValue = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
+  const rows = [...hardLabels, ...softLabels].map(([key, label]) => `
+    <div class="ga-breakdown-row">
+      <span class="ga-breakdown-name">${label}</span>
+      <span class="ga-breakdown-value">${hasValue(breakdown, key) ? fmtCost(breakdown[key]) : '-'}</span>
+    </div>
+  `);
+  const softTotal = hasValue(breakdown, 'total_soft_penalty')
+    ? Number(breakdown.total_soft_penalty)
+    : softLabels.reduce((sum, [key]) => sum + (Number(breakdown?.[key]) || 0), 0);
+  rows.push(`
+    <div class="ga-breakdown-row ga-breakdown-total">
+      <span class="ga-breakdown-name">Tổng soft penalty</span>
+      <span class="ga-breakdown-value">${fmtCost(softTotal)}</span>
+    </div>
+  `);
+  document.getElementById('ga-breakdown').innerHTML = rows.join('');
+}
+
+function normalizeGAHistory(history) {
+  return (history || []).filter(p =>
+    Number.isFinite(Number(p.generation)) && Number.isFinite(Number(p.best_cost))
+  ).map(p => ({
+    generation: Number(p.generation),
+    best_cost: Number(p.best_cost),
+  })).sort((a, b) => a.generation - b.generation);
+}
+
+function sampleGAHistory(points) {
+  if (gaChartMode === 'first50') {
+    return points.filter(p => p.generation <= 50);
+  }
+  if (points.length <= 90) return points;
+  const maxGeneration = points[points.length - 1]?.generation || points.length;
+  const step = maxGeneration > 500 ? 10 : 5;
+  const sampled = points.filter((p, i) => i === 0 || i === points.length - 1 || p.generation % step === 0);
+  const last = points[points.length - 1];
+  if (sampled[sampled.length - 1] !== last) sampled.push(last);
+  return sampled;
+}
+
+function renderGAChartStats(points) {
+  const first = points[0];
+  const best = points.reduce((min, p) => p.best_cost < min.best_cost ? p : min, points[0]);
+  const initialCost = first?.best_cost;
+  const bestCost = best?.best_cost;
+  const reduction = Number(initialCost) - Number(bestCost);
+  const stats = [
+    ['Cost ban đầu', fmtCost(initialCost)],
+    ['Cost tốt nhất', fmtCost(bestCost)],
+    ['Mức giảm cost', Number.isFinite(reduction) ? fmtCost(reduction) : '-'],
+    ['Tỷ lệ giảm', pctChange(initialCost, bestCost)],
+  ];
+  document.getElementById('ga-chart-stats').innerHTML = stats.map(([label, value]) => `
+    <div class="ga-chart-stat">
+      <div class="ga-chart-stat-label">${label}</div>
+      <div class="ga-chart-stat-value">${value}</div>
+    </div>
+  `).join('');
+}
+
+function setGAChartMode(mode) {
+  gaChartMode = mode;
+  document.getElementById('ga-mode-all').classList.toggle('active', mode === 'all');
+  document.getElementById('ga-mode-first50').classList.toggle('active', mode === 'first50');
+  renderGAChart(gaChartHistory);
+}
+
+function showGAChartTooltip(evt, generation, bestCost) {
+  const tooltip = document.getElementById('ga-chart-tooltip');
+  tooltip.innerHTML = `<strong>Generation ${fmtCost(generation)}</strong>Best cost: ${fmtCost(bestCost)}`;
+  tooltip.style.left = `${evt.clientX + 12}px`;
+  tooltip.style.top = `${evt.clientY + 12}px`;
+  tooltip.style.display = 'block';
+}
+
+function hideGAChartTooltip() {
+  document.getElementById('ga-chart-tooltip').style.display = 'none';
+}
+
+function renderGAChart(history) {
+  gaChartHistory = normalizeGAHistory(history);
+  const allPoints = gaChartHistory;
+  const points = sampleGAHistory(allPoints);
+  if (!allPoints.length) {
+    document.getElementById('ga-chart-stats').innerHTML = '';
+    document.getElementById('ga-chart').innerHTML = '<div class="ga-empty">Chưa có dữ liệu biểu đồ hội tụ.</div>';
+    return;
+  }
+  renderGAChartStats(allPoints);
+  if (!points.length) {
+    document.getElementById('ga-chart').innerHTML = '<div class="ga-empty">Không có dữ liệu trong phạm vi 50 thế hệ đầu.</div>';
+    return;
+  }
+
+  const w = 720, h = 320, left = 62, right = 24, top = 18, bottom = 50;
+  const xs = points.map(p => p.generation);
+  const ys = points.map(p => p.best_cost);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const rawMinY = Math.min(...ys), rawMaxY = Math.max(...ys);
+  const rawYRange = Math.max(1, rawMaxY - rawMinY);
+  const minY = Math.max(0, rawMinY - rawYRange * 0.08);
+  const maxY = rawMaxY + rawYRange * 0.06;
+  const xRange = Math.max(1, maxX - minX);
+  const yRange = Math.max(1, maxY - minY);
+  const x = v => left + ((v - minX) / xRange) * (w - left - right);
+  const y = v => top + ((maxY - v) / yRange) * (h - top - bottom);
+  const line = points.map(p => `${x(p.generation).toFixed(1)},${y(p.best_cost).toFixed(1)}`).join(' ');
+  const area = `${left},${h-bottom} ${line} ${w-right},${h-bottom}`;
+  const yTicks = [maxY, Math.round((maxY + minY) / 2), minY];
+  const xMid = Math.round((minX + maxX) / 2);
+
+  document.getElementById('ga-chart').innerHTML = `
+    <svg class="ga-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Biểu đồ best_cost theo generation" preserveAspectRatio="none">
+      ${yTicks.map(t => `<line class="ga-grid-line" x1="${left}" y1="${y(t)}" x2="${w-right}" y2="${y(t)}"></line>`).join('')}
+      <line class="ga-axis" x1="${left}" y1="${top}" x2="${left}" y2="${h-bottom}"></line>
+      <line class="ga-axis" x1="${left}" y1="${h-bottom}" x2="${w-right}" y2="${h-bottom}"></line>
+      <polygon class="ga-area" points="${area}"></polygon>
+      <polyline class="ga-line" points="${line}"></polyline>
+      ${points.map(p => `<circle class="ga-point" cx="${x(p.generation)}" cy="${y(p.best_cost)}" r="4"></circle>`).join('')}
+      ${points.map(p => `<circle class="ga-hit" cx="${x(p.generation)}" cy="${y(p.best_cost)}" r="12" onmousemove="showGAChartTooltip(event, ${p.generation}, ${p.best_cost})" onmouseleave="hideGAChartTooltip()"></circle>`).join('')}
+      ${yTicks.map(t => `<text class="ga-label" x="8" y="${y(t)+4}">${fmtCost(t)}</text>`).join('')}
+      <text class="ga-label" x="${left}" y="${h-10}">Gen ${fmtCost(minX)}</text>
+      <text class="ga-label" x="${x(xMid)-24}" y="${h-10}">Gen ${fmtCost(xMid)}</text>
+      <text class="ga-label" x="${w-right-72}" y="${h-10}">Gen ${fmtCost(maxX)}</text>
+      <text class="ga-axis-title" x="${w/2-28}" y="${h-28}">Thế hệ</text>
+      <text class="ga-axis-title" x="14" y="${top+14}" transform="rotate(-90 14 ${top+14})">Cost</text>
+    </svg>
+  `;
+}
+
+function renderGAResult(result) {
+  const ga = normalizeGAResult(result);
+  gaBreakdownOpen = false;
+  gaChartMode = 'all';
+  document.getElementById('ga-mode-all').classList.add('active');
+  document.getElementById('ga-mode-first50').classList.remove('active');
+  document.getElementById('ga-breakdown').classList.add('hidden');
+  document.getElementById('ga-detail-btn').textContent = 'Xem chi tiết đánh giá';
+  renderGASummary(ga.summary);
+  renderGAMeta(ga.meta);
+  renderGABreakdown(ga.breakdown);
+  renderGAChart(ga.history);
+  setGAState('ready');
+}
+
+function toggleGABreakdown() {
+  gaBreakdownOpen = !gaBreakdownOpen;
+  document.getElementById('ga-breakdown').classList.toggle('hidden', !gaBreakdownOpen);
+  document.getElementById('ga-detail-btn').textContent = gaBreakdownOpen ? 'Ẩn chi tiết đánh giá' : 'Xem chi tiết đánh giá';
+}
 
 /* ════════════════════════════════════════════════════════════════
    PANEL TẠO TKB
@@ -324,6 +888,7 @@ let advancedOpen = false;
 function toggleAdvanced() {
   advancedOpen = !advancedOpen;
   document.getElementById('gen-advanced').classList.toggle('hidden', !advancedOpen);
+  document.getElementById('gen-adv-arrow').textContent = advancedOpen ? '▼' : '▶';
 }
 
 /* ── State cho checkbox lists ── */
@@ -332,18 +897,22 @@ let allMonList  = [];
 let allPhanCong = [];
 let lopMonMap   = new Map(); // malop → Set<mamon>
 let currentMonDisplay = []; // môn đang hiển thị
-let monStatusMap = new Map(); // mamon → { remaining, exhausted, tongsotiet, scheduled }
+// mapc → { mapc, malop, mamon, tongsotiet, scheduled, remaining, exhausted }
+// KEY là mapc (per assignment), KHÔNG phải mamon.
+// Dùng getStatusForMamon(mamon) để tra trạng thái đúng theo lớp đang chọn.
+let monStatusMap = new Map();
 
 /* ── Load data cho 2 danh sách ── */
 async function loadHocKyOptions() {
   try {
     const list = await fetch(apiUrl('/api/hocky')).then(r => r.json());
     const opts = list.map(h =>
-      `<option value="${h.mahk}">${h.tenhocky} — ${h.namhoc}${h.trangthai === 'Đang mở' ? ' ✅' : ''}</option>`
+      `<option value="${h.mahk}" data-namhoc="${h.namhoc}">${h.tenhocky} — ${h.namhoc}${h.trangthai === 'Đang mở' ? ' ✅' : ''}</option>`
     ).join('');
     const base = '<option value="">-- Tất cả --</option>' + opts;
     document.getElementById('gen-hocky').innerHTML  = base;
     document.getElementById('view-hocky').innerHTML = base;
+    document.getElementById('gen-hocky').onchange = onLopCheckChange;
     // Tự động chọn học kỳ đang mở
     const openHK = list.find(h => h.trangthai === 'Đang mở');
     if (openHK) {
@@ -367,23 +936,19 @@ async function loadGenDropdowns() {
     allMonList  = monRes  || [];
     allPhanCong = pcRes   || [];
 
-    // Build monStatusMap: mamon → aggregate remaining across all mapc for that mamon
+    // Build monStatusMap keyed by MAPC — mỗi phân công là 1 entry riêng.
+    // KHÔNG aggregate theo mamon để tránh PC01(DH23-xong) làm PC02(DH24-chưa xong) bị disabled.
     monStatusMap = new Map();
     (statusRes || []).forEach(s => {
-      const cur = monStatusMap.get(s.mamon);
-      if (!cur) {
-        monStatusMap.set(s.mamon, {
-          tongsotiet: s.tongsotiet,
-          scheduled: s.scheduled,
-          remaining: s.remaining,
-          exhausted: s.exhausted,
-        });
-      } else {
-        // accumulate across multiple phan_cong for same mon
-        cur.scheduled += s.scheduled;
-        cur.remaining  = Math.max(0, cur.tongsotiet - cur.scheduled);
-        cur.exhausted  = cur.tongsotiet > 0 && cur.remaining === 0;
-      }
+      monStatusMap.set(s.mapc, {
+        mapc      : s.mapc,
+        malop     : s.malop,
+        mamon     : s.mamon,
+        tongsotiet: s.tongsotiet,
+        scheduled : s.scheduled,
+        remaining : s.remaining,
+        exhausted : s.exhausted,
+      });
     });
 
     // Map: malop → Set của mamon (cả dạng gốc và dạng không có đuôi _LT/_TH)
@@ -408,23 +973,80 @@ async function loadGenDropdowns() {
 
 async function reloadMonStatus() {
   try {
-    const statusRes = await fetch(apiUrl('/api/ga/mon-status')).then(r => r.json());
+    // Lọc theo mahk đang chọn để chỉ tính tiến độ trong học kỳ hiện tại
+    const mahk = document.getElementById('gen-hocky')?.value;
+    const qs = mahk ? `?mahk=${encodeURIComponent(mahk)}` : '';
+    const statusRes = await fetch(apiUrl(`/api/ga/mon-status${qs}`)).then(r => r.json());
+
+    // Rebuild per-MAPC (giống loadGenDropdowns — không aggregate theo mamon)
     monStatusMap = new Map();
     (statusRes || []).forEach(s => {
-      const cur = monStatusMap.get(s.mamon);
-      if (!cur) {
-        monStatusMap.set(s.mamon, {
-          tongsotiet: s.tongsotiet, scheduled: s.scheduled,
-          remaining: s.remaining, exhausted: s.exhausted,
-        });
-      } else {
-        cur.scheduled += s.scheduled;
-        cur.remaining  = Math.max(0, cur.tongsotiet - cur.scheduled);
-        cur.exhausted  = cur.tongsotiet > 0 && cur.remaining === 0;
-      }
+      monStatusMap.set(s.mapc, {
+        mapc      : s.mapc,
+        malop     : s.malop,
+        mamon     : s.mamon,
+        tongsotiet: s.tongsotiet,
+        scheduled : s.scheduled,
+        remaining : s.remaining,
+        exhausted : s.exhausted,
+      });
     });
     renderMonList(currentMonDisplay);
   } catch (e) { console.error('Loi reload mon-status:', e); }
+}
+
+// ── Tính trạng thái một môn dựa trên các mapc liên quan đến lớp đang chọn ──
+// Quy tắc: exhausted = true CHỈ KHI tất cả lớp đang chọn đều đã có phan_cong
+//           và đã được xếp lịch cho môn này.
+// FIX: Nếu bất kỳ lớp nào được chọn KHÔNG có entry trong allPhanCong cho môn này
+//      (chưa chạy GA lần nào) → môn KHÔNG được coi là exhausted.
+function getStatusForMamon(mamon) {
+  const selectedLops = getCheckedLop();
+
+  const relevantPcs = allPhanCong.filter(pc => {
+    if (pc.mamon !== mamon) return false;
+    return selectedLops.length === 0 || selectedLops.includes(pc.malop);
+  });
+
+  // FIX BUG 2: Kiểm tra lớp nào được chọn nhưng KHÔNG có phan_cong entry cho môn này.
+  // Các lớp đó chưa từng chạy GA → môn vẫn chọn được, không exhausted.
+  if (selectedLops.length > 0) {
+    const lopsWithEntry = new Set(relevantPcs.map(pc => pc.malop));
+    const lopsWithoutEntry = selectedLops.filter(l => !lopsWithEntry.has(l));
+    if (lopsWithoutEntry.length > 0) {
+      // Còn lớp chưa có PC entry → chưa exhausted, hiện "chưa xếp"
+      return { exhausted: false, hasPending: true, remaining: lopsWithoutEntry.length, tongsotiet: 0, scheduled: 0 };
+    }
+  }
+
+  if (relevantPcs.length === 0) return null;
+
+  let totalScheduled  = 0;
+  let totalCapacity   = 0;
+  let allExhausted    = true;
+  let hasData         = false;
+
+  for (const pc of relevantPcs) {
+    const s = monStatusMap.get(pc.mapc);
+    if (!s) {
+      allExhausted = false;
+      continue;
+    }
+    hasData = true;
+    totalScheduled += s.scheduled;
+    totalCapacity  += s.tongsotiet;
+    if (!s.exhausted) allExhausted = false;
+  }
+
+  if (!hasData) return null;
+
+  return {
+    tongsotiet: totalCapacity,
+    scheduled : totalScheduled,
+    remaining : Math.max(0, totalCapacity - totalScheduled),
+    exhausted : allExhausted,
+    hasPending: false,
+  };
 }
 
 /* ── Render lớp checkboxes ── */
@@ -449,7 +1071,7 @@ function renderLopList(lops) {
 }
 
 /* ── Render môn checkboxes ── */
-function renderMonList(mons) {
+function renderMonListLegacy(mons) {
   currentMonDisplay = mons;
   const container = document.getElementById('mon-list');
   if (!mons.length) {
@@ -457,46 +1079,51 @@ function renderMonList(mons) {
     updateMonCount(); return;
   }
   const prev = new Set(getCheckedMon());
-  container.innerHTML = mons.map(m => {
+
+  const html = mons.map(m => {
+    // Tính trạng thái dựa theo mapc của các lớp đang chọn (không aggregate toàn hệ thống)
+    const status = getStatusForMamon(m.mamon);
+
+    // Ẩn hẳn môn đã được xếp lịch cho TẤT CẢ lớp đang chọn — không cần hiện disabled
+    if (status && status.exhausted) return '';
+
     const isTH = Number(m.sotietthuchanh||0) > 0 && Number(m.sotietlythuyet||0) === 0;
     const typeBadge = isTH
       ? '<span class="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-bold shrink-0">TH</span>'
       : '<span class="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-bold shrink-0">LT</span>';
 
-    const status = monStatusMap.get(m.mamon);
-    const tongsotiet = Number(m.tongsotiet || 0);
-    let statusBadge = '';
-    let remainInfo  = `${tongsotiet} tiết`;
-    let isExhausted = false;
-    let disabledAttr = '';
-    let itemClass = 'mon-item flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white cursor-pointer transition-colors select-none';
+    // Tính mẫu số hiển thị: dùng status.tongsotiet (aggregate lớp) để tránh "còn 45/15"
+    const perSubjectTiet = Number(m.tongsotiet || 0);
+    const displayCap = (status && status.tongsotiet > 0) ? status.tongsotiet : perSubjectTiet;
+    let remainInfo = `${perSubjectTiet} tiết`;
 
-    if (status) {
-      if (status.exhausted) {
-        isExhausted = true;
-        disabledAttr = 'disabled';
-        statusBadge = '<span class="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded font-bold shrink-0 ml-1">✅ Đã xong</span>';
-        remainInfo  = `${status.remaining}/${tongsotiet} tiết`;
-        itemClass   = 'mon-item flex items-center gap-2 px-2 py-1.5 rounded-lg select-none opacity-50 cursor-not-allowed';
-      } else if (tongsotiet > 0) {
-        const pct = Math.round((status.remaining / tongsotiet) * 100);
-        const color = pct <= 30 ? 'text-orange-500' : 'text-green-600';
-        remainInfo  = `<span class="${color} font-semibold">còn ${status.remaining}</span>/${tongsotiet} tiết`;
-      }
+    if (status && displayCap > 0) {
+      const pct   = Math.round((status.remaining / displayCap) * 100);
+      const color = pct <= 30 ? 'text-orange-500' : 'text-green-600';
+      remainInfo  = `<span class="${color} font-semibold">còn ${status.remaining}</span>/${displayCap} tiết`;
     }
 
     return `
-      <label class="${itemClass}"
+      <label class="mon-item flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white cursor-pointer transition-colors select-none"
         data-value="${m.mamon}" data-search="${(m.mamon+' '+m.tenmon).toLowerCase()}">
-        <input type="checkbox" value="${m.mamon}" class="mon-cb w-3.5 h-3.5 accent-blue-600 ${isExhausted?'cursor-not-allowed':'cursor-pointer'}"
-          ${prev.has(m.mamon) && !isExhausted ? 'checked' : ''} ${disabledAttr} onchange="updateMonCount()">
+        <input type="checkbox" value="${m.mamon}" class="mon-cb w-3.5 h-3.5 accent-blue-600 cursor-pointer"
+          ${prev.has(m.mamon) ? 'checked' : ''} onchange="updateMonCount()">
         <div class="flex-1 min-w-0">
-          <div class="text-xs font-semibold ${isExhausted?'text-gray-400':'text-gray-700'} truncate">${m.tenmon}</div>
+          <div class="text-xs font-semibold text-gray-700 truncate">${m.tenmon}</div>
           <div class="text-xs text-gray-400">${m.mamon} · ${remainInfo}</div>
         </div>
-        ${typeBadge}${statusBadge}
+        ${typeBadge}
       </label>`;
   }).join('');
+
+  // Nếu tất cả môn đã được xếp → hiện thông báo thay vì danh sách rỗng
+  if (!html.trim()) {
+    container.innerHTML = '<p class="text-xs text-green-600 px-2 py-3 text-center font-semibold">✅ Tất cả môn của các lớp đã chọn đã được xếp lịch.</p>';
+    updateMonCount();
+    return;
+  }
+
+  container.innerHTML = html;
   updateMonCount();
 }
 
@@ -504,11 +1131,151 @@ function renderMonList(mons) {
 function getCheckedLop() { return [...document.querySelectorAll('.lop-cb:checked')].map(cb=>cb.value); }
 function getCheckedMon() { return [...document.querySelectorAll('.mon-cb:checked')].map(cb=>cb.value); }
 
+// New subject picker renderer fed by /api/ga/available-subjects.
+// It keeps partially-created subjects selectable and disables only subjects
+// that are already scheduled for every selected class in the selected semester.
+function renderMonList(mons) {
+  currentMonDisplay = mons;
+  const container = document.getElementById('mon-list');
+  if (!mons.length) {
+    const msg = container.dataset.emptyMessage || 'Khong co mon phu hop';
+    container.innerHTML = `<p class="text-xs text-gray-400 px-2 py-2 text-center">${msg}</p>`;
+    updateMonCount();
+    return;
+  }
+  container.dataset.emptyMessage = '';
+  const prev = new Set(getCheckedMon());
+
+  container.innerHTML = mons.map(m => {
+    const status = getStatusForMamon(m.mamon);
+    const selectable = true;
+    const createdClasses = Array.isArray(m.created_classes) ? m.created_classes : [];
+    const pendingClasses = Array.isArray(m.pending_classes) ? m.pending_classes : [];
+    const isTH = Number(m.sotietthuchanh || 0) > 0 && Number(m.sotietlythuyet || 0) === 0;
+    const typeBadge = isTH
+      ? '<span class="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-bold shrink-0">TH</span>'
+      : '<span class="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-bold shrink-0">LT</span>';
+
+    const perSubjectTiet = Number(m.tongsotiet || 0);
+    const displayCap = (status && status.tongsotiet > 0) ? status.tongsotiet : perSubjectTiet;
+    let remainInfo = `${perSubjectTiet} tiet`;
+    if (status && displayCap > 0) {
+      const pct = Math.round((status.remaining / displayCap) * 100);
+      const color = pct <= 30 ? 'text-orange-500' : 'text-green-600';
+      remainInfo = `<span class="${color} font-semibold">con ${status.remaining}</span>/${displayCap} tiet`;
+    }
+    if (m.status_label) {
+      remainInfo = m.status_label;
+      if (createdClasses.length > 0) remainInfo += ` - Da xep: ${createdClasses.join(', ')}`;
+      if (pendingClasses.length > 0) remainInfo += ` - Chua xep: ${pendingClasses.join(', ')}`;
+    }
+
+    return `
+      <label class="mon-item flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white cursor-pointer transition-colors select-none"
+        data-value="${m.mamon}" data-search="${(m.mamon + ' ' + m.tenmon).toLowerCase()}">
+        <input type="checkbox" value="${m.mamon}" class="mon-cb w-3.5 h-3.5 accent-blue-600 cursor-pointer"
+          ${prev.has(m.mamon) ? 'checked' : ''} onchange="updateMonCount()">
+        <div class="flex-1 min-w-0">
+          <div class="text-xs font-semibold text-gray-700 truncate">${m.tenmon}</div>
+          <div class="text-xs text-gray-400">${m.mamon} · ${remainInfo}</div>
+        </div>
+        ${typeBadge}
+      </label>`;
+  }).join('');
+  updateMonCount();
+}
+
+async function loadAvailableMonsForSelectedLops(selectedLops) {
+  const mahk = document.getElementById('gen-hocky')?.value || null;
+  const res = await fetch(apiUrl('/api/ga/available-subjects'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ malops: selectedLops, mahk }),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) throw new Error(json.message || 'Khong tai duoc danh sach mon');
+  document.getElementById('mon-list').dataset.emptyMessage = json.message || '';
+  return json.data || [];
+}
+
+async function loadAssignedMonsForSelectedLops(selectedLops) {
+  const mahk = document.getElementById('gen-hocky')?.value || null;
+  const res = await fetch(apiUrl('/api/phan-cong/by-lops'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ malops: selectedLops, mahk }),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) throw new Error(json.message || 'Khong tai duoc phan cong theo lop');
+
+  const pcs = json.data || [];
+
+  // Build monStatusMap per-MAPC từ da_xep của từng phân công.
+  // da_xep (boolean từ backend) = mapc này đã có ít nhất 1 dòng trong thoi_khoa_bieu.
+  monStatusMap = new Map();
+  for (const pc of pcs) {
+    // Lấy tongsotiet từ allMonList (nguồn chuẩn) thay vì sotietmoibuoi
+    const monInfo    = allMonList.find(m => m.mamon === pc.mamon) || {};
+    const tongsotiet = Number(monInfo.tongsotiet || 0);
+    monStatusMap.set(pc.mapc, {
+      mapc      : pc.mapc,
+      malop     : pc.malop,
+      mamon     : pc.mamon,
+      tongsotiet,
+      // da_xep=true nghĩa là đã xếp → exhausted=true cho mục đích disable checkbox
+      scheduled : pc.da_xep ? tongsotiet : 0,
+      remaining : pc.da_xep ? 0 : tongsotiet,
+      exhausted : pc.da_xep,
+    });
+  }
+
+  // Trả về danh sách môn có trong phân công, dùng dữ liệu đầy đủ từ allMonList
+  // (bao gồm sotietlythuyet, sotietthuchanh đúng — không hardcode)
+  const mamonSet = new Set(pcs.map(pc => pc.mamon));
+  return allMonList.filter(m => mamonSet.has(m.mamon));
+}
+
+/* ── Xóa highlight trên các nút khóa ── */
+function clearKhoaActive() {
+  document.querySelectorAll('.khoa-btn').forEach(b => b.classList.remove('khoa-btn-active'));
+}
+
+/* ── Chọn nhanh tất cả lớp của một khóa (DH22/23/24/25) ── */
+function selectKhoa(prefix) {
+  const pLow = prefix.toLowerCase();
+
+  // Bỏ chọn tất cả trước
+  document.querySelectorAll('.lop-cb').forEach(cb => { cb.checked = false; });
+
+  // Tick các lớp khớp với prefix.
+  // data-value = malop (có thể là "L02"), data-search = "malop tenlop khoa" (lowercase).
+  // Ví dụ: data-search="l02 dh23tin02 cntt" → split → ["l02","dh23tin02","cntt"]
+  // → "dh23tin02".startsWith("dh23") = true → tick ✓
+  document.querySelectorAll('.lop-item').forEach(el => {
+    const val    = (el.dataset.value  || '').toLowerCase();
+    const search = (el.dataset.search || '');
+    const match  = val.startsWith(pLow)                                  // malop bắt đầu bằng prefix
+                || search.split(' ').some(word => word.startsWith(pLow)); // tenlop/khoa bắt đầu bằng prefix
+    if (match) {
+      const cb = el.querySelector('.lop-cb');
+      if (cb) cb.checked = true;
+    }
+  });
+
+  // Highlight nút đang active
+  clearKhoaActive();
+  const btn = document.querySelector(`.khoa-btn[data-prefix="${prefix}"]`);
+  if (btn) btn.classList.add('khoa-btn-active');
+
+  onLopCheckChange();
+}
+
 /* ── Select all / deselect all ── */
 function selectAllLop(check) {
   document.querySelectorAll('.lop-item').forEach(el => {
     if (el.style.display !== 'none') el.querySelector('.lop-cb').checked = check;
   });
+  clearKhoaActive(); // bỏ highlight khóa khi chọn Tất cả / Bỏ
   onLopCheckChange();
 }
 function selectAllMon(check) {
@@ -548,15 +1315,25 @@ function filterMonList() {
 }
 
 /* ── Khi lớp thay đổi → cập nhật danh sách môn ── */
-function onLopCheckChange() {
+async function onLopCheckChange() {
   updateLopCount();
   const selectedLops = getCheckedLop();
   if (selectedLops.length === 0) {
+    monStatusMap = new Map();
     renderMonList(allMonList);
     document.getElementById('mon-note').textContent = 'Không chọn = tất cả môn';
     return;
   }
   // Tập hợp mamon có trong phan_cong của các lớp đã chọn
+  try {
+    const assignedMons = await loadAvailableMonsForSelectedLops(selectedLops);
+    renderMonList(assignedMons);
+    document.getElementById('mon-note').textContent =
+      `${assignedMons.length} mon cua ${selectedLops.length} lop da chon`;
+    return;
+  } catch (err) {
+    console.error('Loi tai phan cong theo lop:', err);
+  }
   const relevantMamon = new Set();
   selectedLops.forEach(malop => {
     (lopMonMap.get(malop) || new Set()).forEach(mm => relevantMamon.add(mm));
@@ -574,30 +1351,59 @@ function onLopCheckChange() {
 
 /* ── Generate TKB ── */
 async function resetAndSeed() {
-  if (!confirm('Xóa toàn bộ TKB và phân công, rồi seed lại từ đầu?\n(Dùng khi test, không dùng trên production)')) return;
+  if (!confirm(
+    'Xóa sạch dữ liệu TKB:\n' +
+    '  • thoi_khoa_bieu (lịch đã xếp)\n' +
+    '  • phan_cong_giang_day (phân công giảng dạy)\n\n' +
+    'Sau khi xóa có thể chạy GA lại để tạo TKB mới.\nBạn có chắc chắn?'
+  )) return;
   const btn = document.getElementById('reset-btn');
   btn.disabled = true;
   document.getElementById('reset-icon').textContent = '⏳';
-  document.getElementById('reset-text').textContent = 'Đang reset...';
+  document.getElementById('reset-text').textContent = 'Đang xóa...';
   try {
+    // Bước 1: Reset (xóa TKB + phân công)
     const res = await fetch(apiUrl('/api/seed/reset'), { method: 'POST' });
     const json = await res.json();
     if (!json.ok) throw new Error(json.error);
-    showResult('success', '✅ ' + json.message);
+
+    // Bước 2: Tự động seed lại phân công (thay thế npm run seed:all)
+    document.getElementById('reset-text').textContent = 'Đang tạo phân công...';
+    showResult('', '');
+    const seedRes = await fetch(apiUrl('/api/seed/assignments'), { method: 'POST' });
+    const seedJson = await seedRes.json();
+    if (!seedJson.ok) throw new Error('Seed phân công thất bại: ' + seedJson.error);
+
+    showResult('success', `✅ Đã xóa sạch và tạo lại phân công giảng dạy (${seedJson.count} bản ghi). Sẵn sàng tạo TKB mới.`);
+
+    // Xóa cache stale trước để renderMonList không re-render dữ liệu cũ
+    currentMonDisplay = [];
+    monStatusMap = new Map();
+    // Reload lại view sau khi xóa để phản ánh bảng trống
+    DATA = null;
+    document.getElementById('grid-ql').innerHTML = '';
+    document.getElementById('grid-gv').innerHTML = '';
+    document.getElementById('grid-sv').innerHTML = '';
+    document.getElementById('grid-ph').innerHTML = '';
+    document.getElementById('stats-row').innerHTML = '';
+    document.getElementById('legend-row').innerHTML = '';
+    document.getElementById('view-status').textContent = 'Dữ liệu đã được xóa sạch.';
     await Promise.all([loadViewData(), reloadMonStatus()]);
+    await onLopCheckChange(); // re-fetch fresh từ DB theo lớp đang chọn
   } catch (err) {
-    showResult('error', '❌ Reset thất bại: ' + err.message);
+    showResult('error', '❌ ' + err.message);
   } finally {
     btn.disabled = false;
-    document.getElementById('reset-icon').textContent = '🔄';
+    document.getElementById('reset-icon').textContent = '🗑';
     document.getElementById('reset-text').textContent = 'Reset dữ liệu';
   }
 }
 
 async function generateTKB() {
-  const tuan    = Number(document.getElementById('gen-tuan').value) || 1;
-  const mahk    = document.getElementById('gen-hocky').value  || null;
-  const namhoc  = document.getElementById('gen-namhoc').value.trim() || null;
+  const tuan    = currentWeek || 1;
+  const hockyEl = document.getElementById('gen-hocky');
+  const mahk    = hockyEl.value || null;
+  const namhoc  = hockyEl.selectedOptions[0]?.dataset?.namhoc || null;
   const malops  = getCheckedLop();
   const mamons  = getCheckedMon();
   const maxGen  = Number(document.getElementById('gen-maxgen').value)  || 500;
@@ -610,6 +1416,7 @@ async function generateTKB() {
   document.getElementById('gen-spinner').classList.add('running');
   document.getElementById('gen-status').textContent = '⏳ Thuật toán đang chạy, vui lòng chờ...';
   showResult('', '');
+  setGAState('running');
   document.getElementById('loading-msg').textContent = 'Thuật toán di truyền đang chạy...';
   document.getElementById('loading-overlay').classList.add('show');
 
@@ -627,9 +1434,19 @@ async function generateTKB() {
       body: JSON.stringify(body),
     });
     const json = await res.json();
+    if (json.status === 'NO_NEW_ASSIGNMENTS') {
+      const skippedCount = Number(json.summary?.skipped_count ?? json.skipped?.length ?? 0);
+      document.getElementById('gen-status').textContent = '';
+      await Promise.all([loadViewData(), reloadMonStatus()]);
+      await onLopCheckChange();
+      showNoNewAssignmentsResult(skippedCount);
+      return;
+    }
     if (!json.ok) throw new Error(json.error || 'Tạo TKB thất bại');
 
     const { summary, generatedRows, generatedSessions, weekRange, weeksGenerated } = json;
+    const generatedCount = Number(summary?.generated_count ?? json.generated?.length ?? 0);
+    const skippedCount = Number(summary?.skipped_count ?? json.skipped?.length ?? 0);
     const lopInfo  = malops.length > 0 ? `${malops.length} lớp` : 'tất cả lớp';
     const monInfo  = mamons.length > 0 ? `${mamons.length} môn` : 'tất cả môn';
     const wkInfo   = weekRange ? `tuần ${weekRange.from}–${weekRange.to} (${weeksGenerated} tuần)` : '';
@@ -637,13 +1454,26 @@ async function generateTKB() {
       `✅ Tạo thành công cho ${lopInfo} · ${monInfo} — ` +
       `${generatedSessions} buổi/tuần · ${generatedRows} dòng tổng · ${wkInfo} · Fitness: ${summary?.fitness ?? '?'}`
     );
+    if (generatedCount === 0 && skippedCount > 0) {
+      showNoNewAssignmentsResult(skippedCount);
+    } else {
+      showResult('success',
+        `✅ Đã xếp thành công ${generatedCount} lớp-môn mới. Bỏ qua ${skippedCount} lớp-môn đã có lịch. ` +
+        `${generatedSessions || 0} buổi/tuần · ${generatedRows || 0} dòng tổng · ${wkInfo} · Fitness: ${summary?.fitness ?? '?'}`
+      );
+    }
     document.getElementById('gen-status').textContent = '';
 
     // Sync view controls → reload
     document.getElementById('view-tuan').value = tuan;
     if (mahk)   document.getElementById('view-hocky').value  = mahk;
     if (namhoc) document.getElementById('view-namhoc').value = namhoc;
+    const runMeta = buildRunMeta(malops, mamons, json);
+    saveGAResult(json, tuan, mahk, namhoc, runMeta);
+    if (generatedCount > 0) renderGAResult({ ...json, meta: runMeta });
+    else setGAState('empty');
     await Promise.all([loadViewData(), reloadMonStatus()]);
+    await onLopCheckChange();
 
     // Auto-switch tab
     if (malops.length === 1 && DATA) {
@@ -652,6 +1482,7 @@ async function generateTKB() {
       switchTab('sv');
     }
   } catch (err) {
+    setGAState('empty');
     showResult('error', '❌ ' + err.message);
     document.getElementById('gen-status').textContent = '';
   } finally {
@@ -663,18 +1494,53 @@ async function generateTKB() {
   }
 }
 
-function showResult(type, msg) {
+function showResult(type, msg, html) {
   const el = document.getElementById('gen-result');
-  if (!msg) { el.classList.add('hidden'); return; }
+  if (!msg && !html) { el.classList.add('hidden'); return; }
   el.classList.remove('hidden');
   if (type === 'success') {
     el.className = 'mt-4 p-4 rounded-xl border bg-green-50 border-green-200 text-green-800 font-medium text-sm';
   } else if (type === 'error') {
     el.className = 'mt-4 p-4 rounded-xl border bg-red-50 border-red-200 text-red-800 font-medium text-sm';
+  } else if (type === 'warning') {
+    el.className = 'mt-4 p-4 rounded-xl border bg-yellow-50 border-yellow-300 text-yellow-800 font-medium text-sm';
   } else {
     el.className = 'mt-4 p-4 rounded-xl border bg-gray-50 border-gray-200 text-gray-700 text-sm';
   }
-  el.textContent = msg;
+  if (html) {
+    el.innerHTML = html;
+  } else {
+    el.textContent = msg;
+  }
+}
+
+function showNoNewAssignmentsResult(skippedCount) {
+  const html = `
+    <div class="flex items-start gap-3">
+      <span class="text-2xl leading-none">📋</span>
+      <div class="flex-1">
+        <div class="font-bold text-yellow-900 mb-1">Không có môn/lớp mới cần xếp</div>
+        <div class="text-yellow-800 mb-3">Tất cả ${skippedCount > 0 ? skippedCount + ' lớp-môn' : 'lớp-môn'} đã có lịch trong học kỳ này. Không có dữ liệu mới để tạo.</div>
+        <div class="flex gap-2 flex-wrap">
+          <button type="button"
+            onclick="switchTab('sv'); document.getElementById('gen-result').classList.add('hidden');"
+            class="px-4 py-1.5 rounded-lg bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition-all">
+            📅 Xem TKB
+          </button>
+          <button type="button"
+            onclick="confirmResetAndGenerate()"
+            class="px-4 py-1.5 rounded-lg border border-red-300 bg-red-50 text-red-700 font-semibold text-sm hover:bg-red-100 transition-all">
+            🔄 Xếp lại toàn bộ
+          </button>
+        </div>
+      </div>
+    </div>`;
+  showResult('warning', null, html);
+}
+
+async function confirmResetAndGenerate() {
+  // Tái sử dụng hàm resetAndSeed() đã có sẵn
+  await resetAndSeed();
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -686,9 +1552,10 @@ const START_DATE = (() => {
   return d;
 })();
 let currentWeek = 1;
+let selectedCalendarDate = null;
 
 function getWeekDates(w) {
-  return Array.from({length:6}, (_,i) => {
+  return Array.from({length:DAYS.length}, (_,i) => {
     const d = new Date(START_DATE);
     d.setDate(d.getDate() + (w-1)*7 + i);
     return d;
@@ -697,15 +1564,73 @@ function getWeekDates(w) {
 function fmt(d) {
   return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}`;
 }
+function fmtDateValue(value) {
+  if (!value) return '';
+  const d = new Date(`${String(value).slice(0,10)}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? String(value) : fmt(d);
+}
+function isoDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function parseLocalDate(value) {
+  if (!value) return null;
+  const parts = value.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return null;
+  return new Date(parts[0], parts[1]-1, parts[2]);
+}
+function weekFromDate(date) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  const diffDays = Math.floor((d - START_DATE) / 86400000);
+  return Math.max(0, Math.floor(diffDays / DAYS.length) + 1);
+}
+function dayIndexFromDate(date) {
+  const jsDay = date.getDay();
+  return jsDay === 0 ? 6 : jsDay - 1;
+}
+function deriveDateDayIndex(value) {
+  const d = parseLocalDate(value);
+  return d ? dayIndexFromDate(d) : null;
+}
+function syncCalendarControls(dates) {
+  const start = dates[0];
+  const end = dates[dates.length-1];
+  if (!selectedCalendarDate || selectedCalendarDate < start || selectedCalendarDate > end) {
+    selectedCalendarDate = new Date(start);
+  }
+  const dateEl = document.getElementById('calendar-date');
+  if (dateEl) dateEl.value = isoDate(selectedCalendarDate);
+}
 function updateWeekNav() {
   const dates = getWeekDates(currentWeek);
   document.getElementById('week-label').textContent = `Tuần ${currentWeek}`;
-  document.getElementById('week-range').textContent  = `${fmt(dates[0])} – ${fmt(dates[5])}`;
-  document.getElementById('btn-prev').disabled = currentWeek <= 1;
+  document.getElementById('week-range').textContent  = `${fmt(dates[0])} – ${fmt(dates[dates.length-1])}`;
+  document.getElementById('btn-prev').disabled = currentWeek <= 0;
+  syncCalendarControls(dates);
+}
+async function goToCalendarDate(date) {
+  if (!date) return;
+  date.setHours(0,0,0,0);
+  selectedCalendarDate = date;
+  currentWeek = weekFromDate(date);
+  currentDay = dayIndexFromDate(date);
+  document.getElementById('view-tuan').value = currentWeek;
+  updateWeekNav();
+  await loadViewData();
+}
+function selectCalendarDate(value) {
+  goToCalendarDate(parseLocalDate(value));
+}
+function selectToday() {
+  goToCalendarDate(new Date());
 }
 function prevWeek() {
-  if (currentWeek > 1) {
+  if (currentWeek > 0) {
     currentWeek--;
+    selectedCalendarDate = getWeekDates(currentWeek)[0];
     updateWeekNav();
     document.getElementById('view-tuan').value = currentWeek;
     loadViewData();
@@ -713,6 +1638,7 @@ function prevWeek() {
 }
 function nextWeek() {
   currentWeek++;
+  selectedCalendarDate = getWeekDates(currentWeek)[0];
   updateWeekNav();
   document.getElementById('view-tuan').value = currentWeek;
   loadViewData();
@@ -732,8 +1658,10 @@ function refreshActiveTab() {
    LOAD VIEW DATA
 ════════════════════════════════════════════════════════════════ */
 async function loadViewData() {
-  const tuan   = Number(document.getElementById('view-tuan').value) || 1;
+  const rawTuan = Number(document.getElementById('view-tuan').value);
+  const tuan   = Number.isFinite(rawTuan) ? Math.max(0, rawTuan) : 1;
   currentWeek  = tuan; // đồng bộ week nav với input
+  document.getElementById('view-tuan').value = tuan;
   updateWeekNav();
   const mahk   = document.getElementById('view-hocky').value;
   const namhoc = document.getElementById('view-namhoc').value.trim();
@@ -752,6 +1680,7 @@ async function loadViewData() {
 
     DATA = json;
     assignColors(DATA.mon_list || []);
+    sessionByMatkb = new Map((DATA.lich || []).filter(s => s.matkb).map(s => [s.matkb, s]));
 
     // Header
     const parts = [];
@@ -760,23 +1689,31 @@ async function loadViewData() {
     document.getElementById('header-sub').textContent =
       `Khoa CNTT${parts.length ? ' — '+parts.join(' / ') : ''} — Tuần ${tuan}`;
 
-    // Populate GV dropdown
+    // Populate GV dropdown — giữ lại GV đang xem khi chuyển tuần
     const sgv = document.getElementById('sel-gv');
+    const prevGv = sgv.value;
     sgv.innerHTML = '';
     (DATA.gv_list||[]).forEach(g => {
       const o = document.createElement('option');
       o.value = g.magv; o.textContent = `${g.tengv} (${g.hocvi||''})`;
       sgv.appendChild(o);
     });
+    if (prevGv && [...sgv.options].some(o => o.value === prevGv)) {
+      sgv.value = prevGv;
+    }
 
-    // Populate Lớp dropdown (tab Sinh viên)
+    // Populate Lớp dropdown (tab Sinh viên) — giữ lại lớp đang xem khi chuyển tuần
     const slop = document.getElementById('sel-lop');
+    const prevLop = slop.value;
     slop.innerHTML = '';
     (DATA.lop_list||[]).forEach(l => {
       const o = document.createElement('option');
       o.value = l.malop; o.textContent = l.tenlop;
       slop.appendChild(o);
     });
+    if (prevLop && [...slop.options].some(o => o.value === prevLop)) {
+      slop.value = prevLop;
+    }
 
     updateWeekNav();
     document.getElementById('stats-row').innerHTML  = buildStats();
@@ -787,8 +1724,10 @@ async function loadViewData() {
 
     document.getElementById('view-status').textContent =
       `✅ ${DATA.lich.length} buổi học — tuần ${tuan}`;
+    loadStoredGAResult();
   } catch (err) {
     document.getElementById('view-status').textContent = '❌ ' + err.message;
+    setGAState('empty');
   } finally {
     document.getElementById('loading-overlay').classList.remove('show');
   }
@@ -821,17 +1760,41 @@ function switchTab(tab) {
   else if (tab==='ph') { rebuildDayBtns(); renderRoomGrid(currentDay); }
 }
 
-/* ── Session card ── */
+/* ── Session card — 2 màu: xanh lam = LT, xanh lá = TH ── */
 function card(s, showGV, showLop, compact) {
-  const badge  = `<span class="badge ${s.loai==='TH'?'bdg-th':'bdg-lt'}">${s.loai}</span>`;
+  const isTH   = s.loai === 'TH';
+  const clrCls = isTH ? 'c-1' : 'c-0';
+  const status = s.trangthai || 'DANG_HOC';
+  const statusCls = status === 'TAM_NGUNG' ? 'is-paused' : status === 'HOC_BU' ? 'is-makeup' : '';
+  const badge  = `<span class="badge ${isTH?'bdg-th':'bdg-lt'}">${s.loai}</span>`;
+  const statusBadge = status === 'TAM_NGUNG'
+    ? '<span class="badge bdg-stop">Tạm ngưng</span>'
+    : status === 'HOC_BU'
+      ? '<span class="badge bdg-makeup">Học bù</span>'
+      : '';
   const tRange = compact
     ? `<div class="sess-info" style="font-size:9px;color:#9ca3af">Tiết ${s.tiet_start}–${s.tiet_end}</div>` : '';
   const gvLine  = showGV  ? `<div class="sess-info">👤 ${s.tengv}</div>`  : '';
   const lopLine = showLop ? `<div class="sess-info">🎓 ${s.tenlop}</div>` : '';
-  return `<div class="sess-card ${clr(s.mamon)}" style="${compact?'margin-bottom:3px;':''}">
+  const reasonLine = s.lydo ? `<div class="sess-info" style="white-space:normal;color:#b91c1c">Lý do: ${s.lydo}</div>` : '';
+  const makeupLine = s.hoc_bu
+    ? `<div class="sess-info" style="white-space:normal;color:#92400e">Đã có học bù: tuần ${s.hoc_bu.tuanhoc}, ngày ${fmtDateValue(s.hoc_bu.ngayhoc)}, tiết ${s.hoc_bu.tiet_start}-${s.hoc_bu.tiet_end}, phòng ${s.hoc_bu.maphong}</div>`
+    : '';
+  const originalLine = s.bu_cho
+    ? `<div class="sess-info" style="white-space:normal;color:#92400e">Bù cho: tuần ${s.bu_cho.tuanhoc}${s.bu_cho.ngayhoc ? ', ngày '+fmtDateValue(s.bu_cho.ngayhoc) : ''}</div>`
+    : '';
+  const action = status === 'DANG_HOC'
+    ? `<button type="button" class="sess-action" onclick="pauseSession('${s.matkb}')">Tạm ngưng</button>`
+    : status === 'TAM_NGUNG' && !s.hoc_bu
+      ? `<button type="button" class="sess-action" onclick="openMakeupModal('${s.matkb}','create')">Học bù</button>`
+    : status === 'HOC_BU'
+      ? `<button type="button" class="sess-action warn" onclick="openMakeupModal('${s.matkb}','edit')">Chỉnh học bù</button>`
+      : '';
+  return `<div class="sess-card ${clrCls} ${statusCls}" style="${compact?'margin-bottom:3px;':''}">
     <div class="sess-name">${s.tenmon}</div>
-    ${badge}${tRange}${gvLine}${lopLine}
+    ${statusBadge}${badge}${tRange}${gvLine}${lopLine}
     <div class="sess-info">🏛 ${s.maphong}</div>
+    ${reasonLine}${makeupLine}${originalLine}${action}
   </div>`;
 }
 
@@ -842,13 +1805,14 @@ function buildGrid(sessions, showGV, showLop) {
     if (!g[s.thu_idx]) g[s.thu_idx] = {};
     g[s.thu_idx][s.tiet_start] = s;
   });
-  const rowEnd = new Array(6).fill(0);
+  const dayCount = DAYS.length;
+  const rowEnd = new Array(dayCount).fill(0);
   let h = `<table class="timetable"><thead><tr><th style="width:40px">Tiết</th>${dayHeaders()}</tr></thead><tbody>`;
   for (let t=1; t<=12; t++) {
-    if (t===1) h += '<tr class="sang-hd"><td colspan="7">☀️ BUỔI SÁNG (Tiết 1–6)</td></tr>';
-    if (t===7) h += '<tr class="chieu-hd"><td colspan="7">🌙 BUỔI CHIỀU (Tiết 7–12)</td></tr>';
+    if (t===1) h += `<tr class="sang-hd"><td colspan="${dayCount+1}">☀️ &nbsp;BUỔI SÁNG &nbsp;·&nbsp; Tiết 1 – 6</td></tr>`;
+    if (t===7) h += `<tr class="chieu-hd"><td colspan="${dayCount+1}">🌙 &nbsp;BUỔI CHIỀU &nbsp;·&nbsp; Tiết 7 – 12</td></tr>`;
     h += `<tr><td class="tiet-lbl">${t}</td>`;
-    for (let d=0; d<6; d++) {
+    for (let d=0; d<dayCount; d++) {
       if (rowEnd[d] > t) continue;
       const s = g[d] && g[d][t];
       if (s) {
@@ -870,7 +1834,10 @@ function buildGridAll(sessions) {
     if (!g[s.thu_idx][s.tiet_start]) g[s.thu_idx][s.tiet_start] = [];
     g[s.thu_idx][s.tiet_start].push(s);
   });
-  const tiets = [...new Set(sessions.map(s=>s.tiet_start))].sort((a,b)=>a-b);
+  const dayCount = DAYS.length;
+  const tiets = sessions.length
+    ? [...new Set(sessions.map(s=>s.tiet_start))].sort((a,b)=>a-b)
+    : Array.from({length:12}, (_,i)=>i+1);
   let h = `<table class="timetable"><thead><tr><th style="width:55px">Tiết BĐ</th>${dayHeaders()}</tr></thead><tbody>`;
   let prev = null;
   tiets.forEach(t => {
@@ -878,11 +1845,11 @@ function buildGridAll(sessions) {
     if (buoi!==prev) {
       prev=buoi;
       h += buoi==='sang'
-        ? '<tr class="sang-hd"><td colspan="7">☀️ BUỔI SÁNG</td></tr>'
-        : '<tr class="chieu-hd"><td colspan="7">🌙 BUỔI CHIỀU</td></tr>';
+        ? `<tr class="sang-hd"><td colspan="${dayCount+1}">☀️ &nbsp;BUỔI SÁNG &nbsp;·&nbsp; Tiết 1 – 6</td></tr>`
+        : `<tr class="chieu-hd"><td colspan="${dayCount+1}">🌙 &nbsp;BUỔI CHIỀU &nbsp;·&nbsp; Tiết 7 – 12</td></tr>`;
     }
     h += `<tr><td class="tiet-lbl" style="font-size:10px">Tiết<br><b>${t}</b></td>`;
-    for (let d=0; d<6; d++) {
+    for (let d=0; d<dayCount; d++) {
       const list = (g[d]&&g[d][t])||[];
       if (!list.length) { h += '<td class="empty-td"></td>'; continue; }
       h += '<td class="sess-cell" style="min-width:140px">';
@@ -908,7 +1875,7 @@ function buildRoomGrid(dayIdx) {
     const occ = new Set();
     DATA.lich.filter(s => s.thu_idx===dayIdx && s.maphong===r.maphong)
              .forEach(s => { for(let t=s.tiet_start; t<=s.tiet_end; t++) occ.add(t); });
-    freeCount[r.maphong] = 10 - occ.size;
+    freeCount[r.maphong] = 12 - occ.size;
   });
 
   const rowEnd = {};
@@ -926,8 +1893,8 @@ function buildRoomGrid(dayIdx) {
   });
   h += '</tr></thead><tbody>';
   for (let t=1; t<=12; t++) {
-    if(t===1) h+=`<tr class="sang-hd"><td colspan="${nCols+1}">☀️ BUỔI SÁNG (Tiết 1–6)</td></tr>`;
-    if(t===7) h+=`<tr class="chieu-hd"><td colspan="${nCols+1}">🌙 BUỔI CHIỀU (Tiết 7–12)</td></tr>`;
+    if(t===1) h+=`<tr class="sang-hd"><td colspan="${nCols+1}">☀️ &nbsp;BUỔI SÁNG &nbsp;·&nbsp; Tiết 1 – 6</td></tr>`;
+    if(t===7) h+=`<tr class="chieu-hd"><td colspan="${nCols+1}">🌙 &nbsp;BUỔI CHIỀU &nbsp;·&nbsp; Tiết 7 – 12</td></tr>`;
     h += `<tr><td class="tiet-lbl">${t}</td>`;
     rooms.forEach(r => {
       if (rowEnd[r.maphong] > t) return;
@@ -935,14 +1902,8 @@ function buildRoomGrid(dayIdx) {
       if (s) {
         const sp = s.tiet_end - s.tiet_start + 1;
         rowEnd[r.maphong] = t + sp;
-        h += `<td rowspan="${sp}" class="sess-cell">
-          <div class="sess-card ${clr(s.mamon)}">
-            <div class="sess-name">${s.tenmon}</div>
-            <span class="badge ${s.loai==='TH'?'bdg-th':'bdg-lt'}">${s.loai}</span>
-            <div class="sess-info">🎓 ${s.tenlop}</div>
-            <div class="sess-info">👤 ${s.tengv}</div>
-          </div></td>`;
-      } else { h += '<td class="free-td">🟢<br>TRỐNG</td>'; }
+        h += `<td rowspan="${sp}" class="sess-cell">${card(s,true,true,false)}</td>`;
+      } else { h += '<td class="free-td">TRỐNG</td>'; }
     });
     h += '</tr>';
   }
@@ -956,9 +1917,9 @@ function buildRoomStats(dayIdx) {
     const s = new Set();
     DATA.lich.filter(x => x.thu_idx===dayIdx && x.maphong===r.maphong)
              .forEach(x => { for(let t=x.tiet_start; t<=x.tiet_end; t++) s.add(t); });
-    occ += s.size; free += 10-s.size;
+    occ += s.size; free += 12-s.size;
   });
-  const tot=rooms.length*10; const pFree=Math.round(free/tot*100);
+  const tot=rooms.length*12; const pFree=Math.round(free/tot*100);
   return [
     {icon:'🏛',val:rooms.length,   lbl:'Tổng phòng',         bg:'bg-blue-50', bd:'border-blue-200', tx:'text-blue-700'},
     {icon:'🟢',val:`${free} tiết`, lbl:`Trống (${pFree}%)`,  bg:'bg-green-50',bd:'border-green-200',tx:'text-green-700'},
@@ -996,11 +1957,15 @@ function renderRoomGrid(i) {
 
 function buildStats() {
   const L = DATA.lich;
+  const paused = L.filter(s => s.trangthai === 'TAM_NGUNG').length;
+  const makeup = L.filter(s => s.trangthai === 'HOC_BU').length;
+  const real = L.filter(s => ['DANG_HOC','HOC_BU'].includes(s.trangthai || 'DANG_HOC')).length;
+  const missing = Math.max(0, paused - makeup);
   return [
-    {icon:'📅',val:L.length,                          lbl:'Tổng buổi học', bg:'bg-blue-50',  bd:'border-blue-200',  tx:'text-blue-700'},
-    {icon:'👨‍🏫',val:new Set(L.map(s=>s.magv)).size,   lbl:'Giảng viên',    bg:'bg-green-50', bd:'border-green-200', tx:'text-green-700'},
-    {icon:'🎓',val:new Set(L.map(s=>s.malop)).size,   lbl:'Lớp học',       bg:'bg-purple-50',bd:'border-purple-200',tx:'text-purple-700'},
-    {icon:'🏛',val:new Set(L.map(s=>s.maphong)).size, lbl:'Phòng dùng',    bg:'bg-orange-50',bd:'border-orange-200',tx:'text-orange-700'},
+    {icon:'📅',val:real,    lbl:'Buổi thực học', bg:'bg-blue-50',  bd:'border-blue-200',  tx:'text-blue-700'},
+    {icon:'⏸',val:paused,  lbl:'Tạm ngưng',     bg:'bg-red-50',   bd:'border-red-200',   tx:'text-red-700'},
+    {icon:'🟡',val:makeup,  lbl:'Học bù',        bg:'bg-amber-50', bd:'border-amber-200', tx:'text-amber-700'},
+    {icon:'⚠',val:missing, lbl:'Còn thiếu',     bg:'bg-orange-50',bd:'border-orange-200',tx:'text-orange-700'},
   ].map(i=>`<div class="rounded-2xl shadow border p-4 ${i.bg} ${i.bd}">
     <div class="text-3xl">${i.icon}</div>
     <div class="text-3xl font-bold ${i.tx} mt-1">${i.val}</div>
@@ -1008,12 +1973,9 @@ function buildStats() {
   </div>`).join('');
 }
 function buildLegend() {
-  const ms={};
-  DATA.lich.forEach(s=>{ ms[s.mamon]=s.tenmon; });
-  return '<span class="text-gray-400 mr-1 self-center text-xs">Màu:</span>'
-    + Object.entries(ms).map(([m,n])=>
-        `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium ${clr(m)}">${m}: ${n}</span>`
-      ).join('');
+  return '<span class="text-gray-400 mr-2 self-center text-xs font-semibold">Chú thích:</span>'
+    + '<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold c-0">📘 Lý thuyết (LT)</span>'
+    + '<span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold c-1">🌿 Thực hành (TH)</span>';
 }
 
 function renderGV() {
@@ -1021,16 +1983,234 @@ function renderGV() {
   const gv = (DATA.gv_list||[]).find(g=>g.magv===id)||{};
   document.getElementById('gv-info').textContent = gv.hocvi||'';
   const ses = DATA.lich.filter(s=>s.magv===id);
-  document.getElementById('grid-gv').innerHTML = ses.length
-    ? buildGrid(ses,false,true)
-    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch dạy.</p>';
+  document.getElementById('grid-gv').innerHTML = buildGrid(ses,false,true);
 }
 function renderSV() {
   const id  = document.getElementById('sel-lop').value;
   const ses = DATA.lich.filter(s=>s.malop===id);
-  document.getElementById('grid-sv').innerHTML = ses.length
-    ? buildGrid(ses,true,false)
-    : '<p class="text-gray-400 text-sm py-10 text-center">Không có lịch học.</p>';
+  document.getElementById('grid-sv').innerHTML = buildGrid(ses,true,false);
+}
+
+async function pauseSession(matkb) {
+  const s = sessionByMatkb.get(matkb);
+  if (!s) return;
+  const lydo = window.prompt(`Lý do tạm ngưng buổi học "${s.tenmon}"?`, s.lydo || '');
+  if (lydo === null) return;
+  const res = await fetch(apiUrl(`/api/tkb/${encodeURIComponent(matkb)}/tam-ngung`), {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ lydo: lydo.trim(), nguoithuchien:'admin' }),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    alert(json.message || 'Không thể tạm ngưng buổi học.');
+    return;
+  }
+  await loadViewData();
+}
+
+function selectedSessionForModal() {
+  return sessionByMatkb.get(document.getElementById('makeup-matkb').value);
+}
+function showMakeupStatus(ok, message) {
+  const el = document.getElementById('makeup-status');
+  el.className = `modal-status mt-4 ${ok ? 'ok' : 'bad'}`;
+  el.textContent = message;
+}
+function populateMakeupRooms(rooms, selectedRoom) {
+  const sel = document.getElementById('makeup-room');
+  const list = rooms || [];
+  sel.innerHTML = list.length
+    ? list
+    .map(r => `<option value="${r.maphong}">${r.maphong} - ${r.tenphong || ''} (${r.loaiphong || ''})</option>`)
+    .join('')
+    : '<option value="">Không có phòng trống phù hợp</option>';
+  if (selectedRoom) sel.value = selectedRoom;
+}
+function renderMakeupSlotTable() {
+  const wrap = document.getElementById('makeup-slot-table');
+  if (!availableMakeupSlots.length) {
+    wrap.innerHTML = '<div class="p-4 text-sm text-gray-400">Không có slot trong ngày đã chọn.</div>';
+    populateMakeupRooms([]);
+    document.getElementById('makeup-makhung').value = '';
+    selectedMakeupSlot = null;
+    return;
+  }
+  wrap.innerHTML = `<table class="slot-table">
+    <thead><tr>
+      <th>Khung tiết</th><th>Lịch giảng viên</th><th>Lịch lớp bị hoãn</th><th>Phòng trống phù hợp</th><th>Trạng thái</th><th>Nút chọn</th>
+    </tr></thead>
+    <tbody>${availableMakeupSlots.map((slot, idx) => {
+      const roomText = slot.rooms.available_rooms.length
+        ? slot.rooms.available_rooms.map(r => r.maphong).join(', ')
+        : 'Không có phòng';
+      const selected = selectedMakeupSlot && selectedMakeupSlot.makhung === slot.makhung;
+      return `<tr class="${selected ? 'selected' : ''}">
+        <td><b>${slot.label}</b></td>
+        <td class="${slot.teacher.available ? 'slot-ok' : 'slot-bad'}">${slot.teacher.message}</td>
+        <td class="${slot.class.available ? 'slot-ok' : 'slot-bad'}">${slot.class.message}</td>
+        <td>${roomText}</td>
+        <td class="${slot.selectable ? 'slot-ok' : 'slot-bad'}">${slot.selectable ? 'Chọn được' : 'Không được'}${slot.reason && !slot.selectable ? `<br><span style="font-weight:600">${slot.reason}</span>` : ''}</td>
+        <td><button type="button" class="slot-pick" ${slot.selectable ? '' : 'disabled'} onclick="selectMakeupSlot(${idx})">Chọn</button></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+function selectMakeupSlot(index) {
+  const slot = availableMakeupSlots[index];
+  if (!slot || !slot.selectable) return;
+  selectedMakeupSlot = slot;
+  document.getElementById('makeup-makhung').value = slot.makhung;
+  populateMakeupRooms(slot.rooms.available_rooms, slot.rooms.available_rooms[0]?.maphong || '');
+  renderMakeupSlotTable();
+  showMakeupStatus(true, `Đã chọn ${slot.label}. Chọn phòng cụ thể rồi tạo học bù.`);
+}
+async function loadAvailableMakeupSlots() {
+  const s = selectedSessionForModal();
+  if (!s) return;
+  const mode = document.getElementById('makeup-mode').value;
+  const body = {
+    tuanhoc: Number(document.getElementById('makeup-week').value),
+    ngayhoc: document.getElementById('makeup-date').value,
+  };
+  if (mode === 'edit') body.exclude_matkb = s.matkb_list || [s.matkb];
+  const matkb = mode === 'edit' ? s.tkb_goc_id : s.matkb;
+  document.getElementById('makeup-slot-table').innerHTML = '<div class="p-4 text-sm text-gray-400">Đang tải slot...</div>';
+  selectedMakeupSlot = null;
+  document.getElementById('makeup-makhung').value = '';
+  populateMakeupRooms([]);
+  const res = await fetch(apiUrl(`/api/tkb/${encodeURIComponent(matkb)}/available-makeup-slots`), {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok || json.ok === false) {
+    availableMakeupSlots = [];
+    renderMakeupSlotTable();
+    showMakeupStatus(false, json.message || 'Không tải được slot học bù.');
+    return;
+  }
+  availableMakeupSlots = json.slots || [];
+  renderMakeupSlotTable();
+}
+// Khi người dùng đổi tuần học bù, tự cập nhật ngày sang cùng thứ trong tuần mới
+function syncMakeupDateToWeek() {
+  const weekInput = document.getElementById('makeup-week');
+  const dateInput = document.getElementById('makeup-date');
+  const newWeek = Number(weekInput.value);
+  if (!newWeek || newWeek < 1) return;
+
+  // Lấy thứ (day index 0=T2 … 6=CN) từ ngày hiện tại trong input
+  const currentDateVal = dateInput.value;
+  let dayIdx = 0; // mặc định thứ Hai
+  if (currentDateVal) {
+    const parsed = parseLocalDate(currentDateVal);
+    if (parsed) dayIdx = dayIndexFromDate(parsed);
+  }
+
+  // Tính ngày tương ứng trong tuần mới
+  const weekDates = getWeekDates(newWeek);
+  const targetDate = weekDates[Math.min(dayIdx, weekDates.length - 1)];
+  dateInput.value = isoDate(targetDate);
+}
+
+// Khi người dùng đổi ngày học bù, tự cập nhật tuần tương ứng
+function syncMakeupWeekToDate() {
+  const weekInput = document.getElementById('makeup-week');
+  const dateInput = document.getElementById('makeup-date');
+  const dateVal = dateInput.value;
+  if (!dateVal) return;
+  const parsed = parseLocalDate(dateVal);
+  if (!parsed) return;
+  const week = weekFromDate(parsed);
+  if (week >= 1) weekInput.value = week;
+}
+
+function openMakeupModal(matkb, mode) {
+  const s = sessionByMatkb.get(matkb);
+  if (!s) return;
+  document.getElementById('makeup-mode').value = mode;
+  document.getElementById('makeup-matkb').value = matkb;
+  document.getElementById('makeup-title').textContent = mode === 'edit' ? 'Chỉnh lịch học bù' : 'Tạm ngưng / Tạo học bù';
+  document.getElementById('makeup-submit').textContent = mode === 'edit' ? 'Lưu chỉnh sửa' : 'Tạo học bù';
+  document.getElementById('makeup-original').textContent =
+    `${s.tenmon} | ${s.tenlop} | ${s.tengv} | Tuần ${s.tuanhoc} | Tiết ${s.tiet_start}-${s.tiet_end} | Phòng ${s.maphong}`;
+  document.getElementById('makeup-week').value = mode === 'edit' ? s.tuanhoc : currentWeek;
+  document.getElementById('makeup-date').value = (mode === 'edit' && s.ngayhoc)
+    ? String(s.ngayhoc).slice(0,10)
+    : isoDate(getWeekDates(currentWeek)[Math.max(0, Math.min(currentDay, DAYS.length-1))]);
+  document.getElementById('makeup-reason').value = s.lydo || '';
+  availableMakeupSlots = [];
+  selectedMakeupSlot = null;
+  document.getElementById('makeup-makhung').value = '';
+  populateMakeupRooms([]);
+  renderMakeupSlotTable();
+  document.getElementById('makeup-status').className = 'modal-status mt-4';
+  document.getElementById('makeup-modal').classList.add('show');
+  loadAvailableMakeupSlots();
+}
+function closeMakeupModal() {
+  document.getElementById('makeup-modal').classList.remove('show');
+}
+function makeupPayload() {
+  return {
+    tuanhoc: Number(document.getElementById('makeup-week').value),
+    ngayhoc: document.getElementById('makeup-date').value,
+    maphong: document.getElementById('makeup-room').value,
+    makhung: Number(document.getElementById('makeup-makhung').value),
+    lydo: document.getElementById('makeup-reason').value.trim(),
+    nguoithuchien: 'admin',
+  };
+}
+async function checkMakeupSlot() {
+  const s = selectedSessionForModal();
+  if (!s) return;
+  if (!document.getElementById('makeup-makhung').value || !document.getElementById('makeup-room').value) {
+    showMakeupStatus(false, 'Hãy chọn một slot hợp lệ và một phòng trống phù hợp trước.');
+    return false;
+  }
+  const mode = document.getElementById('makeup-mode').value;
+  const payload = makeupPayload();
+  const body = {
+    matkb_goc: mode === 'edit' ? s.tkb_goc_id : s.matkb,
+    ...payload,
+  };
+  if (mode === 'edit') body.exclude_matkb = s.matkb_list || [s.matkb];
+  const res = await fetch(apiUrl('/api/tkb/check-slot'), {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body),
+  });
+  const json = await res.json();
+  showMakeupStatus(Boolean(json.available), json.message || (json.available ? 'Slot hợp lệ' : 'Slot không hợp lệ'));
+  return Boolean(json.available);
+}
+async function submitMakeup() {
+  const s = selectedSessionForModal();
+  if (!s) return;
+  if (!document.getElementById('makeup-makhung').value || !document.getElementById('makeup-room').value) {
+    showMakeupStatus(false, 'Hãy chọn một slot hợp lệ và một phòng cụ thể trước khi tạo học bù.');
+    return;
+  }
+  const mode = document.getElementById('makeup-mode').value;
+  const payload = makeupPayload();
+  const url = mode === 'edit'
+    ? `/api/tkb/${encodeURIComponent(s.matkb)}`
+    : `/api/tkb/${encodeURIComponent(s.matkb)}/tao-hoc-bu`;
+  const res = await fetch(apiUrl(url), {
+    method: mode === 'edit' ? 'PUT' : 'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload),
+  });
+  const json = await res.json();
+  if (!res.ok || json.success === false) {
+    showMakeupStatus(false, json.message || json.error || 'Không thể lưu lịch học bù.');
+    return;
+  }
+  showMakeupStatus(true, json.message || 'Thành công');
+  await loadViewData();
+  closeMakeupModal();
 }
 
 /* ════════════════════════════════════════════════════════════════

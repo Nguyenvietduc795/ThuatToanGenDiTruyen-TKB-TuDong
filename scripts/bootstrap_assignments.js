@@ -21,7 +21,7 @@ function isTeacherActive(status) {
   const value = normalizeText(status);
   if (!value) return true; // null/rỗng → coi là active
   // Chỉ loại bỏ nếu RÕ RÀNG là inactive
-  const INACTIVE = ['inactive', 'khonghoatdong', 'nghi', 'nghiviec', 'ngungday', '0', 'false', 'disabled', 'locked'];
+  const INACTIVE = ['tamngung', 'inactive', 'khonghoatdong', 'nghi', 'nghiviec', 'ngungday', '0', 'false', 'disabled', 'locked'];
   return !INACTIVE.includes(value);
 }
 

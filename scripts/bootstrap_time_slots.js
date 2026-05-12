@@ -13,6 +13,7 @@ const DAYS = [
   { name: 'Thursday' },
   { name: 'Friday' },
   { name: 'Saturday' },
+  { name: 'Sunday' },
 ];
 
 function buildTimeSlots() {
@@ -20,7 +21,7 @@ function buildTimeSlots() {
   DAYS.forEach((day, dayIndex) => {
     for (let slot = 1; slot <= 12; slot += 1) {
       rows.push({
-        makhung: dayIndex * 12 + slot, // integer: 1-72
+        makhung: dayIndex * 12 + slot, // integer: 1-84
         thutrongtuan: day.name,
         tietbatdau: slot,
         tietketthuc: slot,
@@ -37,7 +38,7 @@ async function main() {
   const dryRun = process.argv.includes('--dry-run');
   const rows = buildTimeSlots();
 
-  console.log(`[bootstrap] Tao ${rows.length} khung_thoi_gian (6 ngay x 12 tiet)`);
+  console.log(`[bootstrap] Tao ${rows.length} khung_thoi_gian (7 ngay x 12 tiet)`);
   if (dryRun) {
     console.log('[bootstrap] Dry-run, khong ghi len Supabase');
     return;
