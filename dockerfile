@@ -1,7 +1,10 @@
-# Dockerfile Đa nền tảng: Kết hợp Node.js + Python
+# ================================================================
+# Dockerfile — TKB Hệ Thống
+# Tương thích: Hugging Face Spaces (port 7860) + local dev (port 3000)
+# ================================================================
 FROM node:18-slim
 
-# Cài đặt Python 3.11 và các công cụ biên dịch cần thiết
+# Cài Python 3 + pip
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
@@ -9,35 +12,33 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Thiết lập thư mục làm việc chính trong container
+# Tạo symlink python → python3 (để spawnSync('python') hoạt động)
+RUN ln -sf /usr/bin/python3 /usr/bin/python
+
 WORKDIR /app
 
-# Sao chép các file cấu hình package của Node.js (package.json, package-lock.json)
+# Cài Node dependencies trước (tận dụng Docker layer cache)
 COPY package*.json ./
-
-# Cài đặt các thư viện phụ thuộc của Node.js (chỉ cài các gói cần cho môi trường production)
 RUN npm install --production
 
-# Sao chép các file mã nguồn Python và các file mã nguồn khác
+# Copy source code
 COPY *.py ./
-COPY helpers.py costs.py genetic_algorithm.py ga_cli.py model.py utils.py ./
 COPY scripts/ ./scripts/
 COPY *.html *.css *.js ./
-
-# Sao chép các thư mục chứa tài nguyên tĩnh
 COPY solution_files/ ./solution_files/
 
-# Cấu hình các biến môi trường
+# Biến môi trường mặc định
 ENV NODE_ENV=production
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONIOENCODING=utf-8
+# PORT=7860 cho Hugging Face Spaces
+# Ghi đè bằng -e PORT=3000 khi chạy local
+ENV PORT=7860
 
-# Mở cổng mạng (Port) để truy cập ứng dụng
-EXPOSE 3000
+EXPOSE 7860
 
-# Kiểm tra "sức khỏe" của ứng dụng (Tự động gọi API để xem server có đang chạy ổn định không)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/api/giangvien', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:' + (process.env.PORT||7860) + '/api/giangvien', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
 
-# Lệnh khởi chạy ứng dụng khi Container bắt đầu hoạt động
 CMD ["node", "server.js"]

@@ -4,23 +4,23 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     container_name: tkb-app
     ports:
-      - "3000:3000"
+      - "3000:7860"        # local:3000 → container:7860
     environment:
       - NODE_ENV=production
       - PYTHONUNBUFFERED=1
       - PYTHONIOENCODING=utf-8
-      - PORT=3000
+      - PORT=7860
     env_file:
-      - .env.local
+      - .env.local          # chứa SUPABASE keys — không commit lên git
     volumes:
       - .:/app
       - /app/node_modules
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/giangvien', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:7860/api/giangvien', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
       interval: 30s
       timeout: 10s
       retries: 3
