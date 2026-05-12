@@ -1426,10 +1426,10 @@ async function generateTKB() {
     const json = await res.json();
     if (json.status === 'NO_NEW_ASSIGNMENTS') {
       const skippedCount = Number(json.summary?.skipped_count ?? json.skipped?.length ?? 0);
-      showResult('success', `Tat ca mon/lop da duoc xep trong hoc ky nay. Khong co du lieu moi de tao. Bo qua ${skippedCount} lop-mon da xep.`);
       document.getElementById('gen-status').textContent = '';
       await Promise.all([loadViewData(), reloadMonStatus()]);
       await onLopCheckChange();
+      showNoNewAssignmentsResult(skippedCount);
       return;
     }
     if (!json.ok) throw new Error(json.error || 'Tạo TKB thất bại');
@@ -1445,11 +1445,11 @@ async function generateTKB() {
       `${generatedSessions} buổi/tuần · ${generatedRows} dòng tổng · ${wkInfo} · Fitness: ${summary?.fitness ?? '?'}`
     );
     if (generatedCount === 0 && skippedCount > 0) {
-      showResult('success', `Tat ca mon/lop da duoc xep trong hoc ky nay. Khong co du lieu moi de tao. Bo qua ${skippedCount} lop-mon da xep.`);
+      showNoNewAssignmentsResult(skippedCount);
     } else {
       showResult('success',
-        `Tao thanh cong cho ${generatedCount} lop-mon moi. Bo qua ${skippedCount} lop-mon da xep. ` +
-        `${generatedSessions || 0} buoi/tuan · ${generatedRows || 0} dong tong · ${wkInfo} · Fitness: ${summary?.fitness ?? '?'}`
+        `✅ Đã xếp thành công ${generatedCount} lớp-môn mới. Bỏ qua ${skippedCount} lớp-môn đã có lịch. ` +
+        `${generatedSessions || 0} buổi/tuần · ${generatedRows || 0} dòng tổng · ${wkInfo} · Fitness: ${summary?.fitness ?? '?'}`
       );
     }
     document.getElementById('gen-status').textContent = '';
@@ -1484,18 +1484,53 @@ async function generateTKB() {
   }
 }
 
-function showResult(type, msg) {
+function showResult(type, msg, html) {
   const el = document.getElementById('gen-result');
-  if (!msg) { el.classList.add('hidden'); return; }
+  if (!msg && !html) { el.classList.add('hidden'); return; }
   el.classList.remove('hidden');
   if (type === 'success') {
     el.className = 'mt-4 p-4 rounded-xl border bg-green-50 border-green-200 text-green-800 font-medium text-sm';
   } else if (type === 'error') {
     el.className = 'mt-4 p-4 rounded-xl border bg-red-50 border-red-200 text-red-800 font-medium text-sm';
+  } else if (type === 'warning') {
+    el.className = 'mt-4 p-4 rounded-xl border bg-yellow-50 border-yellow-300 text-yellow-800 font-medium text-sm';
   } else {
     el.className = 'mt-4 p-4 rounded-xl border bg-gray-50 border-gray-200 text-gray-700 text-sm';
   }
-  el.textContent = msg;
+  if (html) {
+    el.innerHTML = html;
+  } else {
+    el.textContent = msg;
+  }
+}
+
+function showNoNewAssignmentsResult(skippedCount) {
+  const html = `
+    <div class="flex items-start gap-3">
+      <span class="text-2xl leading-none">📋</span>
+      <div class="flex-1">
+        <div class="font-bold text-yellow-900 mb-1">Không có môn/lớp mới cần xếp</div>
+        <div class="text-yellow-800 mb-3">Tất cả ${skippedCount > 0 ? skippedCount + ' lớp-môn' : 'lớp-môn'} đã có lịch trong học kỳ này. Không có dữ liệu mới để tạo.</div>
+        <div class="flex gap-2 flex-wrap">
+          <button type="button"
+            onclick="switchTab('sv'); document.getElementById('gen-result').classList.add('hidden');"
+            class="px-4 py-1.5 rounded-lg bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition-all">
+            📅 Xem TKB
+          </button>
+          <button type="button"
+            onclick="confirmResetAndGenerate()"
+            class="px-4 py-1.5 rounded-lg border border-red-300 bg-red-50 text-red-700 font-semibold text-sm hover:bg-red-100 transition-all">
+            🔄 Xếp lại toàn bộ
+          </button>
+        </div>
+      </div>
+    </div>`;
+  showResult('warning', null, html);
+}
+
+async function confirmResetAndGenerate() {
+  // Tái sử dụng hàm resetAndSeed() đã có sẵn
+  await resetAndSeed();
 }
 
 /* ════════════════════════════════════════════════════════════════

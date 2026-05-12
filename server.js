@@ -121,10 +121,10 @@ async function getSupabaseGaInput({ mahk = null, namhoc = null } = {}) {
     loaiphong: normalizeAssignmentType(pc, subjectsById),
   }));
 
-  // Soft filter theo mahk/namhoc: chỉ áp dụng nếu có kết quả sau lọc
+  // Hard filter theo mahk: khi chỉ định HK cụ thể, KHÔNG fallback sang HK khác
+  // để tránh GA dùng nhầm data HK1 khi generate cho HK2/HK3
   if (mahk !== null) {
-    const filtered = assignments.filter((pc) => pc.mahk != null && Number(pc.mahk) === Number(mahk));
-    if (filtered.length > 0) assignments = filtered;
+    assignments = assignments.filter((pc) => pc.mahk != null && Number(pc.mahk) === Number(mahk));
   }
   if (namhoc) {
     const filtered = assignments.filter((pc) => pc.namhoc && String(pc.namhoc) === String(namhoc));
@@ -1006,9 +1006,11 @@ async function prepareGaAssignmentsForSelectionV2({ mahk, malops, mamons }) {
       const teacher = teachers[idx % teachers.length];
       const loai = normalizeAssignmentType({ mamon: pair.mamon, loaiphong: mon.loaiphong }, monMap);
       const cfg   = gaSessionConfigForSubject(mon, loai);
+      const mahkVal = mahk === null || mahk === undefined ? null : Number(mahk);
       return {
         mapc: codes[idx],
-        mahk: mahk === null || mahk === undefined ? null : Number(mahk),
+        mahk: mahkVal,
+        hocky: mahkVal,  // giữ đồng bộ với cột hocky trong schema
         malop: pair.malop,
         mamon: pair.mamon,
         magv: teacher.magv,
@@ -2202,6 +2204,19 @@ app.post('/api/ga/generate', async (req, res) => {
     }
 
     const { rawData, khungThoiGian } = await getSupabaseGaInput({ mahk: parsedMahk, namhoc });
+
+    // Kiểm tra: nếu chỉ định HK cụ thể nhưng không có pcan nào → yêu cầu chọn lớp/môn
+    // (tránh dùng nhầm data HK khác sau khi đã đổi sang hard filter)
+    if (parsedMahk !== null && (rawData.phan_cong_giang_day || []).length === 0) {
+      return res.status(400).json({
+        ok: false,
+        success: false,
+        status: 'NO_ASSIGNMENTS_FOR_HK',
+        message: `Chưa có phân công giảng dạy nào cho học kỳ này (mahk=${parsedMahk}). Vui lòng chọn cụ thể lớp và môn học để tạo phân công mới trước khi xếp lịch.`,
+        error: `Không có dữ liệu phân công cho học kỳ mahk=${parsedMahk}.`,
+      });
+    }
+
     const monMap = new Map((rawData.mon_hoc || []).map((m) => [m.mamon, m]));
     const teacherMap = new Map((rawData.giang_vien || []).map((g) => [g.magv, g]));
     const pausedAssignmentsAll = await findPausedTeacherAssignments(
@@ -2539,7 +2554,7 @@ app.post('/api/ga/generate', async (req, res) => {
       for (const [mapc, range] of mapcWeekRange) {
         const { error: updErr } = await supabase
           .from('phan_cong_giang_day')
-          .update({ tuanbatdau: range.start, tuanketthuc: range.end })
+          .update({ tuanbatdau: range.start, tuanketthuc: range.end, hocky: parsedMahk ?? null })
           .eq('mapc', mapc);
         if (updErr) {
           console.error(`[GA] Loi cap nhat mapc=${mapc}:`, updErr.message);
@@ -2604,11 +2619,12 @@ app.get('/api/tkb/viewer', async (req, res) => {
     const lopMap = new Map((lopRes.data || []).map((l) => [l.malop, l]));
     const monMap = new Map((monRes.data || []).map((m) => [m.mamon, m]));
 
-    // Build pc map (soft filter theo mahk/namhoc)
+    // Build pc map — hard filter theo mahk để tránh hiện nhầm TKB HK khác
     let pcRows = pcRes.data || [];
     if (mahk !== null) {
       const f = pcRows.filter((p) => p.mahk != null && Number(p.mahk) === mahk);
-      if (f.length > 0) pcRows = f;
+      // Chỉ apply filter nếu có data cho HK này; nếu không có → hiện rỗng (đúng hơn là hiện nhầm)
+      pcRows = f;
     }
     if (namhoc) {
       const f = pcRows.filter((p) => p.namhoc && String(p.namhoc) === namhoc);
@@ -2824,6 +2840,80 @@ async function autoSeedIfEmpty() {
     console.warn('[AutoSeed] Khong the kiem tra / seed tu dong:', e.message);
   }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   ADMIN: Backfill NULL columns trong DB (chạy 1 lần)
+════════════════════════════════════════════════════════════════ */
+app.post('/api/admin/backfill-null-data', async (req, res) => {
+  try {
+    const report = { hocky: 0, tuanketthuc: 0, tuanbatdau: 0 };
+
+    // ── 1. Backfill hocky = mahk cho tất cả pcan thiếu ─────────────────────
+    const { data: pcAll, error: pcErr } = await supabase
+      .from('phan_cong_giang_day')
+      .select('mapc, mahk, hocky, tuanbatdau, tuanketthuc')
+      .is('hocky', null);
+    if (pcErr) throw new Error(pcErr.message);
+
+    for (const pc of pcAll || []) {
+      if (pc.mahk == null) continue;
+      const { error } = await supabase
+        .from('phan_cong_giang_day')
+        .update({ hocky: pc.mahk })
+        .eq('mapc', pc.mapc);
+      if (!error) report.hocky += 1;
+    }
+
+    // ── 2. Backfill tuanketthuc/tuanbatdau từ thoi_khoa_bieu ─────────────────
+    const { data: tkbRows, error: tkbErr } = await supabase
+      .from('thoi_khoa_bieu')
+      .select('mapc, tuanhoc, trangthai')
+      .in('trangthai', ['DANG_HOC', 'TAM_NGUNG']);
+    if (tkbErr) throw new Error(tkbErr.message);
+
+    // Tính min/max tuanhoc per mapc
+    const weekRanges = new Map();
+    for (const r of tkbRows || []) {
+      if (!r.mapc || r.tuanhoc == null) continue;
+      const cur = weekRanges.get(r.mapc);
+      const w = Number(r.tuanhoc);
+      if (!cur) weekRanges.set(r.mapc, { min: w, max: w });
+      else { cur.min = Math.min(cur.min, w); cur.max = Math.max(cur.max, w); }
+    }
+
+    // Cập nhật pcan nào còn tuanketthuc = NULL và có TKB data
+    const { data: pcNull, error: pcNullErr } = await supabase
+      .from('phan_cong_giang_day')
+      .select('mapc, tuanbatdau, tuanketthuc')
+      .is('tuanketthuc', null);
+    if (pcNullErr) throw new Error(pcNullErr.message);
+
+    for (const pc of pcNull || []) {
+      const range = weekRanges.get(pc.mapc);
+      if (!range) continue;
+      const patch = {};
+      if (pc.tuanketthuc == null) { patch.tuanketthuc = range.max; }
+      if (pc.tuanbatdau == null || Number(pc.tuanbatdau) === 0) { patch.tuanbatdau = range.min; }
+      if (Object.keys(patch).length === 0) continue;
+      const { error } = await supabase
+        .from('phan_cong_giang_day')
+        .update(patch)
+        .eq('mapc', pc.mapc);
+      if (!error) {
+        if (patch.tuanketthuc != null) report.tuanketthuc += 1;
+        if (patch.tuanbatdau != null) report.tuanbatdau += 1;
+      }
+    }
+
+    return res.json({
+      ok: true,
+      message: `Backfill hoàn tất: hocky=${report.hocky} bản ghi, tuanketthuc=${report.tuanketthuc}, tuanbatdau=${report.tuanbatdau}`,
+      report,
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 app.listen(PORT, async () => {
   console.log(`[Backend] Server đang chạy tại: http://localhost:${PORT}`);
