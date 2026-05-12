@@ -544,9 +544,7 @@ let sessionByMatkb = new Map();
 let availableMakeupSlots = [];
 let selectedMakeupSlot = null;
 
-const API_ORIGIN = (
-  window.location.origin && /^https?:\/\/localhost:3000$/i.test(window.location.origin)
-) ? '' : 'http://localhost:3000';
+const API_ORIGIN = '';
 function apiUrl(path) {
   return `${API_ORIGIN}${path}`;
 }
