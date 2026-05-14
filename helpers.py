@@ -104,6 +104,7 @@ def initial_population_random(data, matrix, free, filled,
         used_days = mapc_days_used.get(classs.assignment_id, set())
 
         valid_starts = []
+        avail_rows = getattr(data, 'teacher_available_rows', {}).get(classs.teacher)
         for start_field in free:
             start_row = start_field[0]
             end_row   = start_row + duration - 1
@@ -119,6 +120,10 @@ def initial_population_random(data, matrix, free, filled,
                 continue
 
             if start_field[1] not in classs.classrooms:
+                continue
+
+            # RANG BUOC: GV chi duoc xep vao ngay/buoi duoc phep
+            if avail_rows is not None and start_row not in avail_rows:
                 continue
 
             # RANG BUOC: cung mapc khong duoc xep 2 buoi cung ngay
@@ -248,6 +253,7 @@ def mutate_ideal_spot(matrix, data, ind_class, free, filled,
     used_days  = mapc_days.get(classs.assignment_id, set())
 
     ind = 0
+    avail_rows = getattr(data, 'teacher_available_rows', {}).get(classs.teacher)
     while ind < len(free):
         start_field = free[ind]
         start_row   = start_field[0]
@@ -267,6 +273,11 @@ def mutate_ideal_spot(matrix, data, ind_class, free, filled,
             continue
 
         if start_field[1] not in classs.classrooms:
+            ind += 1
+            continue
+
+        # Rang buoc: GV chi duoc xep vao ngay/buoi duoc phep
+        if avail_rows is not None and start_row not in avail_rows:
             ind += 1
             continue
 
