@@ -5,6 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản Lý Giảng Viên - DNC</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .form-extra-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .form-field-block { display: flex; flex-direction: column; gap: 8px; }
+        .form-field-label { font-size: 13px; font-weight: 600; color: #374151; }
+        .checkbox-group, .radio-group { display: flex; flex-wrap: wrap; gap: 10px; }
+        .cb-label, .rb-label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 13.5px;
+            color: #374151;
+            cursor: pointer;
+            padding: 5px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            user-select: none;
+            transition: background .15s, border-color .15s;
+        }
+        .cb-label:hover, .rb-label:hover { background: #f3f4f6; border-color: #6366f1; }
+        .cb-label input, .rb-label input { accent-color: #6366f1; cursor: pointer; }
+    </style>
 </head>
 <body>
     <div class="page-wrapper">
@@ -38,11 +66,38 @@
                         <option value="Cử nhân">Cử nhân</option>
                     </select>
                     <input type="text" id="chuyenMon" placeholder="Chuyên môn">
+                    <select id="loaiGV" onchange="onLoaiGVChange(this.value)">
+                        <option value="co_huu">Cơ hữu</option>
+                        <option value="thinh_giang">Thỉnh giảng</option>
+                        <option value="hop_dong">Hợp đồng</option>
+                    </select>
                     <select id="trangThai">
                         <option value="HOAT_DONG">Hoạt động</option>
                         <option value="TAM_NGUNG">Tạm ngưng</option>
                     </select>
                     <button onclick="handleTeacher()" class="btn-add" id="main-btn">+ Thêm mới</button>
+                </div>
+
+                <div class="form-extra-row">
+                    <div class="form-field-block">
+                        <label class="form-field-label">Ngày dạy được</label>
+                        <div class="checkbox-group" id="ngayAvailableGroup">
+                            <label class="cb-label"><input type="checkbox" name="ngayAvailable" value="2" checked> T2</label>
+                            <label class="cb-label"><input type="checkbox" name="ngayAvailable" value="3" checked> T3</label>
+                            <label class="cb-label"><input type="checkbox" name="ngayAvailable" value="4" checked> T4</label>
+                            <label class="cb-label"><input type="checkbox" name="ngayAvailable" value="5" checked> T5</label>
+                            <label class="cb-label"><input type="checkbox" name="ngayAvailable" value="6" checked> T6</label>
+                            <label class="cb-label"><input type="checkbox" name="ngayAvailable" value="7" checked> T7</label>
+                        </div>
+                    </div>
+                    <div class="form-field-block">
+                        <label class="form-field-label">Buổi dạy được</label>
+                        <div class="radio-group">
+                            <label class="rb-label"><input type="radio" name="buoiAvailable" value="sang"> Sáng</label>
+                            <label class="rb-label"><input type="radio" name="buoiAvailable" value="chieu"> Chiều</label>
+                            <label class="rb-label"><input type="radio" name="buoiAvailable" value="ca_hai" checked> Cả hai</label>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -214,13 +269,16 @@
                 if (!res.ok) throw new Error(`API lỗi ${res.status}`);
                 const data = await res.json();
                 teacherData = data.map(row => ({
-                    MaGV     : row.magv,
-                    TenGV    : row.tengv,
-                    Email    : row.email,
-                    SDT      : row.sdt,
-                    HocVi    : row.hocvi,
-                    ChuyenMon: row.chuyenmon,
-                    TrangThai: normalizeTeacherStatus(row.trangthai)
+                    MaGV          : row.magv,
+                    TenGV         : row.tengv,
+                    Email         : row.email,
+                    SDT           : row.sdt,
+                    HocVi         : row.hocvi,
+                    ChuyenMon     : row.chuyenmon,
+                    TrangThai     : normalizeTeacherStatus(row.trangthai),
+                    LoaiGV        : row.loai_gv || 'co_huu',
+                    NgayAvailable : Array.isArray(row.ngay_available) ? row.ngay_available : [2,3,4,5,6,7],
+                    BuoiAvailable : row.buoi_available || 'ca_hai',
                 }));
                 currentPage = 1;
                 renderTable();
@@ -242,13 +300,20 @@
             const action = editingMa ? 'cập nhật' : 'thêm mới';
             if (!await confirmAction(`Bạn có chắc chắn muốn ${action} giảng viên này?`)) return;
 
+            const ngayChecked = [...document.querySelectorAll('input[name="ngayAvailable"]:checked')]
+                .map(cb => parseInt(cb.value));
+            const buoiSel = document.querySelector('input[name="buoiAvailable"]:checked');
+
             const body = {
-                TenGV    : ten,
-                Email    : email,
-                SDT      : document.getElementById('sdt').value,
-                HocVi    : document.getElementById('hocVi').value,
-                ChuyenMon: document.getElementById('chuyenMon').value,
-                TrangThai: document.getElementById('trangThai').value,
+                TenGV        : ten,
+                Email        : email,
+                SDT          : document.getElementById('sdt').value,
+                HocVi        : document.getElementById('hocVi').value,
+                ChuyenMon    : document.getElementById('chuyenMon').value,
+                TrangThai    : document.getElementById('trangThai').value,
+                LoaiGV       : document.getElementById('loaiGV').value,
+                NgayAvailable: ngayChecked,
+                BuoiAvailable: buoiSel ? buoiSel.value : 'ca_hai',
             };
 
             try {
@@ -322,6 +387,13 @@
             document.getElementById('hocVi').value     = gv.HocVi;
             document.getElementById('chuyenMon').value = gv.ChuyenMon;
             document.getElementById('trangThai').value = normalizeTeacherStatus(gv.TrangThai);
+            document.getElementById('loaiGV').value    = gv.LoaiGV || 'co_huu';
+            document.querySelectorAll('input[name="ngayAvailable"]').forEach(cb => {
+                cb.checked = (gv.NgayAvailable || [2,3,4,5,6,7]).includes(parseInt(cb.value));
+            });
+            const buoiVal = gv.BuoiAvailable || 'ca_hai';
+            const buoiRb = document.querySelector(`input[name="buoiAvailable"][value="${buoiVal}"]`);
+            if (buoiRb) buoiRb.checked = true;
             const btn = document.getElementById('main-btn');
             btn.innerText = '💾 Lưu cập nhật';
             btn.style.backgroundColor = '#2563eb';
@@ -366,6 +438,19 @@
             }
         }
 
+        function onLoaiGVChange(val) {
+            const allCbs = document.querySelectorAll('input[name="ngayAvailable"]');
+            if (val === 'thinh_giang') {
+                // Thỉnh giảng: chỉ dạy T6 và T7
+                allCbs.forEach(cb => {
+                    cb.checked = ['6', '7'].includes(cb.value);
+                });
+            } else {
+                // Cơ hữu / Hợp đồng: mặc định tất cả các ngày
+                allCbs.forEach(cb => cb.checked = true);
+            }
+        }
+
         function resetForm() {
             document.getElementById('maGV').value      = 'Mã: Tự động';
             document.getElementById('tenGV').value     = '';
@@ -373,6 +458,10 @@
             document.getElementById('sdt').value       = '';
             document.getElementById('chuyenMon').value = '';
             document.getElementById('trangThai').value = 'HOAT_DONG';
+            document.getElementById('loaiGV').value    = 'co_huu';
+            document.querySelectorAll('input[name="ngayAvailable"]').forEach(cb => cb.checked = true);
+            const defaultBuoi = document.querySelector('input[name="buoiAvailable"][value="ca_hai"]');
+            if (defaultBuoi) defaultBuoi.checked = true;
         }
 
         window.addEventListener('DOMContentLoaded', loadTeachers);
