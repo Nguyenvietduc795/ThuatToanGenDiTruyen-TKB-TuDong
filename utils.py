@@ -339,14 +339,22 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
         # Tinh available_rows tu ngay_available + buoi_available.
         # Fallback: tat ca ngay, ca hai buoi (khong gioi han).
         raw_ngay = gv.get('ngay_available')
-        # Supabase co the tra ve list, string JSON, hoac None
+        # Supabase co the tra ve:
+        #   - list Python [6, 7]          (qua supabase-py)
+        #   - string JSON "[6,7]"
+        #   - string PostgreSQL "{6,7}"   (khi doc truc tiep tu DB)
+        #   - None
         if isinstance(raw_ngay, str):
             import json as _json
+            s = raw_ngay.strip()
+            if s.startswith('{') and s.endswith('}'):
+                # PostgreSQL array format: {6,7} -> [6,7]
+                s = '[' + s[1:-1] + ']'
             try:
-                raw_ngay = _json.loads(raw_ngay)
+                raw_ngay = _json.loads(s)
             except Exception:
                 raw_ngay = None
-        ngay = [int(x) for x in raw_ngay if str(x).isdigit()] if raw_ngay else list(range(2, 8))
+        ngay = [int(x) for x in raw_ngay if str(x).strip().lstrip('-').isdigit()] if raw_ngay else list(range(2, 8))
         buoi = gv.get('buoi_available') or 'ca_hai'
         teacher_available_rows[magv] = _compute_available_rows(ngay, buoi)
         # Chi them GV dang hoat dong (da filter tam ngung tu server.js)
