@@ -214,6 +214,41 @@ def _is_active(value):
     return normalized not in INACTIVE
 
 
+def _compute_available_rows(ngay_available, buoi_available):
+    """
+    Tinh tap cac hang matrix ma GV co the day.
+
+    ngay_available : list[int]  — so thu trong tuan (2=T2 ... 7=T7)
+    buoi_available : str        — 'sang' | 'chieu' | 'ca_hai'
+    Tra ve frozenset[int] chua cac row index (0-71) hop le.
+
+    Anh xa ngay -> row base:
+      T2 (2) -> index 0 -> row 0-11
+      T3 (3) -> index 1 -> row 12-23
+      ...
+      T7 (7) -> index 5 -> row 60-71
+    Buoi sang  -> slot 0-5  trong ngay  (MORNING_SLOTS = 6)
+    Buoi chieu -> slot 6-11 trong ngay
+    """
+    if not ngay_available:
+        ngay_available = list(range(2, 8))
+
+    rows = []
+    for day_num in ngay_available:
+        day_idx = int(day_num) - 2          # T2 -> 0, T7 -> 5
+        if day_idx < 0 or day_idx >= DAYS_PER_WEEK:
+            continue
+        base = day_idx * SLOTS_PER_DAY
+        if buoi_available == 'sang':
+            rows.extend(range(base, base + MORNING_SLOTS))
+        elif buoi_available == 'chieu':
+            rows.extend(range(base + MORNING_SLOTS, base + SLOTS_PER_DAY))
+        else:                               # 'ca_hai' hoac gia tri khong ro
+            rows.extend(range(base, base + SLOTS_PER_DAY))
+
+    return frozenset(rows)
+
+
 def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_order,
                        tuanhoc=None):
     """
@@ -292,6 +327,7 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
     magv_in_pc = {pc['magv'] for pc in raw.get('phan_cong_giang_day', [])
                   if isinstance(pc, dict) and 'magv' in pc}
     teacher_specializations = {}
+    teacher_available_rows  = {}
     for gv in raw.get('giang_vien', []):
         magv = gv.get('magv')
         if not magv:
@@ -300,6 +336,19 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
         chuyenmon = gv.get('chuyenmon', '')
         if chuyenmon:
             teacher_specializations[magv] = chuyenmon
+        # Tinh available_rows tu ngay_available + buoi_available.
+        # Fallback: tat ca ngay, ca hai buoi (khong gioi han).
+        raw_ngay = gv.get('ngay_available')
+        # Supabase co the tra ve list, string JSON, hoac None
+        if isinstance(raw_ngay, str):
+            import json as _json
+            try:
+                raw_ngay = _json.loads(raw_ngay)
+            except Exception:
+                raw_ngay = None
+        ngay = [int(x) for x in raw_ngay if str(x).isdigit()] if raw_ngay else list(range(2, 8))
+        buoi = gv.get('buoi_available') or 'ca_hai'
+        teacher_available_rows[magv] = _compute_available_rows(ngay, buoi)
         # Chi them GV dang hoat dong (da filter tam ngung tu server.js)
         # VA co trong phan_cong cua lan chay nay.
         if _is_active(gv.get('trangthai')) and magv in magv_in_pc:
@@ -494,7 +543,8 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
 
     return Data(groups, teachers, classes, classrooms,
                 teacher_specializations=teacher_specializations,
-                subject_names=subject_names)
+                subject_names=subject_names,
+                teacher_available_rows=teacher_available_rows)
 
 
 def load_data(file_path, teachers_empty_space, groups_empty_space, subjects_order):
