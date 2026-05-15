@@ -134,6 +134,7 @@ Fitness bằng **0** nghĩa là thời khóa biểu hoàn hảo, không vi phạ
 | H3 | Mỗi buổi học phải được xếp đúng loại phòng (LT / TH) | Kiểm tra `col ∈ cls.classrooms` với mọi ô đã điền |
 | H4 | Hai buổi của cùng phân công (`mapc`) không được xếp cùng ngày | Nhóm theo ngày, đếm số lần `mapc` xuất hiện trong ngày |
 | H5 | Giảng viên không được xếp ngoài ngày/buổi khả dụng (`ngay_available`, `buoi_available`) | Duyệt từng buổi học, kiểm tra `row ∈ teacher_available_rows[magv]`; GV không có dữ liệu lịch rảnh → bỏ qua |
+| H6 | Giảng viên không được xếp vào buổi bận cố định (`gv_blackout_slots`) | Duyệt từng buổi học, kiểm tra `row ∈ teacher_blackout_rows[magv]`; GV không có blackout → bỏ qua |
 
 #### Ràng buộc mềm (`trọng số = 1` mỗi vi phạm)
 
@@ -274,6 +275,41 @@ Trước khi chạy GA, hệ thống chuyển `ngay_available` + `buoi_available
 
 > **Tương thích ngược:** Nếu GV không có dữ liệu `ngay_available` (bản ghi cũ), H5 bỏ qua và không phạt, đảm bảo dữ liệu hiện có không bị ảnh hưởng.
 
+### Buổi bận cố định — Blackout Slots
+
+Ngoài lịch rảnh chung (`ngay_available`, `buoi_available`), hệ thống hỗ trợ khai báo các **buổi bận cụ thể, cố định hàng tuần** cho từng giảng viên — phù hợp với các GV cơ hữu có lịch họp hoặc công việc kiêm nhiệm.
+
+#### Bảng `gv_blackout_slots`
+
+| Cột | Kiểu | Ý nghĩa | Ví dụ |
+|---|---|---|---|
+| `magv` | `TEXT` | Mã giảng viên | `'GV01'` |
+| `ngay` | `INT` | Thứ trong tuần (2=T2 … 7=T7) | `3` → T3 |
+| `buoi` | `TEXT` | Buổi bị bận | `'sang'` / `'chieu'` / `'ca_hai'` |
+
+#### Use case thực tế
+
+| Tình huống | Khai báo |
+|---|---|
+| GV họp Bộ môn sáng T3 hàng tuần | `{magv: 'GV01', ngay: 3, buoi: 'sang'}` |
+| GV họp nhóm nghiên cứu chiều T5 | `{magv: 'GV01', ngay: 5, buoi: 'chieu'}` |
+| GV kiêm quản trị hệ thống, bận cả ngày T2 | `{magv: 'GV02', ngay: 2, buoi: 'ca_hai'}` |
+
+#### Cách hoạt động
+
+Trước khi chạy GA, hệ thống chuyển danh sách blackout slots thành tập hàng ma trận bị cấm (`teacher_blackout_rows`). Ràng buộc cứng **H6** kiểm tra mỗi buổi học: nếu GV bị xếp vào hàng thuộc tập bị cấm đó, phạt **+1 × 100 điểm**.
+
+**Khác biệt với H5:**
+
+| | H5 — Lịch rảnh (`available_rows`) | H6 — Blackout (`blackout_rows`) |
+|---|---|---|
+| Đối tượng | GV thỉnh giảng / hợp đồng | GV cơ hữu có lịch kiêm nhiệm |
+| Nguồn dữ liệu | Cột `ngay_available` + `buoi_available` trên bảng `giang_vien` | Nhiều dòng trong bảng `gv_blackout_slots` |
+| Phạm vi | Quy tắc chung cho cả tuần | Từng buổi cụ thể, linh hoạt per-slot |
+| Vi phạm khi | Row **không nằm** trong tập cho phép | Row **nằm trong** tập bị cấm |
+
+> **Tương thích ngược:** GV không có bản ghi nào trong `gv_blackout_slots` → H6 bỏ qua hoàn toàn, không ảnh hưởng dữ liệu cũ.
+
 ---
 
 ## Cài đặt
@@ -380,6 +416,19 @@ npm run seed:all                # Chạy cả 2 script tuần tự
 ├── Dockerfile
 └── docker-compose.yml
 ```
+
+**Bảng Supabase chính:**
+
+| Bảng | Mô tả |
+|---|---|
+| `giang_vien` | GV: mã, tên, học vị, chuyên môn, loại, trạng thái, ngày/buổi rảnh |
+| `gv_blackout_slots` | Buổi bận cố định của GV: `magv`, `ngay` (INT 2–7), `buoi` (sang/chieu/ca_hai) |
+| `lop` | Lớp học |
+| `mon_hoc` | Môn học: số tiết LT/TH, loại phòng |
+| `phong_hoc` | Phòng học: loại (LT/TH), trạng thái |
+| `phan_cong_giang_day` | Phân công: GV × lớp × môn, số buổi/tuần, số tiết/buổi |
+| `khung_thoi_gian` | Khung giờ dạy được phép (active/inactive theo tuần) |
+| `thoi_khoa_bieu` | Kết quả TKB đã sinh |
 
 ---
 

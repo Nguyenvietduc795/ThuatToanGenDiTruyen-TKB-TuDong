@@ -176,6 +176,38 @@ def _teacher_availability_violations(matrix, data):
     return cost, cost_per_class
 
 
+def _teacher_blackout_violations(matrix, data):
+    """
+    HARD H6 - GV bi xep day vao buoi ban co dinh (blackout).
+
+    Nguon du lieu: data.teacher_blackout_rows (dict: magv -> frozenset[int]).
+    Moi buoi hoc chi kiem tra 1 lan (lan dau xuat hien khi quet tu tren xuong).
+    Vi pham: row cua buoi hoc nam trong blackout_rows cua GV do -> +1.
+
+    Fallback: neu teacher_blackout_rows trong -> tra ve 0, khong phat.
+    """
+    if not getattr(data, 'teacher_blackout_rows', None):
+        return 0, {idx: 0 for idx in data.classes}
+
+    cost = 0
+    cost_per_class = {idx: 0 for idx in data.classes}
+    seen = set()
+
+    for row in range(len(matrix)):
+        for col in range(len(matrix[row])):
+            idx = matrix[row][col]
+            if idx is None or idx in seen:
+                continue
+            seen.add(idx)
+            cls     = data.classes[idx]
+            blocked = data.teacher_blackout_rows.get(cls.teacher, frozenset())
+            if row in blocked:
+                cost += 1
+                cost_per_class[idx] += 1
+
+    return cost, cost_per_class
+
+
 def calculate_hard_constraints(matrix, data):
     """
     TINH TONG COST VI PHAM RANG BUOC CUNG.
@@ -185,12 +217,13 @@ def calculate_hard_constraints(matrix, data):
 
     SCORING: Minimization - THAP hon = TOT hon. 0 = khong vi pham.
 
-    Gom 5 loai rang buoc cung:
+    Gom 6 loai rang buoc cung:
       H1. teacher_conflicts      - GV day 2 lop cung tiet
       H2. group_conflicts        - Lop hoc 2 mon cung tiet
       H3. classroom_mismatches   - Phong sai loai
       H4. same_assignment_day    - 2 buoi cung mapc xep cung ngay (FORBIDDEN)
       H5. teacher_availability   - GV bi xep ngoai ngay/buoi duoc phep
+      H6. teacher_blackout       - GV bi xep vao buoi ban co dinh (blackout)
 
     details_dict chua:
       - 'cost_per_class'        : {class_idx: int} - de sort khi chon class de dot bien
@@ -199,21 +232,23 @@ def calculate_hard_constraints(matrix, data):
       - 'classroom_mismatches'  : int
       - 'same_assignment_day'   : int
       - 'teacher_availability'  : int
+      - 'teacher_blackout'      : int
     """
     tc, tc_per = _teacher_conflicts(matrix, data)
     gc, gc_per = _group_conflicts(matrix, data)
     cc, cc_per = _classroom_type_mismatch(matrix, data)
     sa, sa_per = _same_assignment_same_day(matrix, data)
     av, av_per = _teacher_availability_violations(matrix, data)
+    bk, bk_per = _teacher_blackout_violations(matrix, data)
 
     combined = {
         idx: tc_per.get(idx, 0) + gc_per.get(idx, 0)
              + cc_per.get(idx, 0) + sa_per.get(idx, 0)
-             + av_per.get(idx, 0)
+             + av_per.get(idx, 0) + bk_per.get(idx, 0)
         for idx in data.classes
     }
 
-    total = tc + gc + cc + sa + av
+    total = tc + gc + cc + sa + av + bk
     details = {
         'cost_per_class':       combined,
         'teacher_conflicts':    tc,
@@ -221,6 +256,7 @@ def calculate_hard_constraints(matrix, data):
         'classroom_mismatches': cc,
         'same_assignment_day':  sa,
         'teacher_availability': av,
+        'teacher_blackout':     bk,
     }
     return total, details
 
@@ -513,7 +549,8 @@ def log_fitness(hard_cost, soft_cost, hard_details, soft_details, prefix=''):
           f'group={hard_details["group_conflicts"]} | '
           f'classroom={hard_details["classroom_mismatches"]} | '
           f'same_assign_day={hard_details.get("same_assignment_day", 0)} | '
-          f'avail={hard_details.get("teacher_availability", 0)}')
+          f'avail={hard_details.get("teacher_availability", 0)} | '
+          f'blackout={hard_details.get("teacher_blackout", 0)}')
     print(f'{prefix}  Soft breakdown: empty_groups={soft_details["empty_groups"]} | '
           f'empty_teachers={soft_details["empty_teachers"]} | '
           f'fragmentation={soft_details["fragmentation"]} | '

@@ -32,6 +32,23 @@
         }
         .cb-label:hover, .rb-label:hover { background: #f3f4f6; border-color: #6366f1; }
         .cb-label input, .rb-label input { accent-color: #6366f1; cursor: pointer; }
+        .blackout-section { margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+        .blackout-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+        .btn-add-blackout {
+            padding: 5px 14px; background: #6366f1; color: #fff; border: none;
+            border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; transition: background .15s;
+        }
+        .btn-add-blackout:hover { background: #4f46e5; }
+        .blackout-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .blackout-row select {
+            padding: 5px 10px; border: 1px solid #d1d5db; border-radius: 6px;
+            font-size: 13.5px; color: #374151; background: #fff;
+        }
+        .btn-del-blackout {
+            padding: 5px 12px; background: #dc2626; color: #fff; border: none;
+            border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: 600; transition: background .15s;
+        }
+        .btn-del-blackout:hover { background: #b91c1c; }
     </style>
 </head>
 <body>
@@ -99,6 +116,14 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="blackout-section">
+                    <div class="blackout-header">
+                        <label class="form-field-label">Buổi bận cố định (Blackout)</label>
+                        <button type="button" class="btn-add-blackout" onclick="addBlackoutRow()">+ Thêm buổi bận</button>
+                    </div>
+                    <div id="blackout-list"></div>
+                </div>
             </div>
         </div>
 
@@ -148,6 +173,7 @@
         const API = `${API_BASE}/giangvien`;
         let teacherData = [];
         let editingMa = null;
+        let blackoutList = [];
         let currentPage = 1;
         let searchKeyword = '';
         const PAGE_SIZE = 10;
@@ -326,8 +352,20 @@
                     const err = await res.json().catch(() => ({}));
                     throw new Error(err.error || `API lỗi ${res.status}`);
                 }
-                const msg = editingMa ? 'Cập nhật giảng viên thành công.' : 'Thêm giảng viên thành công.';
+                const savedMa = editingMa;
+                const savedData = await res.json().catch(() => ({}));
+                const magvForBlackout = savedMa || savedData.magv;
+                const msg = savedMa ? 'Cập nhật giảng viên thành công.' : 'Thêm giảng viên thành công.';
+                // Save blackout slots
+                if (magvForBlackout) {
+                    await fetch(`${API_BASE}/giangvien/${magvForBlackout}/blackout`, {
+                        method : 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body   : JSON.stringify({ slots: blackoutList }),
+                    }).catch(() => {});
+                }
                 editingMa = null;
+                blackoutList = [];
                 document.getElementById('main-btn').innerText = '+ Thêm mới';
                 document.getElementById('main-btn').style.backgroundColor = '';
                 resetForm();
@@ -398,6 +436,16 @@
             btn.innerText = '💾 Lưu cập nhật';
             btn.style.backgroundColor = '#2563eb';
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Load blackout slots
+            blackoutList = [];
+            renderBlackoutRows();
+            fetch(`${API_BASE}/giangvien/${ma}/blackout`)
+                .then(r => r.ok ? r.json() : [])
+                .then(slots => {
+                    blackoutList = (slots || []).map(s => ({ ngay: parseInt(s.ngay), buoi: s.buoi }));
+                    renderBlackoutRows();
+                })
+                .catch(() => {});
         }
 
         async function deleteTeacher(ma) {
@@ -462,6 +510,41 @@
             document.querySelectorAll('input[name="ngayAvailable"]').forEach(cb => cb.checked = true);
             const defaultBuoi = document.querySelector('input[name="buoiAvailable"][value="ca_hai"]');
             if (defaultBuoi) defaultBuoi.checked = true;
+            blackoutList = [];
+            renderBlackoutRows();
+        }
+
+        /* ── Blackout management ── */
+        function renderBlackoutRows() {
+            const container = document.getElementById('blackout-list');
+            if (!container) return;
+            if (blackoutList.length === 0) {
+                container.innerHTML = '<div style="color:#9ca3af;font-size:13px;padding:4px 0;">Chưa có buổi bận nào.</div>';
+                return;
+            }
+            container.innerHTML = blackoutList.map((item, i) => `
+                <div class="blackout-row">
+                    <select onchange="blackoutList[${i}].ngay = parseInt(this.value)">
+                        ${[2,3,4,5,6,7].map(n => `<option value="${n}" ${item.ngay === n ? 'selected' : ''}>T${n}</option>`).join('')}
+                    </select>
+                    <select onchange="blackoutList[${i}].buoi = this.value">
+                        <option value="sang" ${item.buoi === 'sang' ? 'selected' : ''}>Sáng</option>
+                        <option value="chieu" ${item.buoi === 'chieu' ? 'selected' : ''}>Chiều</option>
+                        <option value="ca_hai" ${item.buoi === 'ca_hai' ? 'selected' : ''}>Cả hai</option>
+                    </select>
+                    <button type="button" class="btn-del-blackout" onclick="removeBlackoutRow(${i})">Xóa</button>
+                </div>
+            `).join('');
+        }
+
+        function addBlackoutRow() {
+            blackoutList.push({ ngay: 2, buoi: 'sang' });
+            renderBlackoutRows();
+        }
+
+        function removeBlackoutRow(i) {
+            blackoutList.splice(i, 1);
+            renderBlackoutRows();
         }
 
         window.addEventListener('DOMContentLoaded', loadTeachers);

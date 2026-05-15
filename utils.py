@@ -249,6 +249,36 @@ def _compute_available_rows(ngay_available, buoi_available):
     return frozenset(rows)
 
 
+def _compute_blackout_rows(slots):
+    """
+    Tinh tap cac hang matrix bi cam (blackout) tu danh sach {ngay, buoi}.
+
+    slots          : list[dict] voi moi phan tu co 'ngay' (int) va 'buoi' (str)
+    buoi values    : 'sang' | 'chieu' | 'ca_hai'
+    offset cong thuc: (ngay - 2) * 12  (T2->0, T3->12, ..., T7->60)
+
+    Tra ve frozenset[int] chua cac row bi cam.
+    """
+    rows = []
+    for s in slots:
+        try:
+            ngay = int(s.get('ngay', 0))
+        except (TypeError, ValueError):
+            continue
+        day_idx = ngay - 2
+        if day_idx < 0 or day_idx >= DAYS_PER_WEEK:
+            continue
+        base = day_idx * SLOTS_PER_DAY
+        buoi = (s.get('buoi') or 'ca_hai').strip().lower()
+        if buoi == 'sang':
+            rows.extend(range(base, base + MORNING_SLOTS))
+        elif buoi == 'chieu':
+            rows.extend(range(base + MORNING_SLOTS, base + SLOTS_PER_DAY))
+        else:  # 'ca_hai' hoac gia tri khac
+            rows.extend(range(base, base + SLOTS_PER_DAY))
+    return frozenset(rows)
+
+
 def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_order,
                        tuanhoc=None):
     """
@@ -328,6 +358,7 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
                   if isinstance(pc, dict) and 'magv' in pc}
     teacher_specializations = {}
     teacher_available_rows  = {}
+    teacher_blackout_rows   = {}
     for gv in raw.get('giang_vien', []):
         magv = gv.get('magv')
         if not magv:
@@ -357,6 +388,23 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
         ngay = [int(x) for x in raw_ngay if str(x).strip().lstrip('-').isdigit()] if raw_ngay else list(range(2, 8))
         buoi = gv.get('buoi_available') or 'ca_hai'
         teacher_available_rows[magv] = _compute_available_rows(ngay, buoi)
+
+    # ── Blackout co dinh: GV ban busy nhung buoi nhat dinh ───────────────────
+    # Moi phan tu trong gv_blackout_slots: {magv, ngay (int), buoi (str)}
+    _blackout_by_gv = {}
+    for slot in raw.get('gv_blackout_slots', []):
+        if not isinstance(slot, dict):
+            continue
+        mv = slot.get('magv')
+        if mv:
+            _blackout_by_gv.setdefault(mv, []).append(slot)
+    for mv, slots in _blackout_by_gv.items():
+        teacher_blackout_rows[mv] = _compute_blackout_rows(slots)
+
+    for gv in raw.get('giang_vien', []):
+        magv = gv.get('magv')
+        if not magv:
+            continue
         # Chi them GV dang hoat dong (da filter tam ngung tu server.js)
         # VA co trong phan_cong cua lan chay nay.
         if _is_active(gv.get('trangthai')) and magv in magv_in_pc:
@@ -552,7 +600,8 @@ def load_data_from_raw(raw, teachers_empty_space, groups_empty_space, subjects_o
     return Data(groups, teachers, classes, classrooms,
                 teacher_specializations=teacher_specializations,
                 subject_names=subject_names,
-                teacher_available_rows=teacher_available_rows)
+                teacher_available_rows=teacher_available_rows,
+                teacher_blackout_rows=teacher_blackout_rows)
 
 
 def load_data(file_path, teachers_empty_space, groups_empty_space, subjects_order):

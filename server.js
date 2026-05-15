@@ -100,13 +100,14 @@ function normalizeAssignmentType(pc, subjectsById) {
 }
 
 async function getSupabaseGaInput({ mahk = null, namhoc = null } = {}) {
-  const [gvRes, lopRes, monRes, phongRes, khungRes, pcRes] = await Promise.all([
+  const [gvRes, lopRes, monRes, phongRes, khungRes, pcRes, blackoutRes] = await Promise.all([
     supabase.from('giang_vien').select('*'),
     supabase.from('lop').select('*'),
     supabase.from('mon_hoc').select('*'),
     supabase.from('phong_hoc').select('*'),
     supabase.from('khung_thoi_gian').select('*'),
     supabase.from('phan_cong_giang_day').select('*'),
+    supabase.from('gv_blackout_slots').select('magv, ngay, buoi'),
   ]);
 
   const errors = [gvRes.error, lopRes.error, monRes.error, phongRes.error, khungRes.error, pcRes.error]
@@ -139,6 +140,7 @@ async function getSupabaseGaInput({ mahk = null, namhoc = null } = {}) {
       phong_hoc: phongRes.data || [],
       khung_thoi_gian: khungRes.data || [],
       phan_cong_giang_day: assignments,
+      gv_blackout_slots: blackoutRes.data || [],
     },
     khungThoiGian: khungRes.data || [],
   };
@@ -1157,6 +1159,40 @@ app.delete('/api/giangvien/:magv', async (req, res) => {
       error: result.deleted ? undefined : result.message,
       message: result.message,
     });
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
+});
+
+app.get('/api/giangvien/:magv/blackout', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('gv_blackout_slots')
+      .select('magv, ngay, buoi')
+      .eq('magv', req.params.magv)
+      .order('ngay', { ascending: true });
+    if (error) return sendSupabaseError(res, error);
+    return res.json(data || []);
+  } catch (error) {
+    return sendSupabaseError(res, error);
+  }
+});
+
+app.put('/api/giangvien/:magv/blackout', async (req, res) => {
+  try {
+    const magv = req.params.magv;
+    const slots = Array.isArray(req.body?.slots) ? req.body.slots : [];
+    const { error: delError } = await supabase
+      .from('gv_blackout_slots')
+      .delete()
+      .eq('magv', magv);
+    if (delError) return sendSupabaseError(res, delError);
+    if (slots.length > 0) {
+      const rows = slots.map(s => ({ magv, ngay: parseInt(s.ngay), buoi: String(s.buoi) }));
+      const { error: insError } = await supabase.from('gv_blackout_slots').insert(rows);
+      if (insError) return sendSupabaseError(res, insError);
+    }
+    return res.json({ ok: true, count: slots.length });
   } catch (error) {
     return sendSupabaseError(res, error);
   }

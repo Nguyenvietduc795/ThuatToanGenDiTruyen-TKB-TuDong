@@ -136,8 +136,7 @@ def initial_population_random(data, matrix, free, filled,
             if all(f in free_set for f in fields):
                 valid_starts.append(fields)
 
-        # Fallback: neu khong co slot nao thoa avail_rows (qua it ngay duoc phep),
-        # thu lai khong loc theo avail_rows de dam bao mon duoc xep vao matrix.
+        # Fallback 1: bo avail_rows, giu mapc_days_used.
         # GA se phat vi pham H5 qua fitness thay vi bo qua mon hoan toan.
         if not valid_starts:
             for start_field in free:
@@ -160,6 +159,46 @@ def initial_population_random(data, matrix, free, filled,
                           for offset in range(duration)]
                 if all(f in free_set for f in fields):
                     valid_starts.append(fields)
+
+        # Fallback 2: bo ca avail_rows lan mapc_days_used (GV co rat it ngay duoc phep).
+        # GA se phat H4+H5 qua fitness; buoi hoc van duoc dua vao matrix de tranh crash.
+        if not valid_starts:
+            for start_field in free:
+                start_row = start_field[0]
+                end_row   = start_row + duration - 1
+
+                if start_row % SLOTS_PER_DAY > end_row % SLOTS_PER_DAY:
+                    continue
+                slot_in_day = start_row % SLOTS_PER_DAY + 1
+                if slot_in_day not in _get_valid_start_slots(classs):
+                    continue
+                if not _check_session_boundary(start_row, duration):
+                    continue
+                if start_field[1] not in classs.classrooms:
+                    continue
+                fields = [(start_row + offset, start_field[1])
+                          for offset in range(duration)]
+                if all(f in free_set for f in fields):
+                    valid_starts.append(fields)
+
+        # Fallback 3: bo moi rang buoc ngoai loai phong — tranh crash khi matrix gan day.
+        if not valid_starts:
+            for start_field in free:
+                start_row = start_field[0]
+                if not _check_session_boundary(start_row, duration):
+                    continue
+                if start_field[1] not in classs.classrooms:
+                    continue
+                fields = [(start_row + offset, start_field[1])
+                          for offset in range(duration)
+                          if start_row + offset < len(matrix)]
+                if all(f in free_set for f in fields):
+                    valid_starts.append(fields)
+
+        # Neu van khong co slot nao (matrix day hoac loai phong khong tuong thich),
+        # bo qua buoi hoc nay; GA se phat qua fitness (thieu buoi hoc).
+        if not valid_starts:
+            continue
 
         chosen    = random.choice(valid_starts)
         start_row = chosen[0][0]

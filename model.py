@@ -44,7 +44,7 @@ class Data:
 
     def __init__(self, groups, teachers, classes, classrooms,
                  teacher_specializations=None, subject_names=None,
-                 teacher_available_rows=None):
+                 teacher_available_rows=None, teacher_blackout_rows=None):
         self.groups     = groups      # dict: malop -> index
         self.teachers   = teachers    # dict: magv  -> index
         self.classes    = classes     # dict: index -> Class
@@ -55,3 +55,7 @@ class Data:
         # Key: magv (str), Value: frozenset[int].
         # GV khong co rang buoc se co gia tri frozenset(range(72)) — toan bo hang.
         self.teacher_available_rows  = teacher_available_rows or {}   # dict: magv -> frozenset[int]
+        # frozenset cac row matrix ma GV KHONG duoc day (blackout co dinh).
+        # Nguon: bang gv_blackout_slots {magv, ngay, buoi}.
+        # GV khong co blackout: key khong ton tai (tra ve frozenset() khi get).
+        self.teacher_blackout_rows   = teacher_blackout_rows or {}    # dict: magv -> frozenset[int]
