@@ -29,6 +29,7 @@ Hệ thống xếp thời khóa biểu tự động cho khoa/trường đại h�
   - [Đột biến](#6-đột-biến--smart-mutation)
   - [Vòng lặp GA & tham số](#7-vòng-lặp-ga--tham-số)
 - [Điểm khác biệt so với GA cổ điển](#điểm-khác-biệt-so-với-ga-cổ-điển)
+- [Tính năng: Lịch rảnh riêng của giảng viên](#tính-năng-lịch-rảnh-riêng-của-giảng-viên)
 - [Cài đặt](#cài-đặt)
 - [Chạy dự án](#chạy-dự-án)
 - [Kết quả](#kết-quả)
@@ -132,6 +133,7 @@ Fitness bằng **0** nghĩa là thời khóa biểu hoàn hảo, không vi phạ
 | H2 | Lớp không được học 2 môn cùng tiết | Duyệt từng hàng, phát hiện các cặp ô có chung `group` |
 | H3 | Mỗi buổi học phải được xếp đúng loại phòng (LT / TH) | Kiểm tra `col ∈ cls.classrooms` với mọi ô đã điền |
 | H4 | Hai buổi của cùng phân công (`mapc`) không được xếp cùng ngày | Nhóm theo ngày, đếm số lần `mapc` xuất hiện trong ngày |
+| H5 | Giảng viên không được xếp ngoài ngày/buổi khả dụng (`ngay_available`, `buoi_available`) | Duyệt từng buổi học, kiểm tra `row ∈ teacher_available_rows[magv]`; GV không có dữ liệu lịch rảnh → bỏ qua |
 
 #### Ràng buộc mềm (`trọng số = 1` mỗi vi phạm)
 
@@ -244,6 +246,33 @@ Lặp từ thế hệ 1 đến 500:
 | **Lai ghép** | 1-point hoặc 2-point cắt theo vị trí | Uniform crossover theo từng buổi học + greedy fallback khi cả 2 parent xung đột |
 | **Đột biến** | Di chuyển ngẫu nhiên | "Ô lý tưởng" — chỉ di chuyển đến ô không tạo vi phạm ràng buộc cứng mới |
 | **Hướng tối ưu** | Thường là MAXIMIZE | MINIMIZE tổng vi phạm (`hard × 100 + soft`); `fitness = 0` là lời giải hoàn hảo |
+
+---
+
+## Tính năng: Lịch rảnh riêng của giảng viên
+
+Hệ thống hỗ trợ xếp TKB theo **lịch rảnh cá nhân của từng giảng viên**, phù hợp với các trường có giảng viên thỉnh giảng hoặc hợp đồng bán thời gian.
+
+### Phân loại giảng viên (`loai_gv`)
+
+| Giá trị | Ý nghĩa |
+|---|---|
+| `co_huu` | Giảng viên cơ hữu — rảnh toàn bộ các ngày trong tuần (không cần khai báo lịch) |
+| `thinh_giang` | Giảng viên thỉnh giảng — chỉ rảnh một số ngày/buổi nhất định |
+| `hop_dong` | Giảng viên hợp đồng — chỉ rảnh một số ngày/buổi nhất định |
+
+### Cột dữ liệu bổ sung trong bảng `giang_vien`
+
+| Cột | Kiểu | Ý nghĩa | Ví dụ |
+|---|---|---|---|
+| `ngay_available` | `INT[]` | Danh sách ngày rảnh (2=T2 … 7=T7) | `{6,7}` → chỉ rảnh T6 và T7 |
+| `buoi_available` | `TEXT` | Buổi rảnh trong ngày | `'sang'` / `'chieu'` / `'ca_hai'` |
+
+### Cách hoạt động
+
+Trước khi chạy GA, hệ thống chuyển `ngay_available` + `buoi_available` thành tập hàng ma trận hợp lệ (`teacher_available_rows`). Ràng buộc cứng **H5** kiểm tra mỗi buổi học: nếu GV bị xếp ra ngoài tập hàng đó, phạt **+1 × 100 điểm** — ngang bằng các vi phạm H1–H4.
+
+> **Tương thích ngược:** Nếu GV không có dữ liệu `ngay_available` (bản ghi cũ), H5 bỏ qua và không phạt, đảm bảo dữ liệu hiện có không bị ảnh hưởng.
 
 ---
 
