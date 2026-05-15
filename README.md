@@ -13,7 +13,7 @@ Hệ thống xếp thời khóa biểu tự động cho khoa/trường đại h�
 
 ## Demo trực tuyến
 
-> **[Mở trên Hugging Face Spaces →](https://huggingface.co/spaces/Nguyenvietduc795/ThuatToanGenDiTruyen-TKB-TuDong)**
+> **[Mở trên Hugging Face Spaces →](https://huggingface.co/spaces/Duc7925/tkb-ga-ai)**
 
 ---
 
