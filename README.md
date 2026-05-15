@@ -32,7 +32,6 @@ Hệ thống xếp thời khóa biểu tự động cho khoa/trường đại h�
 - [Tính năng: Lịch rảnh riêng của giảng viên](#tính-năng-lịch-rảnh-riêng-của-giảng-viên)
 - [Cài đặt](#cài-đặt)
 - [Chạy dự án](#chạy-dự-án)
-- [Kết quả](#kết-quả)
 - [Tài liệu tham khảo](#tài-liệu-tham-khảo)
 
 ---
@@ -292,8 +291,7 @@ Ngoài lịch rảnh chung (`ngay_available`, `buoi_available`), hệ thống h�
 | Tình huống | Khai báo |
 |---|---|
 | GV họp Bộ môn sáng T3 hàng tuần | `{magv: 'GV01', ngay: 3, buoi: 'sang'}` |
-| GV họp nhóm nghiên cứu chiều T5 | `{magv: 'GV01', ngay: 5, buoi: 'chieu'}` |
-| GV kiêm quản trị hệ thống, bận cả ngày T2 | `{magv: 'GV02', ngay: 2, buoi: 'ca_hai'}` |
+| GV họp Bộ môn cố định sáng T3 hàng tuần | `{magv: 'GV01', ngay: 3, buoi: 'sang'}` |
 
 #### Cách hoạt động
 
@@ -429,22 +427,6 @@ npm run seed:all                # Chạy cả 2 script tuần tự
 | `phan_cong_giang_day` | Phân công: GV × lớp × môn, số buổi/tuần, số tiết/buổi |
 | `khung_thoi_gian` | Khung giờ dạy được phép (active/inactive theo tuần) |
 | `thoi_khoa_bieu` | Kết quả TKB đã sinh |
-
----
-
-## Kết quả
-
-Kết quả thực nghiệm trên bộ dữ liệu một học kỳ với ~30 buổi học/tuần, 5 phòng (3 LT + 2 TH):
-
-| Chỉ số | Giá trị |
-|---|---|
-| Vi phạm ràng buộc cứng (H1–H4) | **0** (thỏa mãn 100%) |
-| Số thế hệ để đạt `hard = 0` | ~120 – 280 (tùy lần chạy) |
-| Thời gian chạy trung bình | ~8 – 15 giây |
-| Tiết trống trung bình của sinh viên/ngày | ≤ 2.5 |
-| Tiết trống trung bình của giảng viên/ngày | ≤ 1.0 |
-
-Điều kiện dừng sớm (`fitness = 0`) được kích hoạt trong phần lớn các lần chạy trước khi hết 500 thế hệ, cho thấy khởi tạo heuristic và đột biến thông minh giúp tăng tốc đáng kể quá trình hội tụ.
 
 ---
 
