@@ -270,6 +270,23 @@ function normalizeTeacherStatus(value) {
   return 'HOAT_DONG';
 }
 
+function normalizeLoaiGV(value) {
+  const valid = ['co_huu', 'thinh_giang', 'hop_dong'];
+  const v = String(value || 'co_huu').trim().toLowerCase();
+  return valid.includes(v) ? v : 'co_huu';
+}
+
+function parseNgayAvailable(value) {
+  if (Array.isArray(value)) return value.map(Number).filter((n) => n >= 2 && n <= 7);
+  return [2, 3, 4, 5, 6, 7];
+}
+
+function normalizeBuoiAvailable(value) {
+  const valid = ['sang', 'chieu', 'ca_hai'];
+  const v = String(value || 'ca_hai').trim().toLowerCase();
+  return valid.includes(v) ? v : 'ca_hai';
+}
+
 function parseTeacherStatus(value) {
   const text = stripVietnamese(value);
   if (['hoatdong', 'danggiangday', 'active', '1', 'true'].includes(text)) return 'HOAT_DONG';
@@ -1083,6 +1100,9 @@ app.post('/api/giangvien', async (req, res) => {
       hocvi: optionalText(firstValue(body, ['HocVi', 'hocvi'])),
       chuyenmon: optionalText(firstValue(body, ['ChuyenMon', 'chuyenmon'])),
       trangthai: normalizeTeacherStatus(firstValue(body, ['TrangThai', 'trangthai'])),
+      loai_gv: normalizeLoaiGV(firstValue(body, ['LoaiGV', 'loai_gv'])),
+      ngay_available: parseNgayAvailable(firstValue(body, ['NgayAvailable', 'ngay_available'])),
+      buoi_available: normalizeBuoiAvailable(firstValue(body, ['BuoiAvailable', 'buoi_available'])),
     };
 
     const { data, error } = await supabase.from('giang_vien').insert(row).select('*').single();
@@ -1105,6 +1125,15 @@ app.put('/api/giangvien/:magv', async (req, res) => {
     };
     const statusValue = firstValue(body, ['TrangThai', 'trangthai']);
     if (statusValue !== undefined) row.trangthai = normalizeTeacherStatus(statusValue);
+
+    const loaiValue = firstValue(body, ['LoaiGV', 'loai_gv']);
+    if (loaiValue !== undefined) row.loai_gv = normalizeLoaiGV(loaiValue);
+
+    const ngayValue = firstValue(body, ['NgayAvailable', 'ngay_available']);
+    if (ngayValue !== undefined) row.ngay_available = parseNgayAvailable(ngayValue);
+
+    const buoiValue = firstValue(body, ['BuoiAvailable', 'buoi_available']);
+    if (buoiValue !== undefined) row.buoi_available = normalizeBuoiAvailable(buoiValue);
 
     const { data, error } = await supabase
       .from('giang_vien')

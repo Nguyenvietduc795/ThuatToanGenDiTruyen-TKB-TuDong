@@ -43,10 +43,15 @@ class Classroom:
 class Data:
 
     def __init__(self, groups, teachers, classes, classrooms,
-                 teacher_specializations=None, subject_names=None):
+                 teacher_specializations=None, subject_names=None,
+                 teacher_available_rows=None):
         self.groups     = groups      # dict: malop -> index
         self.teachers   = teachers    # dict: magv  -> index
         self.classes    = classes     # dict: index -> Class
         self.classrooms = classrooms  # dict: index -> Classroom
         self.teacher_specializations = teacher_specializations or {}  # dict: magv -> chuyenmon
         self.subject_names           = subject_names or {}            # dict: mamon -> tenmon
+        # frozenset cac row matrix ma GV duoc phep day.
+        # Key: magv (str), Value: frozenset[int].
+        # GV khong co rang buoc se co gia tri frozenset(range(72)) — toan bo hang.
+        self.teacher_available_rows  = teacher_available_rows or {}   # dict: magv -> frozenset[int]
