@@ -1,3 +1,13 @@
+---
+title: TKB-GA-AI — Xếp Thời Khóa Biểu Tự Động
+emoji: 📅
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # TKB-TuDong — Hệ Thống Xếp Thời Khóa Biểu Tự Động
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)](https://www.python.org/)
