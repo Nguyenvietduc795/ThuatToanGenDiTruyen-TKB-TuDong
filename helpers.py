@@ -136,8 +136,30 @@ def initial_population_random(data, matrix, free, filled,
             if all(f in free_set for f in fields):
                 valid_starts.append(fields)
 
+        # Fallback: neu khong co slot nao thoa avail_rows (qua it ngay duoc phep),
+        # thu lai khong loc theo avail_rows de dam bao mon duoc xep vao matrix.
+        # GA se phat vi pham H5 qua fitness thay vi bo qua mon hoan toan.
         if not valid_starts:
-            continue
+            for start_field in free:
+                start_row = start_field[0]
+                end_row   = start_row + duration - 1
+
+                if start_row % SLOTS_PER_DAY > end_row % SLOTS_PER_DAY:
+                    continue
+                slot_in_day = start_row % SLOTS_PER_DAY + 1
+                if slot_in_day not in _get_valid_start_slots(classs):
+                    continue
+                if not _check_session_boundary(start_row, duration):
+                    continue
+                if start_field[1] not in classs.classrooms:
+                    continue
+                day_of_slot = start_row // SLOTS_PER_DAY
+                if classs.assignment_id and day_of_slot in used_days:
+                    continue
+                fields = [(start_row + offset, start_field[1])
+                          for offset in range(duration)]
+                if all(f in free_set for f in fields):
+                    valid_starts.append(fields)
 
         chosen    = random.choice(valid_starts)
         start_row = chosen[0][0]
